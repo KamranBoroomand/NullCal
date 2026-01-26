@@ -29,10 +29,18 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Echo base path
+        run: echo "VITE_BASE=/${{ github.event.repository.name }}/"
+
       - name: Build
         run: npm run build
         env:
-          VITE_BASE: /NullCAL/
+          VITE_BASE: "/${{ github.event.repository.name }}/"
+
+      - name: Sanity check build base
+        run: |
+          ls -la dist/assets
+          grep -q "/${{ github.event.repository.name }}/assets/" dist/index.html
 
       - name: Configure Pages
         id: pages

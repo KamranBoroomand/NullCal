@@ -39,8 +39,10 @@ This repo includes a GitHub Actions workflow that builds and deploys the site to
 The site will be available at:
 
 ```
-https://kamranboroomand.github.io/NullCAL/
+https://<user>.github.io/<REPO_NAME>/
 ```
+
+The repository name is case-sensitive in the URL, and the workflow derives the base path automatically from the repo name to avoid mismatches.
 
 ## Data Storage
 
