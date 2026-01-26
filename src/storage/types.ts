@@ -9,7 +9,8 @@ export type Calendar = {
   profileId: string;
   name: string;
   color: string;
-  visible: boolean;
+  isVisible: boolean;
+  createdAt: string;
 };
 
 export type CalendarEvent = {

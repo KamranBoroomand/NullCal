@@ -1,5 +1,6 @@
+import { nanoid } from 'nanoid';
 import { DB_NAME, openNullCalDB } from './db';
-import { createSeedCalendars, createSeedEvents, createSeedProfile } from './seed';
+import { createSeedCalendars, createSeedProfile } from './seed';
 import type { AppSettings, AppState, Calendar, CalendarEvent, Profile, SecurityPrefs } from './types';
 
 const LEGACY_KEY = 'nullcal:v1';
@@ -27,8 +28,53 @@ const defaultSecurityPrefs: SecurityPrefs = {
 const normalizeCalendars = (calendars: Calendar[]): Calendar[] =>
   calendars.map((calendar) => ({
     ...calendar,
-    visible: calendar.visible ?? true
+    isVisible: calendar.isVisible ?? calendar.visible ?? true,
+    createdAt: calendar.createdAt ?? new Date().toISOString()
   }));
+
+export const createCalendar = (
+  profileId: string,
+  { name, color }: { name: string; color: string }
+): Calendar => ({
+  id: nanoid(),
+  profileId,
+  name,
+  color,
+  isVisible: true,
+  createdAt: new Date().toISOString()
+});
+
+export const renameCalendar = (
+  profileId: string,
+  calendarId: string,
+  name: string,
+  calendars: Calendar[]
+): Calendar[] =>
+  calendars.map((calendar) =>
+    calendar.id === calendarId && calendar.profileId === profileId ? { ...calendar, name } : calendar
+  );
+
+export const recolorCalendar = (
+  profileId: string,
+  calendarId: string,
+  color: string,
+  calendars: Calendar[]
+): Calendar[] =>
+  calendars.map((calendar) =>
+    calendar.id === calendarId && calendar.profileId === profileId ? { ...calendar, color } : calendar
+  );
+
+export const deleteCalendar = (
+  profileId: string,
+  calendarId: string,
+  calendars: Calendar[],
+  events: CalendarEvent[]
+): { calendars: Calendar[]; events: CalendarEvent[] } => ({
+  calendars: calendars.filter(
+    (calendar) => !(calendar.id === calendarId && calendar.profileId === profileId)
+  ),
+  events: events.filter((event) => event.calendarId !== calendarId)
+});
 
 const migrateLegacy = (): AppState | null => {
   const raw = window.localStorage.getItem(LEGACY_KEY);
@@ -80,7 +126,7 @@ const migrateLegacy = (): AppState | null => {
 export const loadAppState = async (): Promise<AppState> => {
   const db = await openNullCalDB();
   const profiles = await db.getAll('profiles');
-  const calendars = await db.getAll('calendars');
+  const calendars = normalizeCalendars(await db.getAll('calendars'));
   const events = await db.getAll('events');
   const settings = await db.get('settings', 'app');
   const securityPrefs = await db.get('securityPrefs', 'security');
@@ -107,11 +153,10 @@ export const loadAppState = async (): Promise<AppState> => {
 
   const profile = createSeedProfile('Agent');
   const seedCalendars = createSeedCalendars(profile.id);
-  const seedEvents = createSeedEvents(profile.id, seedCalendars);
   const state: AppState = {
     profiles: [profile],
     calendars: seedCalendars,
-    events: seedEvents,
+    events: [],
     settings: buildDefaultSettings(profile.id),
     securityPrefs: defaultSecurityPrefs
   };
@@ -152,5 +197,9 @@ export const wipeAllData = async () => {
   if ('caches' in window) {
     const keys = await caches.keys();
     await Promise.all(keys.map((key) => caches.delete(key)));
+  }
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
   }
 };

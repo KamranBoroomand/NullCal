@@ -60,6 +60,7 @@ type TopBarProps = {
   onCreateProfile: () => void;
   onOpenSettings: () => void;
   onLockNow: () => void;
+  onInstall?: () => void;
   theme: ThemeMode;
   onThemeChange: (theme: ThemeMode) => void;
   networkLocked: boolean;
@@ -80,6 +81,7 @@ const TopBar = ({
   onCreateProfile,
   onOpenSettings,
   onLockNow,
+  onInstall,
   theme,
   onThemeChange,
   networkLocked
@@ -170,6 +172,14 @@ const TopBar = ({
           + Profile
         </button>
       </div>
+      {onInstall && (
+        <button
+          onClick={onInstall}
+          className="rounded-full border border-accent/40 bg-panel px-3 py-2 text-xs uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text"
+        >
+          Install
+        </button>
+      )}
       <button
         onClick={onLockNow}
         className="rounded-full border border-grid bg-panel px-3 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"

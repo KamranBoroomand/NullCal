@@ -31,7 +31,8 @@ const router = createBrowserRouter(
     },
     {
       path: '/safety',
-      element: <SafetyCenter />
+      element: <SafetyCenter />,
+      errorElement: <ErrorFallback />
     }
   ],
   {
