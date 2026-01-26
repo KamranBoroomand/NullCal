@@ -1,4 +1,3 @@
-import { addHours, addDays, startOfHour } from 'date-fns';
 import { nanoid } from 'nanoid';
 import type { Calendar, CalendarEvent, Profile } from './types';
 
@@ -13,33 +12,11 @@ export const createSeedCalendars = (): Calendar[] =>
     id: nanoid(),
     name: calendar.name,
     color: calendar.color,
-    visible: true
+    isVisible: true,
+    createdAt: new Date().toISOString()
   }));
 
-export const createSeedEvents = (calendars: Calendar[]): CalendarEvent[] => {
-  const [work, personal] = calendars;
-  const start = startOfHour(new Date());
-
-  return [
-    {
-      id: nanoid(),
-      title: 'Weekly sync',
-      start: addDays(start, 1).toISOString(),
-      end: addHours(addDays(start, 1), 1).toISOString(),
-      calendarId: work?.id ?? calendars[0].id,
-      location: 'Atrium room',
-      notes: 'Photon roadmap + blockers.'
-    },
-    {
-      id: nanoid(),
-      title: 'Dinner plans',
-      start: addDays(start, 2).toISOString(),
-      end: addHours(addDays(start, 2), 2).toISOString(),
-      calendarId: personal?.id ?? calendars[0].id,
-      location: 'Riverside'
-    }
-  ];
-};
+export const createSeedEvents = (_calendars: Calendar[]): CalendarEvent[] => [];
 
 export const createSeedProfile = (name: string): Profile => {
   const calendars = createSeedCalendars();

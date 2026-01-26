@@ -11,6 +11,7 @@ import Modal from '../components/Modal';
 import { useAppStore } from '../app/AppStore';
 import type { CalendarEvent } from '../storage/types';
 import { useToast } from '../components/ToastProvider';
+import { useInstallPrompt } from '../hooks/useInstallPrompt';
 
 const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 const fromInputValue = (value: string) => new Date(value).toISOString();
@@ -26,6 +27,10 @@ const AppPage = () => {
     setActiveProfile,
     createProfile,
     resetProfile,
+    createCalendar,
+    renameCalendar,
+    recolorCalendar,
+    deleteCalendar,
     toggleCalendarVisibility,
     upsertEvent,
     deleteEvent,
@@ -40,6 +45,7 @@ const AppPage = () => {
   const [draft, setDraft] = useState<EventDraft | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const reduceMotion = useReducedMotion();
+  const { canInstall, promptInstall } = useInstallPrompt();
 
   useEffect(() => {
     document.title = 'NullCal — Calendar';
@@ -65,7 +71,7 @@ const AppPage = () => {
   };
 
   const handleResetProfile = () => {
-    const confirmed = window.confirm('Reset this profile back to default calendars and events?');
+    const confirmed = window.confirm('Reset this profile back to default calendars (events removed)?');
     if (!confirmed) {
       return;
     }
@@ -219,7 +225,7 @@ const AppPage = () => {
   }, [activeProfile, state]);
 
   const visibleCalendarIds = useMemo(() => {
-    return calendars.filter((calendar) => calendar.visible).map((calendar) => calendar.id);
+    return calendars.filter((calendar) => calendar.isVisible).map((calendar) => calendar.id);
   }, [calendars]);
 
   const filteredEvents = useMemo(() => {
@@ -281,11 +287,12 @@ const AppPage = () => {
             activeProfileId={activeProfile.id}
             onProfileChange={setActiveProfile}
             onCreateProfile={handleCreateProfile}
-            onOpenSettings={() => setSettingsOpen(true)}
-            onLockNow={lockNow}
-            theme={state.settings.theme}
-            onThemeChange={(theme) => updateSettings({ theme })}
-            networkLocked={state.settings.networkLock}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onLockNow={lockNow}
+          onInstall={canInstall ? promptInstall : undefined}
+          theme={state.settings.theme}
+          onThemeChange={(theme) => updateSettings({ theme })}
+          networkLocked={state.settings.networkLock}
           />
         }
         sidebar={
@@ -293,7 +300,12 @@ const AppPage = () => {
             selectedDate={currentDate}
             onSelectDate={setCurrentDate}
             calendars={calendars}
+            activeProfileId={activeProfile.id}
             onToggleCalendar={handleToggleCalendar}
+            onCreateCalendar={createCalendar}
+            onRenameCalendar={renameCalendar}
+            onRecolorCalendar={recolorCalendar}
+            onDeleteCalendar={deleteCalendar}
             onNewEvent={() => handleCreateDraft(startOfHour(new Date()), addHours(startOfHour(new Date()), 1))}
             onExport={handleExport}
             onImport={handleImport}

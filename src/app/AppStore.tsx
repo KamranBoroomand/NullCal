@@ -8,8 +8,16 @@ import {
   useState,
   type ReactNode
 } from 'react';
-import { createSeedCalendars, createSeedEvents, createSeedProfile } from '../storage/seed';
-import { loadAppState, saveAppState, wipeAllData } from '../storage/storage';
+import { createSeedCalendars, createSeedProfile } from '../storage/seed';
+import {
+  createCalendar as buildCalendar,
+  deleteCalendar as deleteCalendarFromState,
+  loadAppState,
+  recolorCalendar as recolorCalendarInState,
+  renameCalendar as renameCalendarInState,
+  saveAppState,
+  wipeAllData
+} from '../storage/storage';
 import type { AppSettings, AppState, CalendarEvent, SecurityPrefs } from '../storage/types';
 import { applyNetworkLock } from '../security/networkLock';
 import { hashPin, verifyPin } from '../security/pin';
@@ -27,6 +35,10 @@ type AppStoreContextValue = {
   createProfile: (name: string) => void;
   resetProfile: (profileId: string) => void;
   updateProfileName: (profileId: string, name: string) => void;
+  createCalendar: (profileId: string, payload: { name: string; color: string }) => void;
+  renameCalendar: (profileId: string, calendarId: string, name: string) => void;
+  recolorCalendar: (profileId: string, calendarId: string, color: string) => void;
+  deleteCalendar: (profileId: string, calendarId: string) => void;
   toggleCalendarVisibility: (calendarId: string) => void;
   upsertEvent: (event: CalendarEvent) => void;
   deleteEvent: (eventId: string) => void;
@@ -163,12 +175,11 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       }
       const profile = createSeedProfile(name);
       const calendars = createSeedCalendars(profile.id);
-      const events = createSeedEvents(profile.id, calendars);
       return {
         ...prev,
         profiles: [...prev.profiles, profile],
         calendars: [...prev.calendars, ...calendars],
-        events: [...prev.events, ...events],
+        events: prev.events,
         settings: {
           ...prev.settings,
           activeProfileId: profile.id
@@ -183,11 +194,10 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         return prev;
       }
       const calendars = createSeedCalendars(profileId);
-      const events = createSeedEvents(profileId, calendars);
       return {
         ...prev,
         calendars: [...prev.calendars.filter((item) => item.profileId !== profileId), ...calendars],
-        events: [...prev.events.filter((item) => item.profileId !== profileId), ...events]
+        events: prev.events.filter((item) => item.profileId !== profileId)
       };
     });
   }, []);
@@ -206,6 +216,57 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  const createCalendar = useCallback((profileId: string, payload: { name: string; color: string }) => {
+    const calendar = buildCalendar(profileId, payload);
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        calendars: [...prev.calendars, calendar]
+      };
+    });
+  }, []);
+
+  const renameCalendar = useCallback((profileId: string, calendarId: string, name: string) => {
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        calendars: renameCalendarInState(profileId, calendarId, name, prev.calendars)
+      };
+    });
+  }, []);
+
+  const recolorCalendar = useCallback((profileId: string, calendarId: string, color: string) => {
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        calendars: recolorCalendarInState(profileId, calendarId, color, prev.calendars)
+      };
+    });
+  }, []);
+
+  const deleteCalendar = useCallback((profileId: string, calendarId: string) => {
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      const next = deleteCalendarFromState(profileId, calendarId, prev.calendars, prev.events);
+      return {
+        ...prev,
+        calendars: next.calendars,
+        events: next.events
+      };
+    });
+  }, []);
+
   const toggleCalendarVisibility = useCallback((calendarId: string) => {
     setState((prev) => {
       if (!prev) {
@@ -214,7 +275,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       return {
         ...prev,
         calendars: prev.calendars.map((calendar) =>
-          calendar.id === calendarId ? { ...calendar, visible: !calendar.visible } : calendar
+          calendar.id === calendarId ? { ...calendar, isVisible: !calendar.isVisible } : calendar
         )
       };
     });
@@ -357,8 +418,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const panicWipe = useCallback(async () => {
+    setState(null);
+    setLocked(false);
+    window.sessionStorage.setItem('nullcal:wiped', '1');
     await wipeAllData();
-    window.location.reload();
+    const base = import.meta.env.BASE_URL ?? '/';
+    window.location.assign(`${base}safety?wiped=1`);
   }, []);
 
   const contextValue = useMemo<AppStoreContextValue>(
@@ -374,6 +439,10 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       createProfile,
       resetProfile,
       updateProfileName,
+      createCalendar,
+      renameCalendar,
+      recolorCalendar,
+      deleteCalendar,
       toggleCalendarVisibility,
       upsertEvent,
       deleteEvent,
@@ -396,6 +465,10 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       createProfile,
       resetProfile,
       updateProfileName,
+      createCalendar,
+      renameCalendar,
+      recolorCalendar,
+      deleteCalendar,
       toggleCalendarVisibility,
       upsertEvent,
       deleteEvent,

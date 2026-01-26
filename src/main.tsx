@@ -12,3 +12,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </AppProviders>
   </React.StrictMode>
 );
+
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  import('virtual:pwa-register').then(({ registerSW }) => {
+    registerSW({ immediate: true });
+  });
+}

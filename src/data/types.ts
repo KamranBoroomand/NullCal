@@ -2,7 +2,8 @@ export type Calendar = {
   id: string;
   name: string;
   color: string;
-  visible: boolean;
+  isVisible: boolean;
+  createdAt: string;
 };
 
 export type CalendarEvent = {

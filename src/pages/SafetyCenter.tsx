@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import Modal from '../components/Modal';
 import { useAppStore } from '../app/AppStore';
@@ -7,6 +7,7 @@ import { useToast } from '../components/ToastProvider';
 import AppShell from '../app/AppShell';
 import TopBar from '../app/TopBar';
 import SideBar from '../app/SideBar';
+import { useInstallPrompt } from '../hooks/useInstallPrompt';
 
 const formatDate = (value?: string) => {
   if (!value) {
@@ -24,6 +25,10 @@ const SafetyCenter = () => {
     setActiveProfile,
     createProfile,
     resetProfile,
+    createCalendar,
+    renameCalendar,
+    recolorCalendar,
+    deleteCalendar,
     toggleCalendarVisibility,
     setPin,
     clearPin,
@@ -42,14 +47,103 @@ const SafetyCenter = () => {
   const [panicOpen, setPanicOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [wipedImportOpen, setWipedImportOpen] = useState(false);
   const holdTimer = useRef<number | null>(null);
+  const [searchParams] = useSearchParams();
+  const { canInstall, promptInstall, isIOS, isStandalone } = useInstallPrompt();
 
   useEffect(() => {
     document.title = 'NullCal — Safety Center';
   }, []);
 
+  const wiped = searchParams.get('wiped') === '1' || window.sessionStorage.getItem('nullcal:wiped') === '1';
+
+  if (wiped) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <div className="photon-panel w-full max-w-2xl rounded-3xl p-8 text-center">
+          <p className="text-xs uppercase tracking-[0.3em] text-muted">Safe State</p>
+          <h1 className="mt-3 text-3xl font-semibold text-text">Data wiped</h1>
+          <p className="mt-2 text-sm text-muted">
+            NullCal cleared local storage and caches. You are in a clean, offline-safe state.
+          </p>
+          <div className="mt-6 rounded-2xl border border-grid bg-panel2 p-4 text-left text-sm text-muted">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted">Status checklist</p>
+            <ul className="mt-3 space-y-2">
+              <li className="flex items-center justify-between">
+                <span>Local data cleared</span>
+                <span className="text-accent">Confirmed</span>
+              </li>
+              <li className="flex items-center justify-between">
+                <span>Network lock</span>
+                <span className="text-accent">ON</span>
+              </li>
+              <li className="flex items-center justify-between">
+                <span>Sync</span>
+                <span className="text-accent">OFF</span>
+              </li>
+            </ul>
+          </div>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                window.sessionStorage.removeItem('nullcal:wiped');
+                navigate('/');
+              }}
+              className="rounded-full bg-accent px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14]"
+            >
+              Start fresh
+            </button>
+            <button
+              type="button"
+              onClick={() => setWipedImportOpen(true)}
+              className="rounded-full border border-grid px-5 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
+            >
+              Re-import encrypted backup
+            </button>
+          </div>
+        </div>
+        <Modal title="Re-import encrypted backup" open={wipedImportOpen} onClose={() => setWipedImportOpen(false)}>
+          <div className="grid gap-3 text-sm text-muted">
+            <input
+              type="file"
+              accept="application/json"
+              onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+              className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+            />
+            <input
+              type="password"
+              placeholder="Passphrase"
+              value={importPassphrase}
+              onChange={(event) => setImportPassphrase(event.target.value)}
+              className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                await handleImport(() => {
+                  window.sessionStorage.removeItem('nullcal:wiped');
+                  setWipedImportOpen(false);
+                  navigate('/');
+                });
+              }}
+              className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+            >
+              Import backup
+            </button>
+          </div>
+        </Modal>
+      </div>
+    );
+  }
+
   if (!state) {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6 text-sm text-muted">
+        Loading safety systems…
+      </div>
+    );
   }
 
   const activeProfile = state.profiles.find((profile) => profile.id === state.settings.activeProfileId) ?? state.profiles[0];
@@ -72,7 +166,7 @@ const SafetyCenter = () => {
     if (!activeProfile) {
       return;
     }
-    const confirmed = window.confirm('Reset this profile back to default calendars and events?');
+    const confirmed = window.confirm('Reset this profile back to default calendars (events removed)?');
     if (!confirmed) {
       return;
     }
@@ -150,7 +244,7 @@ const SafetyCenter = () => {
     }
   };
 
-  const handleImport = async () => {
+  const handleImport = async (onSuccess?: () => void) => {
     if (!importFile || !importPassphrase) {
       notify('Select a file and passphrase.', 'error');
       return;
@@ -161,6 +255,7 @@ const SafetyCenter = () => {
       setImportFile(null);
       setImportPassphrase('');
       notify('Backup imported successfully.', 'success');
+      onSuccess?.();
     } catch {
       notify('Import failed.', 'error');
     }
@@ -204,6 +299,7 @@ const SafetyCenter = () => {
           onCreateProfile={handleCreateProfile}
           onOpenSettings={() => setSettingsOpen(true)}
           onLockNow={lockNow}
+          onInstall={canInstall ? promptInstall : undefined}
           onHome={() => navigate('/')}
           theme={state.settings.theme}
           onThemeChange={(theme) => updateSettings({ theme })}
@@ -215,7 +311,12 @@ const SafetyCenter = () => {
           selectedDate={currentDate}
           onSelectDate={setCurrentDate}
           calendars={calendars}
+          activeProfileId={activeProfile?.id ?? ''}
           onToggleCalendar={toggleCalendarVisibility}
+          onCreateCalendar={createCalendar}
+          onRenameCalendar={renameCalendar}
+          onRecolorCalendar={recolorCalendar}
+          onDeleteCalendar={deleteCalendar}
           onNewEvent={() => {
             navigate('/');
           }}
@@ -440,6 +541,33 @@ const SafetyCenter = () => {
           <li>Export an encrypted backup before major changes.</li>
           <li>Private browsing does not protect local device storage.</li>
         </ul>
+      </motion.section>
+      <motion.section {...panelMotion} className="photon-panel rounded-3xl p-6">
+        <p className="text-xs uppercase tracking-[0.3em] text-muted">Install NullCal</p>
+        <div className="mt-3 space-y-3 text-sm text-muted">
+          {canInstall && !isStandalone && (
+            <div className="flex flex-wrap items-center gap-3">
+              <span>Install the offline app shell for faster launches.</span>
+              <button
+                type="button"
+                onClick={promptInstall}
+                className="rounded-full border border-accent/40 px-4 py-2 text-xs uppercase tracking-[0.2em] text-accent"
+              >
+                Install app
+              </button>
+            </div>
+          )}
+          {isIOS && !isStandalone && (
+            <p>
+              On iOS Safari: tap <span className="text-text">Share</span> →{' '}
+              <span className="text-text">Add to Home Screen</span>.
+            </p>
+          )}
+          {!canInstall && !isIOS && (
+            <p>Installable when running in a supported browser.</p>
+          )}
+          {isStandalone && <p className="text-accent">App installed. Launch from your home screen.</p>}
+        </div>
       </motion.section>
 
       <motion.section {...panelMotion} className="photon-panel rounded-3xl border border-danger p-6">
