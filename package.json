@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build && node scripts/postbuild.cjs",
+    "dev": "node scripts/ensure-icons.cjs && vite",
+    "build": "node scripts/ensure-icons.cjs && vite build && node scripts/postbuild.cjs",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { addHours, addMonths, addWeeks, format, startOfHour, subMonths, subWeeks } from 'date-fns';
 import { nanoid } from 'nanoid';
 import type { EventInput } from '@fullcalendar/core';
@@ -40,6 +40,10 @@ const AppPage = () => {
   const [draft, setDraft] = useState<EventDraft | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    document.title = 'NullCal — Calendar';
+  }, []);
 
   const handleCalendarDateChange = (next: Date) => {
     setCurrentDate((prev) => (prev.getTime() === next.getTime() ? prev : next));
@@ -264,13 +268,14 @@ const AppPage = () => {
     <>
       <AppShell
         topBar={
-          <TopBar
-            view={view}
-            onViewChange={setView}
-            onToday={handleToday}
-            onPrev={handlePrev}
-            onNext={handleNext}
-            search={search}
+        <TopBar
+          view={view}
+          onViewChange={setView}
+          onToday={handleToday}
+          onHome={handleToday}
+          onPrev={handlePrev}
+          onNext={handleNext}
+          search={search}
             onSearchChange={setSearch}
             profiles={state.profiles.map((profile) => ({ id: profile.id, name: profile.name }))}
             activeProfileId={activeProfile.id}

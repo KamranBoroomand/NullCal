@@ -26,6 +26,20 @@ const ChevronIcon = ({ direction }: { direction: 'left' | 'right' }) => (
   </svg>
 );
 
+const BrandMark = () => (
+  <svg viewBox="0 0 64 64" aria-hidden="true">
+    <rect x="4" y="4" width="56" height="56" rx="12" fill="#070A0F" stroke="#141A23" strokeWidth="2" />
+    <rect x="10" y="10" width="44" height="10" rx="3" fill="#F4FF00" />
+    <g stroke="#10151D" strokeWidth="1" opacity="0.9">
+      <line x1="22" y1="22" x2="22" y2="54" />
+      <line x1="42" y1="22" x2="42" y2="54" />
+      <line x1="10" y1="32" x2="54" y2="32" />
+      <line x1="10" y1="44" x2="54" y2="44" />
+    </g>
+    <circle cx="32" cy="38" r="4" fill="#F4FF00" />
+  </svg>
+);
+
 type ProfileOption = {
   id: string;
   name: string;
@@ -35,6 +49,7 @@ type TopBarProps = {
   view?: 'timeGridWeek' | 'dayGridMonth';
   onViewChange?: (view: 'timeGridWeek' | 'dayGridMonth') => void;
   onToday?: () => void;
+  onHome: () => void;
   onPrev?: () => void;
   onNext?: () => void;
   search?: string;
@@ -54,6 +69,7 @@ const TopBar = ({
   view,
   onViewChange,
   onToday,
+  onHome,
   onPrev,
   onNext,
   search,
@@ -70,9 +86,18 @@ const TopBar = ({
 }: TopBarProps) => (
   <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-4 px-6 py-4 text-sm">
     <div className="flex items-center gap-3">
-      <div className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs font-semibold tracking-[0.4em] text-text">
-        NULLCAL
-      </div>
+      <button
+        type="button"
+        onClick={onHome}
+        className="flex flex-col items-center gap-1 rounded-2xl border border-grid bg-panel px-3 py-2 text-text transition hover:border-accent/60"
+        aria-label="Go to calendar"
+      >
+        <span className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8">
+          <BrandMark />
+        </span>
+        <span className="text-[0.7rem] font-medium tracking-[0.2em] leading-none">NullCal</span>
+        <span className="h-0.5 w-6 rounded-full bg-accent/80" />
+      </button>
       {onToday && (
         <button
           onClick={onToday}
