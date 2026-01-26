@@ -42,15 +42,17 @@ type SideBarProps = {
   onSelectDate: (date: Date) => void;
   calendars: Calendar[];
   activeProfileId: string;
+  variant?: 'full' | 'drawer';
   onToggleCalendar: (id: string) => void;
   onCreateCalendar: (profileId: string, payload: { name: string; color: string }) => void;
   onRenameCalendar: (profileId: string, calendarId: string, name: string) => void;
   onRecolorCalendar: (profileId: string, calendarId: string, color: string) => void;
   onDeleteCalendar: (profileId: string, calendarId: string) => void;
-  onNewEvent: () => void;
-  onExport: () => void;
-  onImport: (file: File) => void;
-  onResetProfile: () => void;
+  onNewEvent?: () => void;
+  onExport?: () => void;
+  onImport?: (file: File) => void;
+  onResetProfile?: () => void;
+  onNavigate?: () => void;
 };
 
 const SideBar = ({
@@ -58,6 +60,7 @@ const SideBar = ({
   onSelectDate,
   calendars,
   activeProfileId,
+  variant = 'full',
   onToggleCalendar,
   onCreateCalendar,
   onRenameCalendar,
@@ -66,7 +69,8 @@ const SideBar = ({
   onNewEvent,
   onExport,
   onImport,
-  onResetProfile
+  onResetProfile,
+  onNavigate
 }: SideBarProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const reduceMotion = useReducedMotion();
@@ -151,6 +155,7 @@ const SideBar = ({
         <div className="mt-3 flex flex-col gap-2 text-xs">
           <NavLink
             to="/"
+            onClick={onNavigate}
             className={({ isActive }) =>
               `rounded-xl px-3 py-2 uppercase tracking-[0.2em] transition ${
                 isActive ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted hover:text-text'
@@ -161,6 +166,7 @@ const SideBar = ({
           </NavLink>
           <NavLink
             to="/safety"
+            onClick={onNavigate}
             className={({ isActive }) =>
               `rounded-xl px-3 py-2 uppercase tracking-[0.2em] transition ${
                 isActive ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted hover:text-text'
@@ -171,7 +177,7 @@ const SideBar = ({
           </NavLink>
         </div>
       </div>
-      <MiniMonth selectedDate={selectedDate} onSelect={onSelectDate} />
+      {variant === 'full' && <MiniMonth selectedDate={selectedDate} onSelect={onSelectDate} />}
       <div className="rounded-2xl border border-grid bg-panel p-4">
         <div className="flex items-center justify-between">
           <p className="text-xs uppercase tracking-[0.3em] text-muted">Calendars</p>
@@ -184,7 +190,7 @@ const SideBar = ({
         >
           + New topic
         </button>
-        <div className="mt-4 flex flex-col gap-3">
+        <div className="mt-4 flex max-h-[40vh] flex-col gap-3 overflow-y-auto pr-1">
           {calendars.map((calendar) => (
             <div key={calendar.id} className="flex items-center justify-between text-xs text-muted">
               <div className="flex items-center gap-2">
@@ -241,49 +247,51 @@ const SideBar = ({
           ))}
         </div>
       </div>
-      <div className="rounded-2xl border border-grid bg-panel p-4">
-        <motion.button
-          onClick={onNewEvent}
-          whileHover={reduceMotion ? undefined : { scale: 1.02 }}
-          whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-          className="w-full rounded-xl bg-accent px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14] shadow-glow transition"
-        >
-          New event
-        </motion.button>
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex-1 rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
+      {variant === 'full' && onNewEvent && onExport && onImport && onResetProfile && (
+        <div className="rounded-2xl border border-grid bg-panel p-4">
+          <motion.button
+            onClick={onNewEvent}
+            whileHover={reduceMotion ? undefined : { scale: 1.02 }}
+            whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+            className="w-full rounded-xl bg-accent px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14] shadow-glow transition"
           >
-            Import
-          </button>
+            New event
+          </motion.button>
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
+            >
+              Import
+            </button>
+            <button
+              onClick={onExport}
+              className="flex-1 rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
+            >
+              Export
+            </button>
+          </div>
           <button
-            onClick={onExport}
-            className="flex-1 rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
+            onClick={onResetProfile}
+            className="mt-4 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
           >
-            Export
+            Reset profile data
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                onImport?.(file);
+                event.target.value = '';
+              }
+            }}
+          />
         </div>
-        <button
-          onClick={onResetProfile}
-          className="mt-4 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
-        >
-          Reset profile data
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/json"
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) {
-              onImport(file);
-              event.target.value = '';
-            }
-          }}
-        />
-      </div>
+      )}
       <Modal
         title={editTarget ? 'Edit topic' : 'New topic'}
         open={createOpen || Boolean(editTarget)}

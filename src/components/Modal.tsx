@@ -44,7 +44,7 @@ const Modal = ({ title, open, onClose, children }: ModalProps) => {
             animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.2 }}
-            className="relative z-10 w-full max-w-xl rounded-2xl border border-grid bg-panel2 p-6 text-sm shadow-2xl"
+            className="relative z-10 mx-4 max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-2xl border border-grid bg-panel2 p-4 text-sm shadow-2xl sm:mx-0 sm:p-6"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-text">{title}</h2>

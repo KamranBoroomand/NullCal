@@ -42,7 +42,9 @@ body {
   background: radial-gradient(circle at top, rgba(32, 38, 52, 0.35), transparent 60%),
     var(--bg);
   color: var(--text);
-  min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 body[data-theme='light'] {
@@ -67,7 +69,7 @@ body.scanlines-on::before {
 }
 
 #root {
-  min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   z-index: 2;
 }
