@@ -39,6 +39,10 @@ const AppPage = () => {
   const [draft, setDraft] = useState<EventDraft | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  const handleCalendarDateChange = (next: Date) => {
+    setCurrentDate((prev) => (prev.getTime() === next.getTime() ? prev : next));
+  };
+
   useEffect(() => {
     saveState(store);
   }, [store]);
@@ -319,7 +323,7 @@ const AppPage = () => {
           events={calendarEvents}
           view={view}
           date={currentDate}
-          onDateChange={setCurrentDate}
+          onDateChange={handleCalendarDateChange}
           onSelectRange={handleSelectRange}
           onDateClick={handleDateClick}
           onEventClick={handleEventClick}

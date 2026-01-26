@@ -48,6 +48,10 @@ const CalendarView = ({
     if (!api) {
       return;
     }
+    const current = api.getDate();
+    if (current.getTime() === date.getTime()) {
+      return;
+    }
     api.gotoDate(date);
   }, [date]);
 
@@ -56,7 +60,7 @@ const CalendarView = ({
       <FullCalendar
         ref={calendarRef}
         plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
-        initialView={view}
+        initialView="timeGridWeek"
         headerToolbar={false}
         height="auto"
         events={events}
@@ -67,8 +71,13 @@ const CalendarView = ({
         allDaySlot={view === 'timeGridWeek'}
         slotMinTime="06:00:00"
         slotMaxTime="22:00:00"
-        initialDate={date}
-        datesSet={(info) => onDateChange(info.start)}
+        initialDate={new Date()}
+        datesSet={(info) => {
+          const next = info.view.calendar.getDate();
+          if (next.getTime() !== date.getTime()) {
+            onDateChange(next);
+          }
+        }}
         select={(info) => onSelectRange(info.start, info.end, info.allDay)}
         dateClick={(info) => onDateClick(info.date)}
         eventClick={(info) => onEventClick(info.event.id)}
