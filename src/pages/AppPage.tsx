@@ -12,6 +12,7 @@ import { useAppStore } from '../app/AppStore';
 import type { CalendarEvent } from '../storage/types';
 import { useToast } from '../components/ToastProvider';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
+import CalendarErrorBoundary from '../components/CalendarErrorBoundary';
 
 const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 const fromInputValue = (value: string) => new Date(value).toISOString();
@@ -44,6 +45,7 @@ const AppPage = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draft, setDraft] = useState<EventDraft | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const reduceMotion = useReducedMotion();
   const { canInstall, promptInstall } = useInstallPrompt();
 
@@ -274,25 +276,26 @@ const AppPage = () => {
     <>
       <AppShell
         topBar={
-        <TopBar
-          view={view}
-          onViewChange={setView}
-          onToday={handleToday}
-          onHome={handleToday}
-          onPrev={handlePrev}
-          onNext={handleNext}
-          search={search}
+          <TopBar
+            view={view}
+            onViewChange={setView}
+            onToday={handleToday}
+            onHome={handleToday}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            search={search}
             onSearchChange={setSearch}
             profiles={state.profiles.map((profile) => ({ id: profile.id, name: profile.name }))}
             activeProfileId={activeProfile.id}
             onProfileChange={setActiveProfile}
             onCreateProfile={handleCreateProfile}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onLockNow={lockNow}
-          onInstall={canInstall ? promptInstall : undefined}
-          theme={state.settings.theme}
-          onThemeChange={(theme) => updateSettings({ theme })}
-          networkLocked={state.settings.networkLock}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onLockNow={lockNow}
+            onInstall={canInstall ? promptInstall : undefined}
+            theme={state.settings.theme}
+            onThemeChange={(theme) => updateSettings({ theme })}
+            networkLocked={state.settings.networkLock}
+            onOpenNav={() => setNavOpen(true)}
           />
         }
         sidebar={
@@ -312,6 +315,23 @@ const AppPage = () => {
             onResetProfile={handleResetProfile}
           />
         }
+        mobileNav={
+          <SideBar
+            selectedDate={currentDate}
+            onSelectDate={setCurrentDate}
+            calendars={calendars}
+            activeProfileId={activeProfile.id}
+            variant="drawer"
+            onToggleCalendar={handleToggleCalendar}
+            onCreateCalendar={createCalendar}
+            onRenameCalendar={renameCalendar}
+            onRecolorCalendar={recolorCalendar}
+            onDeleteCalendar={deleteCalendar}
+            onNavigate={() => setNavOpen(false)}
+          />
+        }
+        navOpen={navOpen}
+        onNavClose={() => setNavOpen(false)}
       >
         <motion.div
           initial={reduceMotion ? false : { opacity: 0, y: 6 }}
@@ -322,18 +342,24 @@ const AppPage = () => {
             <div className="uppercase tracking-[0.3em]">{format(currentDate, 'MMMM yyyy')}</div>
             <div className="text-[11px]">{filteredEvents.length} events</div>
           </div>
-          <CalendarView
-            events={calendarEvents}
-            view={view}
-            date={currentDate}
-            secureMode={state.settings.secureMode}
-            blurSensitive={state.settings.blurSensitive}
-            onDateChange={handleCalendarDateChange}
-            onSelectRange={handleSelectRange}
-            onDateClick={handleDateClick}
-            onEventClick={handleEventClick}
-            onEventChange={handleEventChange}
-          />
+          <div className="overflow-x-auto">
+            <div className="min-w-[640px]">
+              <CalendarErrorBoundary>
+                <CalendarView
+                  events={calendarEvents}
+                  view={view}
+                  date={currentDate}
+                  secureMode={state.settings.secureMode}
+                  blurSensitive={state.settings.blurSensitive}
+                  onDateChange={handleCalendarDateChange}
+                  onSelectRange={handleSelectRange}
+                  onDateClick={handleDateClick}
+                  onEventClick={handleEventClick}
+                  onEventChange={handleEventChange}
+                />
+              </CalendarErrorBoundary>
+            </div>
+          </div>
         </motion.div>
       </AppShell>
       <Modal title={draft?.id ? 'Edit event' : 'New event'} open={Boolean(draft)} onClose={() => setDraft(null)}>
