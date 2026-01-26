@@ -1,13 +1,14 @@
 # NullCAL
 
-NullCAL is a modern, neon-accented calendar experience built with React, Vite, and TypeScript. The UI focuses on clarity, dark mode comfort, and high-signal scheduling for the NullID ecosystem.
+NullCAL is a local-first, Photon-inspired calendar built with React, Vite, and TypeScript. It ships with multiple profiles, themed calendars, and a dark glass UI designed for focus.
 
 ## Features
 
-- ⚡️ Vite + React + TypeScript foundation
-- 🌒 Dark mode UI with neon yellow accents
-- 🧭 React Router pages with lazy loading
-- 🚀 GitHub Pages-ready build configuration
+- Week + month calendar views powered by FullCalendar
+- Local-only profiles with independent calendars and events
+- Drag, drop, resize, and modal editing for events
+- Import/export profile data as JSON
+- TailwindCSS-based Photon UI styling
 
 ## Getting Started
 
@@ -16,7 +17,7 @@ npm install
 npm run dev
 ```
 
-Open the local dev server URL printed in the terminal to view the app.
+Open the URL printed by Vite to view the app.
 
 ## Build for Production
 
@@ -25,25 +26,22 @@ npm run build
 npm run preview
 ```
 
-The production build output is generated in the `dist/` directory.
+The production build output is generated in `dist/` and includes a `404.html` fallback for GitHub Pages routing.
 
 ## Deploy to GitHub Pages
 
-This repository includes a GitHub Actions workflow that builds and deploys the site to GitHub Pages.
+This repo includes a GitHub Actions workflow that builds and deploys the site to GitHub Pages.
 
-1. Ensure the repository name is `NullCAL` and GitHub Pages is enabled for the project.
-2. Push to the `main` branch.
-3. The workflow will publish the `dist/` folder to Pages automatically.
+1. In GitHub, go to **Settings → Pages**.
+2. Under **Source**, select **GitHub Actions**.
+3. Push to `main` (or `master`) and the workflow will publish `dist/`.
 
-The site should be available at:
+The site will be available at:
 
 ```
 https://kamranboroomand.github.io/NullCAL/
 ```
 
-## Contributing
+## Data Storage
 
-1. Create a new branch for your feature or fix.
-2. Commit your changes with clear messages.
-3. Open a pull request describing your updates.
-
+Profile data is stored locally in the browser under the `nullcal:v1` key. Use the Import/Export controls in the sidebar to back up or move profiles between devices.
