@@ -1,4 +1,8 @@
 import IconButton from '../components/IconButton';
+import Clock from '../components/Clock';
+import ThemeToggle from '../components/ThemeToggle';
+import SecurityBadge from '../components/SecurityBadge';
+import type { ThemeMode } from '../theme/ThemeProvider';
 
 const SettingsIcon = () => (
   <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
@@ -28,18 +32,22 @@ type ProfileOption = {
 };
 
 type TopBarProps = {
-  view: 'timeGridWeek' | 'dayGridMonth';
-  onViewChange: (view: 'timeGridWeek' | 'dayGridMonth') => void;
-  onToday: () => void;
-  onPrev: () => void;
-  onNext: () => void;
-  search: string;
-  onSearchChange: (value: string) => void;
+  view?: 'timeGridWeek' | 'dayGridMonth';
+  onViewChange?: (view: 'timeGridWeek' | 'dayGridMonth') => void;
+  onToday?: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+  search?: string;
+  onSearchChange?: (value: string) => void;
   profiles: ProfileOption[];
   activeProfileId: string;
   onProfileChange: (id: string) => void;
   onCreateProfile: () => void;
   onOpenSettings: () => void;
+  onLockNow: () => void;
+  theme: ThemeMode;
+  onThemeChange: (theme: ThemeMode) => void;
+  networkLocked: boolean;
 };
 
 const TopBar = ({
@@ -54,74 +62,95 @@ const TopBar = ({
   activeProfileId,
   onProfileChange,
   onCreateProfile,
-  onOpenSettings
+  onOpenSettings,
+  onLockNow,
+  theme,
+  onThemeChange,
+  networkLocked
 }: TopBarProps) => (
-  <div className="mx-auto flex max-w-[1400px] items-center gap-4 px-6 py-4 text-sm">
+  <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-4 px-6 py-4 text-sm">
     <div className="flex items-center gap-3">
-      <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold tracking-[0.4em] text-white">
+      <div className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs font-semibold tracking-[0.4em] text-text">
         NULLCAL
       </div>
-      <button
-        onClick={onToday}
-        className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.2em] text-white/70 transition hover:text-white"
-      >
-        Today
-      </button>
-      <div className="flex items-center gap-2">
-        <IconButton label="Previous" onClick={onPrev}>
-          <ChevronIcon direction="left" />
-        </IconButton>
-        <IconButton label="Next" onClick={onNext}>
-          <ChevronIcon direction="right" />
-        </IconButton>
+      {onToday && (
+        <button
+          onClick={onToday}
+          className="rounded-full border border-grid bg-panel px-3 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
+        >
+          Today
+        </button>
+      )}
+      {onPrev && onNext && (
+        <div className="flex items-center gap-2">
+          <IconButton label="Previous" onClick={onPrev}>
+            <ChevronIcon direction="left" />
+          </IconButton>
+          <IconButton label="Next" onClick={onNext}>
+            <ChevronIcon direction="right" />
+          </IconButton>
+        </div>
+      )}
+    </div>
+    {view && onViewChange && (
+      <div className="flex items-center gap-2 rounded-full border border-grid bg-panel p-1">
+        <button
+          onClick={() => onViewChange('timeGridWeek')}
+          className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
+            view === 'timeGridWeek' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
+          }`}
+        >
+          Week
+        </button>
+        <button
+          onClick={() => onViewChange('dayGridMonth')}
+          className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
+            view === 'dayGridMonth' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
+          }`}
+        >
+          Month
+        </button>
       </div>
-    </div>
-    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 p-1">
-      <button
-        onClick={() => onViewChange('timeGridWeek')}
-        className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
-          view === 'timeGridWeek' ? 'bg-accent text-white shadow-glow' : 'text-white/60'
-        }`}
-      >
-        Week
-      </button>
-      <button
-        onClick={() => onViewChange('dayGridMonth')}
-        className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
-          view === 'dayGridMonth' ? 'bg-accent text-white shadow-glow' : 'text-white/60'
-        }`}
-      >
-        Month
-      </button>
-    </div>
-    <div className="ml-auto flex items-center gap-3">
+    )}
+    <div className="ml-auto flex flex-wrap items-center gap-3">
+      <SecurityBadge networkLocked={networkLocked} />
+      <ThemeToggle value={theme} onChange={onThemeChange} />
+      <Clock />
       <div className="relative">
-        <input
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search events"
-          className="h-10 w-56 rounded-full border border-white/10 bg-white/5 px-4 text-xs text-white/80 placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-accent/40"
-        />
+        {onSearchChange && (
+          <input
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="Search events"
+            className="h-10 w-56 rounded-full border border-grid bg-panel px-4 text-xs text-muted placeholder:text-muted/70 focus:outline-none focus:ring-2 focus:ring-accent/40"
+          />
+        )}
       </div>
       <div className="flex items-center gap-2">
         <select
           value={activeProfileId}
           onChange={(event) => onProfileChange(event.target.value)}
-          className="h-10 rounded-full border border-white/10 bg-white/5 px-3 text-xs text-white/80"
+          className="h-10 rounded-full border border-grid bg-panel px-3 text-xs text-muted"
         >
           {profiles.map((profile) => (
-            <option key={profile.id} value={profile.id} className="bg-[#0f141b]">
+            <option key={profile.id} value={profile.id} className="bg-panel2">
               {profile.name}
             </option>
           ))}
         </select>
         <button
           onClick={onCreateProfile}
-          className="h-10 rounded-full border border-white/10 bg-white/5 px-3 text-xs text-white/70 transition hover:text-white"
+          className="h-10 rounded-full border border-grid bg-panel px-3 text-xs text-muted transition hover:text-text"
         >
           + Profile
         </button>
       </div>
+      <button
+        onClick={onLockNow}
+        className="rounded-full border border-grid bg-panel px-3 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
+      >
+        Lock now
+      </button>
       <IconButton label="Settings" onClick={onOpenSettings}>
         <SettingsIcon />
       </IconButton>

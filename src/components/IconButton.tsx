@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 
 type IconButtonProps = {
   label: string;
@@ -6,14 +7,19 @@ type IconButtonProps = {
   children: ReactNode;
 };
 
-const IconButton = ({ label, onClick, children }: IconButtonProps) => (
-  <button
-    onClick={onClick}
-    className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition hover:text-white"
-    aria-label={label}
-  >
-    {children}
-  </button>
-);
+const IconButton = ({ label, onClick, children }: IconButtonProps) => {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.button
+      onClick={onClick}
+      whileHover={reduceMotion ? undefined : { scale: 1.02 }}
+      whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+      className="flex h-9 w-9 items-center justify-center rounded-full border border-grid bg-panel text-muted transition hover:text-text"
+      aria-label={label}
+    >
+      {children}
+    </motion.button>
+  );
+};
 
 export default IconButton;

@@ -16,6 +16,8 @@ type CalendarViewProps = {
   events: EventInput[];
   view: 'timeGridWeek' | 'dayGridMonth';
   date: Date;
+  secureMode: boolean;
+  blurSensitive: boolean;
   onDateChange: (date: Date) => void;
   onSelectRange: (start: Date, end: Date, allDay: boolean) => void;
   onDateClick: (date: Date) => void;
@@ -27,6 +29,8 @@ const CalendarView = ({
   events,
   view,
   date,
+  secureMode,
+  blurSensitive,
   onDateChange,
   onSelectRange,
   onDateClick,
@@ -56,7 +60,7 @@ const CalendarView = ({
   }, [date]);
 
   return (
-    <div className="photon-panel rounded-3xl p-4">
+    <div className={`photon-panel rounded-3xl p-4 ${secureMode ? 'secure-mode' : ''} ${blurSensitive ? 'blur-sensitive' : ''}`}>
       <FullCalendar
         ref={calendarRef}
         plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
@@ -103,7 +107,7 @@ const CalendarView = ({
                 accentColor
               })}
             >
-              <div className="text-[11px] font-semibold leading-snug text-[#121620]">
+              <div className="text-[11px] font-semibold leading-snug" style={{ color: arg.event.textColor }}>
                 {arg.event.title}
               </div>
             </div>

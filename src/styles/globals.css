@@ -4,6 +4,32 @@
 
 :root {
   color-scheme: dark;
+  --bg: #070a0f;
+  --panel: #0d121b;
+  --panel2: #101827;
+  --text: #e6e9ef;
+  --muted: #9aa4b2;
+  --grid: rgba(255, 255, 255, 0.06);
+  --accent: #f4ff00;
+  --accent2: #9bff00;
+  --danger: #ff3b3b;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f6f7fb;
+  --panel: #ffffff;
+  --panel2: #f0f2f7;
+  --text: #0b0f14;
+  --muted: #4b5563;
+  --grid: rgba(0, 0, 0, 0.06);
+  --accent: #b7c800;
+  --accent2: #9bff00;
+  --danger: #d11a2a;
 }
 
 * {
@@ -13,39 +39,66 @@
 body {
   margin: 0;
   font-family: 'Inter', system-ui, sans-serif;
-  background: radial-gradient(circle at top, rgba(33, 40, 55, 0.35), transparent 55%),
-    linear-gradient(160deg, #0b0f14, #0b0f14 40%, #101826 100%);
-  color: #dbe3ef;
+  background: radial-gradient(circle at top, rgba(32, 38, 52, 0.35), transparent 60%),
+    var(--bg);
+  color: var(--text);
   min-height: 100vh;
+}
+
+body[data-theme='light'] {
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.7), transparent 55%), var(--bg);
+}
+
+body.scanlines-on::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.04) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.08;
+  mix-blend-mode: screen;
+  z-index: 1;
 }
 
 #root {
   min-height: 100vh;
+  position: relative;
+  z-index: 2;
 }
 
 .photon-panel {
-  background: rgba(16, 21, 29, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  background: var(--panel);
+  border: 1px solid var(--grid);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(16px);
 }
 
 .photon-input {
-  background: rgba(20, 26, 35, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #dbe3ef;
+  background: var(--panel2);
+  border: 1px solid var(--grid);
+  color: var(--text);
 }
 
 .photon-input::placeholder {
-  color: rgba(219, 227, 239, 0.6);
+  color: rgba(154, 164, 178, 0.7);
+}
+
+.glow-pulse {
+  animation: glowPulse 2.8s ease-in-out infinite;
 }
 
 .fc {
-  --fc-border-color: rgba(255, 255, 255, 0.08);
+  --fc-border-color: var(--grid);
   --fc-page-bg-color: transparent;
   --fc-neutral-bg-color: transparent;
-  --fc-today-bg-color: rgba(255, 107, 61, 0.08);
-  --fc-list-event-hover-bg-color: rgba(255, 255, 255, 0.05);
+  --fc-today-bg-color: color-mix(in srgb, var(--accent) 15%, transparent);
+  --fc-list-event-hover-bg-color: color-mix(in srgb, var(--accent) 10%, transparent);
   font-size: 0.82rem;
 }
 
@@ -53,18 +106,18 @@ body {
 .fc .fc-timegrid-body,
 .fc .fc-timegrid-divider,
 .fc .fc-timegrid-axis {
-  border-color: rgba(255, 255, 255, 0.06);
+  border-color: var(--grid);
 }
 
 .fc .fc-col-header-cell-cushion,
 .fc .fc-timegrid-slot-label,
 .fc .fc-daygrid-day-number {
-  color: rgba(219, 227, 239, 0.7);
+  color: color-mix(in srgb, var(--text) 70%, transparent);
   font-weight: 500;
 }
 
 .fc .fc-day-today {
-  background: rgba(255, 107, 61, 0.08);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .fc .fc-event {
@@ -94,14 +147,45 @@ body {
 }
 
 .fc .fc-highlight {
-  background: rgba(255, 107, 61, 0.15);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-.button-glow {
-  box-shadow: 0 0 18px rgba(255, 107, 61, 0.2);
+.secure-mode .fc-event-title {
+  opacity: 0;
+}
+
+.secure-mode .fc-event:hover .fc-event-title {
+  opacity: 1;
+}
+
+.blur-sensitive .fc-event-title {
+  filter: blur(6px);
+}
+
+.blur-sensitive .fc-event:hover .fc-event-title {
+  filter: none;
 }
 
 .modal-backdrop {
   background: rgba(6, 8, 11, 0.65);
   backdrop-filter: blur(6px);
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(244, 255, 0, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(244, 255, 0, 0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-pulse {
+    animation: none;
+  }
+  body.scanlines-on::before {
+    animation: none;
+  }
 }
