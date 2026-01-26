@@ -1,0 +1,111 @@
+@import '@fullcalendar/core/index.css';
+@import '@fullcalendar/daygrid/index.css';
+@import '@fullcalendar/timegrid/index.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: radial-gradient(circle at top, rgba(33, 40, 55, 0.35), transparent 55%),
+    linear-gradient(160deg, #0b0f14, #0b0f14 40%, #101826 100%);
+  color: #dbe3ef;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.photon-panel {
+  background: rgba(16, 21, 29, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(16px);
+}
+
+.photon-input {
+  background: rgba(20, 26, 35, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #dbe3ef;
+}
+
+.photon-input::placeholder {
+  color: rgba(219, 227, 239, 0.6);
+}
+
+.fc {
+  --fc-border-color: rgba(255, 255, 255, 0.08);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: transparent;
+  --fc-today-bg-color: rgba(255, 107, 61, 0.08);
+  --fc-list-event-hover-bg-color: rgba(255, 255, 255, 0.05);
+  font-size: 0.82rem;
+}
+
+.fc .fc-scrollgrid,
+.fc .fc-timegrid-body,
+.fc .fc-timegrid-divider,
+.fc .fc-timegrid-axis {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.fc .fc-col-header-cell-cushion,
+.fc .fc-timegrid-slot-label,
+.fc .fc-daygrid-day-number {
+  color: rgba(219, 227, 239, 0.7);
+  font-weight: 500;
+}
+
+.fc .fc-day-today {
+  background: rgba(255, 107, 61, 0.08);
+}
+
+.fc .fc-event {
+  border-radius: 10px;
+  padding: 4px 6px;
+  font-weight: 600;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+  border: none;
+}
+
+.fc .fc-event .fc-event-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fc .fc-timegrid-event-harness {
+  margin-right: 2px;
+}
+
+.fc .fc-toolbar {
+  display: none;
+}
+
+.fc .fc-daygrid-day-frame {
+  padding: 6px;
+}
+
+.fc .fc-highlight {
+  background: rgba(255, 107, 61, 0.15);
+}
+
+.button-glow {
+  box-shadow: 0 0 18px rgba(255, 107, 61, 0.2);
+}
+
+.modal-backdrop {
+  background: rgba(6, 8, 11, 0.65);
+  backdrop-filter: blur(6px);
+}
