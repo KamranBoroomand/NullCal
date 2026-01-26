@@ -30,12 +30,12 @@ const MiniMonth = ({ selectedDate, onSelect }: MiniMonthProps) => {
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-      <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-white/60">
+    <div className="rounded-2xl border border-grid bg-panel p-4">
+      <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-muted">
         <span>{format(selectedDate, 'MMMM')}</span>
         <span>{format(selectedDate, 'yyyy')}</span>
       </div>
-      <div className="mt-3 grid grid-cols-7 gap-1 text-[10px] text-white/40">
+      <div className="mt-3 grid grid-cols-7 gap-1 text-[10px] text-muted">
         {weekLabels.map((label) => (
           <div key={label} className="text-center">
             {label}
@@ -52,10 +52,10 @@ const MiniMonth = ({ selectedDate, onSelect }: MiniMonthProps) => {
               onClick={() => onSelect(date)}
               className={`h-7 rounded-lg text-center transition ${
                 isSelected
-                  ? 'bg-accent text-white shadow-glow'
+                  ? 'bg-accent text-[#0b0f14] shadow-glow'
                   : isCurrentMonth
-                    ? 'text-white/80 hover:bg-white/10'
-                    : 'text-white/30 hover:bg-white/5'
+                    ? 'text-text hover:bg-panel2'
+                    : 'text-muted hover:bg-panel2'
               }`}
             >
               {format(date, 'd')}

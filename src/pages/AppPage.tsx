@@ -1,109 +1,77 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { addHours, addMonths, addWeeks, format, startOfHour, subMonths, subWeeks } from 'date-fns';
 import { nanoid } from 'nanoid';
 import type { EventInput } from '@fullcalendar/core';
+import { motion, useReducedMotion } from 'framer-motion';
 import AppShell from '../app/AppShell';
 import TopBar from '../app/TopBar';
 import SideBar from '../app/SideBar';
 import CalendarView from '../app/CalendarView';
 import Modal from '../components/Modal';
-import { createSeedProfile } from '../data/seed';
-import { loadState, resetProfileData, saveState } from '../data/storage';
-import type { Calendar, CalendarEvent, EventDraft, Profile, StorageState } from '../data/types';
+import { useAppStore } from '../app/AppStore';
+import type { CalendarEvent } from '../storage/types';
+import { useToast } from '../components/ToastProvider';
 
 const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 const fromInputValue = (value: string) => new Date(value).toISOString();
 
-const normalizeCalendars = (calendars: Calendar[]): Calendar[] =>
-  calendars.map((calendar) => ({
-    ...calendar,
-    visible: calendar.visible ?? true
-  }));
-
-const ensureCalendar = (event: CalendarEvent, calendars: Calendar[]): CalendarEvent => {
-  const exists = calendars.some((calendar) => calendar.id === event.calendarId);
-  if (exists) {
-    return event;
-  }
-  return {
-    ...event,
-    calendarId: calendars[0]?.id ?? event.calendarId
-  };
-};
+type EventDraft = Omit<CalendarEvent, 'id'> & { id?: string };
 
 const AppPage = () => {
-  const [store, setStore] = useState<StorageState>(() => loadState());
+  const {
+    state,
+    loading,
+    lockNow,
+    updateSettings,
+    setActiveProfile,
+    createProfile,
+    resetProfile,
+    toggleCalendarVisibility,
+    upsertEvent,
+    deleteEvent,
+    exportEncrypted,
+    importEncrypted
+  } =
+    useAppStore();
+  const { notify } = useToast();
   const [view, setView] = useState<'timeGridWeek' | 'dayGridMonth'>('timeGridWeek');
   const [search, setSearch] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draft, setDraft] = useState<EventDraft | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   const handleCalendarDateChange = (next: Date) => {
     setCurrentDate((prev) => (prev.getTime() === next.getTime() ? prev : next));
   };
 
-  useEffect(() => {
-    saveState(store);
-  }, [store]);
-
-  useEffect(() => {
-    if (!store.profiles.find((profile) => profile.id === store.activeProfileId)) {
-      setStore((prev) => ({
-        ...prev,
-        activeProfileId: prev.profiles[0]?.id ?? prev.activeProfileId
-      }));
-    }
-  }, [store]);
-
   const activeProfile = useMemo(() => {
-    return store.profiles.find((profile) => profile.id === store.activeProfileId) ?? store.profiles[0];
-  }, [store]);
-
-  const updateActiveProfile = (updater: (profile: Profile) => Profile) => {
-    setStore((prev) => ({
-      ...prev,
-      profiles: prev.profiles.map((profile) =>
-        profile.id === prev.activeProfileId ? updater(profile) : profile
-      )
-    }));
-  };
-
-  const handleProfileChange = (id: string) => {
-    setStore((prev) => ({ ...prev, activeProfileId: id }));
-  };
+    if (!state) {
+      return null;
+    }
+    return state.profiles.find((profile) => profile.id === state.settings.activeProfileId) ?? state.profiles[0];
+  }, [state]);
 
   const handleCreateProfile = () => {
     const name = window.prompt('Profile name');
     if (!name) {
       return;
     }
-    const profile = createSeedProfile(name.trim());
-    setStore((prev) => ({
-      ...prev,
-      profiles: [...prev.profiles, profile],
-      activeProfileId: profile.id
-    }));
+    createProfile(name.trim());
   };
 
   const handleResetProfile = () => {
-    if (!activeProfile) {
-      return;
-    }
     const confirmed = window.confirm('Reset this profile back to default calendars and events?');
     if (!confirmed) {
       return;
     }
-    updateActiveProfile(resetProfileData);
+    if (activeProfile) {
+      resetProfile(activeProfile.id);
+    }
   };
 
   const handleToggleCalendar = (id: string) => {
-    updateActiveProfile((profile) => ({
-      ...profile,
-      calendars: profile.calendars.map((calendar) =>
-        calendar.id === id ? { ...calendar, visible: !calendar.visible } : calendar
-      )
-    }));
+    toggleCalendarVisibility(id);
   };
 
   const handleSaveEvent = () => {
@@ -116,18 +84,11 @@ const AppPage = () => {
     const nextEvent: CalendarEvent = {
       ...draft,
       id: eventId,
+      profileId: activeProfile.id,
       title
     };
 
-    updateActiveProfile((profile) => {
-      const existingIndex = profile.events.findIndex((event) => event.id === eventId);
-      if (existingIndex >= 0) {
-        const events = [...profile.events];
-        events[existingIndex] = nextEvent;
-        return { ...profile, events };
-      }
-      return { ...profile, events: [...profile.events, nextEvent] };
-    });
+    upsertEvent(nextEvent);
     setDraft(null);
   };
 
@@ -136,10 +97,7 @@ const AppPage = () => {
       setDraft(null);
       return;
     }
-    updateActiveProfile((profile) => ({
-      ...profile,
-      events: profile.events.filter((event) => event.id !== draft.id)
-    }));
+    deleteEvent(draft.id);
     setDraft(null);
   };
 
@@ -147,11 +105,17 @@ const AppPage = () => {
     if (!activeProfile) {
       return;
     }
-    const calendar = calendarId ?? activeProfile.calendars[0]?.id;
+    const calendar =
+      calendarId ??
+      state?.calendars.find((item) => item.profileId === activeProfile.id)?.id;
+    if (!calendar) {
+      return;
+    }
     setDraft({
       title: '',
       start: start.toISOString(),
       end: end.toISOString(),
+      profileId: activeProfile.id,
       calendarId: calendar,
       location: '',
       notes: ''
@@ -168,60 +132,59 @@ const AppPage = () => {
   };
 
   const handleEventClick = (id: string) => {
-    const event = activeProfile?.events.find((item) => item.id === id);
+    const event = events.find((item) => item.id === id);
     if (event) {
       setDraft({ ...event });
     }
   };
 
   const handleEventChange = (id: string, start: Date, end: Date) => {
-    updateActiveProfile((profile) => ({
-      ...profile,
-      events: profile.events.map((event) =>
-        event.id === id
-          ? {
-              ...event,
-              start: start.toISOString(),
-              end: end.toISOString()
-            }
-          : event
-      )
-    }));
-  };
-
-  const handleExport = () => {
-    if (!activeProfile) {
+    const event = events.find((item) => item.id === id);
+    if (!event) {
       return;
     }
-    const blob = new Blob([JSON.stringify(activeProfile, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${activeProfile.name.toLowerCase().replace(/\s+/g, '-')}-nullcal.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    upsertEvent({
+      ...event,
+      start: start.toISOString(),
+      end: end.toISOString()
+    });
   };
 
-  const handleImport = async (file: File) => {
-    if (!activeProfile) {
+  const handleExport = async () => {
+    if (!activeProfile || !state) {
+      return;
+    }
+    const passphrase = window.prompt('Create a passphrase to encrypt this backup.');
+    if (!passphrase) {
       return;
     }
     try {
-      const text = await file.text();
-      const data = JSON.parse(text) as Partial<Profile>;
-      if (!data.calendars || !data.events) {
-        throw new Error('Invalid profile data');
-      }
-      const calendars = normalizeCalendars(data.calendars as Calendar[]);
-      const events = (data.events as CalendarEvent[]).map((event) => ensureCalendar(event, calendars));
-      updateActiveProfile((profile) => ({
-        ...profile,
-        name: data.name ?? profile.name,
-        calendars,
-        events
-      }));
+      const payload = await exportEncrypted(passphrase);
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `nullcal-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      notify('Encrypted backup exported.', 'success');
     } catch {
-      window.alert('Import failed. Please select a valid profile JSON export.');
+      notify('Export failed. Try again.', 'error');
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    try {
+      const text = await file.text();
+      const payload = JSON.parse(text);
+      const passphrase = window.prompt('Enter your backup passphrase.');
+      if (!passphrase) {
+        return;
+      }
+      await importEncrypted(payload, passphrase);
+      notify('Backup imported successfully.', 'success');
+    } catch {
+      notify('Import failed. Check your passphrase.', 'error');
     }
   };
 
@@ -237,16 +200,30 @@ const AppPage = () => {
     setCurrentDate(new Date());
   };
 
+  const calendars = useMemo(() => {
+    if (!activeProfile || !state) {
+      return [];
+    }
+    return state.calendars.filter((calendar) => calendar.profileId === activeProfile.id);
+  }, [activeProfile, state]);
+
+  const events = useMemo(() => {
+    if (!activeProfile || !state) {
+      return [];
+    }
+    return state.events.filter((event) => event.profileId === activeProfile.id);
+  }, [activeProfile, state]);
+
   const visibleCalendarIds = useMemo(() => {
-    return activeProfile?.calendars.filter((calendar) => calendar.visible).map((calendar) => calendar.id) ?? [];
-  }, [activeProfile]);
+    return calendars.filter((calendar) => calendar.visible).map((calendar) => calendar.id);
+  }, [calendars]);
 
   const filteredEvents = useMemo(() => {
     if (!activeProfile) {
       return [];
     }
     const term = search.trim().toLowerCase();
-    return activeProfile.events.filter((event) => {
+    return events.filter((event) => {
       if (!visibleCalendarIds.includes(event.calendarId)) {
         return false;
       }
@@ -263,23 +240,23 @@ const AppPage = () => {
       return [];
     }
     return filteredEvents.map((event) => {
-      const calendar = activeProfile.calendars.find((item) => item.id === event.calendarId);
+      const calendar = calendars.find((item) => item.id === event.calendarId);
       return {
         id: event.id,
         title: event.title,
         start: event.start,
         end: event.end,
-        backgroundColor: '#f6f7fb',
-        borderColor: calendar?.color ?? '#f6f7fb',
-        textColor: '#121620',
+        backgroundColor: 'var(--panel2)',
+        borderColor: calendar?.color ?? 'var(--accent)',
+        textColor: 'var(--text)',
         extendedProps: {
-          accentColor: calendar?.color ?? '#f6f7fb'
+          accentColor: calendar?.color ?? 'var(--accent)'
         }
       };
     });
-  }, [activeProfile, filteredEvents]);
+  }, [calendars, filteredEvents]);
 
-  if (!activeProfile) {
+  if (loading || !activeProfile || !state) {
     return null;
   }
 
@@ -295,18 +272,22 @@ const AppPage = () => {
             onNext={handleNext}
             search={search}
             onSearchChange={setSearch}
-            profiles={store.profiles.map((profile) => ({ id: profile.id, name: profile.name }))}
+            profiles={state.profiles.map((profile) => ({ id: profile.id, name: profile.name }))}
             activeProfileId={activeProfile.id}
-            onProfileChange={handleProfileChange}
+            onProfileChange={setActiveProfile}
             onCreateProfile={handleCreateProfile}
             onOpenSettings={() => setSettingsOpen(true)}
+            onLockNow={lockNow}
+            theme={state.settings.theme}
+            onThemeChange={(theme) => updateSettings({ theme })}
+            networkLocked={state.settings.networkLock}
           />
         }
         sidebar={
           <SideBar
             selectedDate={currentDate}
             onSelectDate={setCurrentDate}
-            calendars={activeProfile.calendars}
+            calendars={calendars}
             onToggleCalendar={handleToggleCalendar}
             onNewEvent={() => handleCreateDraft(startOfHour(new Date()), addHours(startOfHour(new Date()), 1))}
             onExport={handleExport}
@@ -315,92 +296,100 @@ const AppPage = () => {
           />
         }
       >
-        <div className="mb-4 flex items-center justify-between text-xs text-white/60">
-          <div className="uppercase tracking-[0.3em]">{format(currentDate, 'MMMM yyyy')}</div>
-          <div className="text-[11px]">{filteredEvents.length} events</div>
-        </div>
-        <CalendarView
-          events={calendarEvents}
-          view={view}
-          date={currentDate}
-          onDateChange={handleCalendarDateChange}
-          onSelectRange={handleSelectRange}
-          onDateClick={handleDateClick}
-          onEventClick={handleEventClick}
-          onEventChange={handleEventChange}
-        />
+        <motion.div
+          initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+          animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          <div className="mb-4 flex items-center justify-between text-xs text-muted">
+            <div className="uppercase tracking-[0.3em]">{format(currentDate, 'MMMM yyyy')}</div>
+            <div className="text-[11px]">{filteredEvents.length} events</div>
+          </div>
+          <CalendarView
+            events={calendarEvents}
+            view={view}
+            date={currentDate}
+            secureMode={state.settings.secureMode}
+            blurSensitive={state.settings.blurSensitive}
+            onDateChange={handleCalendarDateChange}
+            onSelectRange={handleSelectRange}
+            onDateClick={handleDateClick}
+            onEventClick={handleEventClick}
+            onEventChange={handleEventChange}
+          />
+        </motion.div>
       </AppShell>
       <Modal title={draft?.id ? 'Edit event' : 'New event'} open={Boolean(draft)} onClose={() => setDraft(null)}>
         {draft && (
           <div className="grid gap-4">
-            <label className="text-xs text-white/60">
+            <label className="text-xs text-muted">
               Title
               <input
                 value={draft.title}
                 onChange={(event) => setDraft({ ...draft, title: event.target.value })}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
               />
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-xs text-white/60">
+              <label className="text-xs text-muted">
                 Start
                 <input
                   type="datetime-local"
                   value={toInputValue(draft.start)}
                   onChange={(event) => setDraft({ ...draft, start: fromInputValue(event.target.value) })}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                  className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                 />
               </label>
-              <label className="text-xs text-white/60">
+              <label className="text-xs text-muted">
                 End
                 <input
                   type="datetime-local"
                   value={toInputValue(draft.end)}
                   onChange={(event) => setDraft({ ...draft, end: fromInputValue(event.target.value) })}
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                  className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                 />
               </label>
             </div>
-            <label className="text-xs text-white/60">
+            <label className="text-xs text-muted">
               Calendar
               <select
                 value={draft.calendarId}
                 onChange={(event) => setDraft({ ...draft, calendarId: event.target.value })}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
               >
-                {activeProfile.calendars.map((calendar) => (
-                  <option key={calendar.id} value={calendar.id} className="bg-[#0f141b]">
+                {calendars.map((calendar) => (
+                  <option key={calendar.id} value={calendar.id} className="bg-panel2">
                     {calendar.name}
                   </option>
                 ))}
               </select>
             </label>
-            <label className="text-xs text-white/60">
+            <label className="text-xs text-muted">
               Location
               <input
                 value={draft.location ?? ''}
                 onChange={(event) => setDraft({ ...draft, location: event.target.value })}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
               />
             </label>
-            <label className="text-xs text-white/60">
+            <label className="text-xs text-muted">
               Notes
               <textarea
                 value={draft.notes ?? ''}
                 onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
-                className="mt-1 min-h-[90px] w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                className="mt-1 min-h-[90px] w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
               />
             </label>
             <div className="flex items-center justify-between">
               <button
                 onClick={handleDeleteEvent}
-                className="rounded-full border border-white/10 px-4 py-2 text-xs text-white/60 transition hover:text-white"
+                className="rounded-full border border-grid px-4 py-2 text-xs text-muted transition hover:text-text"
               >
                 {draft.id ? 'Delete' : 'Cancel'}
               </button>
               <button
                 onClick={handleSaveEvent}
-                className="rounded-full bg-accent px-6 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white shadow-glow transition hover:bg-accentSoft"
+                className="rounded-full bg-accent px-6 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14] shadow-glow transition"
               >
                 Save
               </button>
@@ -409,15 +398,19 @@ const AppPage = () => {
         )}
       </Modal>
       <Modal title="Settings" open={settingsOpen} onClose={() => setSettingsOpen(false)}>
-        <div className="grid gap-3 text-sm text-white/70">
-          <p>Profile: <span className="text-white">{activeProfile.name}</span></p>
-          <p>Profiles stored locally under <span className="text-white">nullcal:v1</span>.</p>
+        <div className="grid gap-3 text-sm text-muted">
+          <p>
+            Profile: <span className="text-text">{activeProfile.name}</span>
+          </p>
+          <p>
+            Storage: <span className="text-text">Local IndexedDB</span>
+          </p>
           <button
             onClick={() => {
               setSettingsOpen(false);
               handleResetProfile();
             }}
-            className="mt-2 rounded-full border border-white/10 px-4 py-2 text-xs text-white/70 transition hover:text-white"
+            className="mt-2 rounded-full border border-grid px-4 py-2 text-xs text-muted transition hover:text-text"
           >
             Reset profile data
           </button>
