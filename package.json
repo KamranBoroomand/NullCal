@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fullcalendar/common": "5.11.5",
+    "@fullcalendar/core": "5.11.5",
     "@fullcalendar/daygrid": "5.11.5",
     "@fullcalendar/interaction": "5.11.5",
     "@fullcalendar/react": "5.11.5",
