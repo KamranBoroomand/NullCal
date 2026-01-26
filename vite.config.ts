@@ -1,8 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const rawBase = process.env.VITE_BASE ?? '/NullCAL/';
+const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+
 export default defineConfig({
-  base: '/NullCAL/',
+  base,
   plugins: [react()],
   build: {
     outDir: 'dist',
