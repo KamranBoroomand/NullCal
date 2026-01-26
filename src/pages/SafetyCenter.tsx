@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import Modal from '../components/Modal';
@@ -43,6 +43,10 @@ const SafetyCenter = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const holdTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    document.title = 'NullCal — Safety Center';
+  }, []);
 
   if (!state) {
     return null;
@@ -200,6 +204,7 @@ const SafetyCenter = () => {
           onCreateProfile={handleCreateProfile}
           onOpenSettings={() => setSettingsOpen(true)}
           onLockNow={lockNow}
+          onHome={() => navigate('/')}
           theme={state.settings.theme}
           onThemeChange={(theme) => updateSettings({ theme })}
           networkLocked={state.settings.networkLock}

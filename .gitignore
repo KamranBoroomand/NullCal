@@ -3,3 +3,8 @@ node_modules
 .DS_Store
 .env
 .env.local
+/public/favicon-16.png
+/public/favicon-32.png
+/public/apple-touch-icon.png
+/public/android-chrome-192.png
+/public/android-chrome-512.png
