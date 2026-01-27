@@ -5,6 +5,10 @@ import ThemeToggle from '../components/ThemeToggle';
 import SecurityBadge from '../components/SecurityBadge';
 import type { ThemeMode } from '../theme/ThemeProvider';
 
+const base = import.meta.env.BASE_URL;
+const mark1x = `${base}mark-128.png?v=3`;
+const mark2x = `${base}mark-256.png?v=3`;
+
 const SettingsIcon = () => (
   <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
     <path
@@ -24,20 +28,6 @@ const ChevronIcon = ({ direction }: { direction: 'left' | 'right' }) => (
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-  </svg>
-);
-
-const BrandMark = () => (
-  <svg viewBox="0 0 64 64" aria-hidden="true">
-    <rect x="4" y="4" width="56" height="56" rx="12" fill="#070A0F" stroke="#141A23" strokeWidth="2" />
-    <rect x="10" y="10" width="44" height="10" rx="3" fill="#F4FF00" />
-    <g stroke="#10151D" strokeWidth="1" opacity="0.9">
-      <line x1="22" y1="22" x2="22" y2="54" />
-      <line x1="42" y1="22" x2="42" y2="54" />
-      <line x1="10" y1="32" x2="54" y2="32" />
-      <line x1="10" y1="44" x2="54" y2="44" />
-    </g>
-    <circle cx="32" cy="38" r="4" fill="#F4FF00" />
   </svg>
 );
 
@@ -105,6 +95,7 @@ const TopBar = ({
 }: TopBarProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const mobileStatusLabel = networkLocked ? 'LOCAL · LOCKED' : 'LOCAL · OPEN';
 
   useEffect(() => {
     if (!menuOpen) {
@@ -120,8 +111,8 @@ const TopBar = ({
   }, [menuOpen]);
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-4 text-sm sm:gap-4 sm:px-6">
-      <div className="flex items-center gap-3">
+    <div className="grid grid-cols-1 items-center gap-3 px-3 py-4 text-sm md:grid-cols-[auto,1fr,auto] md:px-4 lg:px-5">
+      <div className="flex flex-wrap items-center gap-3">
         {onOpenNav && (
           <button
             type="button"
@@ -139,7 +130,14 @@ const TopBar = ({
           aria-label="Go to calendar"
         >
           <span className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8">
-            <BrandMark />
+            <img
+              src={mark2x}
+              srcSet={`${mark1x} 1x, ${mark2x} 2x`}
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full rounded-xl"
+              draggable={false}
+            />
           </span>
           <span className="text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
           <span className="h-0.5 w-6 rounded-full bg-accent/80" />
@@ -162,30 +160,37 @@ const TopBar = ({
             </IconButton>
           </div>
         )}
-      </div>
-      {view && onViewChange && (
-        <div className="flex items-center gap-2 rounded-full border border-grid bg-panel p-1">
-          <button
-            onClick={() => onViewChange('timeGridWeek')}
-            className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
-              view === 'timeGridWeek' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
-            }`}
-          >
-            Week
-          </button>
-          <button
-            onClick={() => onViewChange('dayGridMonth')}
-            className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
-              view === 'dayGridMonth' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
-            }`}
-          >
-            Month
-          </button>
+        {view && onViewChange && (
+          <div className="flex items-center gap-2 rounded-full border border-grid bg-panel p-1">
+            <button
+              onClick={() => onViewChange('timeGridWeek')}
+              className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
+                view === 'timeGridWeek' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
+              }`}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => onViewChange('dayGridMonth')}
+              className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
+                view === 'dayGridMonth' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
+              }`}
+            >
+              Month
+            </button>
+          </div>
+        )}
+        <div className="flex w-full items-center justify-start md:hidden">
+          <span className="rounded-full border border-grid bg-panel px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted">
+            {mobileStatusLabel}
+          </span>
         </div>
-      )}
-      <div className="ml-auto hidden flex-wrap items-center gap-3 md:flex">
+      </div>
+      <div className="hidden items-center justify-start gap-2 md:flex">
         <SecurityBadge networkLocked={networkLocked} />
         <ThemeToggle value={theme} onChange={onThemeChange} />
+      </div>
+      <div className="hidden items-center justify-end gap-3 md:flex">
         <Clock />
         <div className="relative">
           {onSearchChange && (
@@ -234,8 +239,7 @@ const TopBar = ({
           <SettingsIcon />
         </IconButton>
       </div>
-      <div className="relative ml-auto flex items-center gap-2 md:hidden" ref={menuRef}>
-        <SecurityBadge networkLocked={networkLocked} />
+      <div className="relative flex items-center justify-end gap-2 md:hidden" ref={menuRef}>
         <button
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
@@ -245,7 +249,7 @@ const TopBar = ({
           <OverflowIcon />
         </button>
         {menuOpen && (
-          <div className="absolute right-0 top-full z-20 mt-2 w-72 rounded-2xl border border-grid bg-panel p-4 shadow-2xl">
+          <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-2xl border border-grid bg-panel p-4 shadow-2xl">
             <div className="grid gap-3 text-xs text-muted">
               {onSearchChange && (
                 <input
