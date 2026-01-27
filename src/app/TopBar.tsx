@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import IconButton from '../components/IconButton';
 import Clock from '../components/Clock';
 import ThemeToggle from '../components/ThemeToggle';
-import SecurityBadge from '../components/SecurityBadge';
 import type { ThemeMode } from '../theme/ThemeProvider';
 
 const base = import.meta.env.BASE_URL;
@@ -37,14 +37,6 @@ const HamburgerIcon = () => (
   </svg>
 );
 
-const OverflowIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <circle cx="3" cy="8" r="1.4" fill="currentColor" />
-    <circle cx="8" cy="8" r="1.4" fill="currentColor" />
-    <circle cx="13" cy="8" r="1.4" fill="currentColor" />
-  </svg>
-);
-
 const SearchIcon = () => (
   <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
     <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.6" />
@@ -55,6 +47,90 @@ const SearchIcon = () => (
 type ProfileOption = {
   id: string;
   name: string;
+};
+
+type AgentDropdownProps = {
+  options: ProfileOption[];
+  activeId: string;
+  onChange: (id: string) => void;
+  className?: string;
+};
+
+const AgentDropdown = ({ options, activeId, onChange, className }: AgentDropdownProps) => {
+  const reduceMotion = useReducedMotion();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  const activeLabel = options.find((option) => option.id === activeId)?.name ?? 'Agent';
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handleClick = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('click', handleClick);
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('click', handleClick);
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, [open]);
+
+  return (
+    <div className={`relative ${className ?? ''}`} ref={ref}>
+      <motion.button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        whileHover={reduceMotion ? undefined : { y: -2, boxShadow: '0 8px 16px rgba(244, 255, 0, 0.16)' }}
+        whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+        className="h-10 min-w-[140px] rounded-full border border-white/10 bg-panel px-4 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <span className="flex w-full items-center justify-between gap-3">
+          <span className="truncate text-center">{activeLabel}</span>
+          <span className="text-[10px]">▾</span>
+        </span>
+      </motion.button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="menu"
+            initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+            transition={{ duration: 0.18 }}
+            className="absolute right-0 z-40 mt-2 w-52 rounded-2xl border border-grid bg-panel p-2 shadow-2xl"
+          >
+            {options.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onChange(option.id);
+                  setOpen(false);
+                }}
+                className={`w-full rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.2em] transition hover:text-text ${
+                  option.id === activeId ? 'bg-panel2 text-text' : 'text-muted'
+                }`}
+              >
+                {option.name}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };
 
 type TopBarProps = {
@@ -75,7 +151,6 @@ type TopBarProps = {
   onInstall?: () => void;
   theme: ThemeMode;
   onThemeChange: (theme: ThemeMode) => void;
-  networkLocked: boolean;
   onOpenNav?: () => void;
 };
 
@@ -97,291 +172,157 @@ const TopBar = ({
   onInstall,
   theme,
   onThemeChange,
-  networkLocked,
   onOpenNav
 }: TopBarProps) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const searchRef = useRef<HTMLDivElement | null>(null);
+  const reduceMotion = useReducedMotion();
   const pillBase =
-    'h-10 px-4 rounded-full border border-white/10 bg-panel text-sm leading-none inline-flex items-center gap-2 whitespace-nowrap';
-
-  useEffect(() => {
-    if (!menuOpen) {
-      return;
-    }
-    const handleClick = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    window.addEventListener('click', handleClick);
-    return () => window.removeEventListener('click', handleClick);
-  }, [menuOpen]);
-
-  useEffect(() => {
-    if (!searchOpen) {
-      return;
-    }
-    const handleClick = (event: MouseEvent) => {
-      if (!searchRef.current?.contains(event.target as Node)) {
-        setSearchOpen(false);
-      }
-    };
-    window.addEventListener('click', handleClick);
-    return () => window.removeEventListener('click', handleClick);
-  }, [searchOpen]);
+    'h-10 px-4 rounded-full border border-white/10 bg-panel text-sm leading-none inline-flex items-center justify-center gap-2 whitespace-nowrap transition hover:text-text';
+  const pillMotion = reduceMotion
+    ? {}
+    : {
+        whileHover: { y: -2, boxShadow: '0 8px 16px rgba(244, 255, 0, 0.16)' },
+        whileTap: { scale: 0.98 },
+        transition: { duration: 0.16 }
+      };
 
   return (
-    <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[auto,1fr,auto] items-start gap-3 px-4 py-4 text-sm sm:px-6">
-      <div className="flex min-w-0 items-center gap-3">
-        {onOpenNav && (
-          <button
-            type="button"
-            onClick={onOpenNav}
-            className="flex-none rounded-full border border-grid bg-panel px-3 py-2 text-muted transition hover:text-text md:hidden"
-            aria-label="Open navigation"
-          >
-            <span className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8">
-              <img
-                src={mark2x}
-                srcSet={`${mark1x} 1x, ${mark2x} 2x`}
-                alt=""
-                aria-hidden="true"
-                className="h-full w-full rounded-xl"
-                draggable={false}
-              />
-            </span>
-            <span className="text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
-            <span className="h-0.5 w-6 rounded-full bg-accent/80" />
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onHome}
-          className="flex flex-none flex-col items-center gap-1 rounded-2xl border border-grid bg-panel px-3 py-2 text-text transition hover:border-accent/60"
-          aria-label="Go to calendar"
-        >
-          <span className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8">
-            <img
-              src={mark2x}
-              srcSet={`${mark1x} 1x, ${mark2x} 2x`}
-              alt=""
-              aria-hidden="true"
-              className="h-full w-full rounded-xl"
-              draggable={false}
-            />
-          </span>
-          <span className="text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
-          <span className="h-0.5 w-6 rounded-full bg-accent/80" />
-        </button>
-        {onToday && (
-          <button
-            onClick={onToday}
-            className={`${pillBase} uppercase tracking-[0.2em] text-muted transition hover:text-text`}
-          >
-            Today
-          </button>
-        )}
-        {view && onViewChange && (
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onViewChange('timeGridWeek')}
-                className={`${pillBase} uppercase tracking-[0.2em] transition ${
-                  view === 'timeGridWeek' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
-                }`}
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-4 text-sm sm:px-6">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {onOpenNav && (
+              <motion.button
+                type="button"
+                onClick={onOpenNav}
+                className="flex-none rounded-full border border-grid bg-panel px-3 py-2 text-muted transition hover:text-text md:hidden"
+                aria-label="Open navigation"
+                {...pillMotion}
               >
-                Week
-              </button>
-              <button
-                onClick={() => onViewChange('dayGridMonth')}
-                className={`${pillBase} uppercase tracking-[0.2em] transition ${
-                  view === 'dayGridMonth' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
-                }`}
-              >
-                Month
-              </button>
-            </div>
-            {onPrev && onNext && (
-              <div className="hidden items-center gap-2 lg:flex">
-                <IconButton label="Previous" onClick={onPrev}>
-                  <ChevronIcon direction="left" />
-                </IconButton>
-                <IconButton label="Next" onClick={onNext}>
-                  <ChevronIcon direction="right" />
-                </IconButton>
-              </div>
+                <HamburgerIcon />
+              </motion.button>
             )}
-          </div>
-        )}
-      </div>
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="flex-none">
-          <SecurityBadge networkLocked={networkLocked} />
-        </div>
-      </div>
-      <div className="flex min-w-0 flex-col items-end gap-2">
-        <div className="flex min-w-0 items-center gap-2 flex-none">
-          <div className="hidden flex-1 min-w-0 max-w-[260px] shrink lg:flex xl:max-w-[320px]">
-            {onSearchChange && (
-              <div className={`${pillBase} w-full min-w-0 overflow-hidden`}>
-                <span className="flex-none text-muted">
-                  <SearchIcon />
-                </span>
-                <input
-                  value={search}
-                  onChange={(event) => onSearchChange(event.target.value)}
-                  placeholder="Search events"
-                  className="w-full min-w-0 bg-transparent text-sm leading-none text-muted placeholder:text-muted/70 focus:outline-none"
+            <motion.button
+              type="button"
+              onClick={onHome}
+              className="flex flex-none flex-col items-center gap-1 rounded-2xl border border-grid bg-panel px-3 py-2 text-text transition hover:border-accent/60"
+              aria-label="Go to calendar"
+              {...pillMotion}
+            >
+              <span className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8">
+                <img
+                  src={mark2x}
+                  srcSet={`${mark1x} 1x, ${mark2x} 2x`}
+                  alt=""
+                  aria-hidden="true"
+                  className="h-full w-full rounded-xl"
+                  draggable={false}
                 />
-              </div>
+              </span>
+              <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">
+                NullCal
+              </span>
+              <span className="h-0.5 w-6 rounded-full bg-accent/80" />
+            </motion.button>
+            {onToday && (
+              <motion.button
+                onClick={onToday}
+                className={`${pillBase} uppercase tracking-[0.2em] text-muted`}
+                {...pillMotion}
+              >
+                Today
+              </motion.button>
             )}
-          </div>
-          <div className="relative lg:hidden" ref={searchRef}>
-            {onSearchChange && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setSearchOpen((open) => !open)}
-                  className={`${pillBase} px-3 text-muted transition hover:text-text`}
-                  aria-label="Open search"
-                >
-                  <SearchIcon />
-                </button>
-                {searchOpen && (
-                  <div className="absolute right-0 top-full z-30 mt-2 w-60">
-                    <div className={`${pillBase} w-full min-w-0 overflow-hidden`}>
-                      <span className="flex-none text-muted">
-                        <SearchIcon />
-                      </span>
-                      <input
-                        value={search}
-                        onChange={(event) => onSearchChange(event.target.value)}
-                        placeholder="Search events"
-                        className="w-full min-w-0 bg-transparent text-sm leading-none text-muted placeholder:text-muted/70 focus:outline-none"
-                        autoFocus
-                      />
-                    </div>
+            {view && onViewChange && (
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <motion.button
+                    onClick={() => onViewChange('timeGridWeek')}
+                    className={`${pillBase} uppercase tracking-[0.2em] transition ${
+                      view === 'timeGridWeek' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
+                    }`}
+                    {...pillMotion}
+                  >
+                    Week
+                  </motion.button>
+                  <motion.button
+                    onClick={() => onViewChange('dayGridMonth')}
+                    className={`${pillBase} uppercase tracking-[0.2em] transition ${
+                      view === 'dayGridMonth' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
+                    }`}
+                    {...pillMotion}
+                  >
+                    Month
+                  </motion.button>
+                </div>
+                {onPrev && onNext && (
+                  <div className="flex items-center gap-2">
+                    <IconButton label="Previous" onClick={onPrev}>
+                      <ChevronIcon direction="left" />
+                    </IconButton>
+                    <IconButton label="Next" onClick={onNext}>
+                      <ChevronIcon direction="right" />
+                    </IconButton>
                   </div>
                 )}
-              </>
-            )}
-          </div>
-          <div className="hidden items-center gap-2 md:flex">
-            <div className={`${pillBase} relative w-[120px] flex-none px-3`}>
-              <select
-                value={activeProfileId}
-                onChange={(event) => onProfileChange(event.target.value)}
-                className="h-full w-full appearance-none bg-transparent pr-6 text-sm leading-none text-muted outline-none"
-              >
-                {profiles.map((profile) => (
-                  <option key={profile.id} value={profile.id} className="bg-panel2">
-                    {profile.name}
-                  </option>
-                ))}
-              </select>
-              <span className="pointer-events-none absolute right-3 text-muted">▾</span>
-            </div>
-            <button
-              onClick={onCreateProfile}
-              className={`${pillBase} hidden flex-none text-muted transition hover:text-text lg:inline-flex`}
-            >
-              + Profile
-            </button>
-          </div>
-          {onInstall && (
-            <button
-              onClick={onInstall}
-              className="hidden flex-none whitespace-nowrap rounded-full border border-accent/40 bg-panel px-4 py-2 text-xs uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text md:inline-flex"
-            >
-              Install
-            </button>
-          )}
-          <button
-            onClick={onLockNow}
-            className={`${pillBase} uppercase tracking-[0.2em] text-muted transition hover:text-text`}
-          >
-            Lock now
-          </button>
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            className={`${pillBase} px-3 text-muted transition hover:text-text`}
-            aria-label="Settings"
-          >
-            <SettingsIcon />
-          </button>
-          <ThemeToggle value={theme} onChange={onThemeChange} className={pillBase} />
-          <div className="relative md:hidden" ref={menuRef}>
-            <button
-              type="button"
-              onClick={() => setMenuOpen((open) => !open)}
-              className="rounded-full border border-grid bg-panel px-3 py-2 text-muted transition hover:text-text"
-              aria-label="Open menu"
-            >
-              <OverflowIcon />
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-2xl border border-grid bg-panel p-4 shadow-2xl">
-                <div className="grid gap-3 text-xs text-muted">
-                  {onSearchChange && (
-                    <input
-                      value={search}
-                      onChange={(event) => onSearchChange(event.target.value)}
-                      placeholder="Search events"
-                      className="h-10 w-full rounded-full border border-grid bg-panel2 px-4 text-xs text-muted placeholder:text-muted/70 focus:outline-none focus:ring-2 focus:ring-accent/40"
-                    />
-                  )}
-                  <div className="grid gap-2">
-                    <select
-                      value={activeProfileId}
-                      onChange={(event) => onProfileChange(event.target.value)}
-                      className="h-10 rounded-full border border-grid bg-panel2 px-3 text-xs text-muted"
-                    >
-                      {profiles.map((profile) => (
-                        <option key={profile.id} value={profile.id} className="bg-panel2">
-                          {profile.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => {
-                        onCreateProfile();
-                        setMenuOpen(false);
-                      }}
-                      className="h-10 rounded-full border border-grid bg-panel2 px-3 text-xs text-muted transition hover:text-text"
-                    >
-                      + Profile
-                    </button>
-                  </div>
-                  {onInstall && (
-                    <button
-                      onClick={() => {
-                        onInstall();
-                        setMenuOpen(false);
-                      }}
-                      className="rounded-full border border-accent/40 px-3 py-2 text-xs uppercase tracking-[0.2em] text-accent"
-                    >
-                      Install
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      onOpenSettings();
-                      setMenuOpen(false);
-                    }}
-                    className="rounded-full border border-grid px-3 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                  >
-                    Settings
-                  </button>
-                </div>
               </div>
             )}
           </div>
+
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            {onSearchChange && (
+              <div className="min-w-[180px] max-w-[240px] flex-1">
+                <motion.div className={`${pillBase} w-full min-w-0 overflow-hidden text-muted`} {...pillMotion}>
+                  <span className="flex-none text-muted">
+                    <SearchIcon />
+                  </span>
+                  <input
+                    value={search}
+                    onChange={(event) => onSearchChange(event.target.value)}
+                    placeholder="Search events"
+                    className="w-full min-w-0 bg-transparent text-sm leading-none text-muted placeholder:text-muted/70 focus:outline-none"
+                  />
+                </motion.div>
+              </div>
+            )}
+            <AgentDropdown options={profiles} activeId={activeProfileId} onChange={onProfileChange} />
+            <motion.button
+              onClick={onCreateProfile}
+              className={`${pillBase} text-xs uppercase tracking-[0.2em] text-muted`}
+              {...pillMotion}
+            >
+              + Profile
+            </motion.button>
+            {onInstall && (
+              <motion.button
+                onClick={onInstall}
+                className="flex-none whitespace-nowrap rounded-full border border-accent/40 bg-panel px-4 py-2 text-xs uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text"
+                {...pillMotion}
+              >
+                Install
+              </motion.button>
+            )}
+            <motion.button
+              onClick={onLockNow}
+              className={`${pillBase} uppercase tracking-[0.2em] text-muted`}
+              {...pillMotion}
+            >
+              Lock now
+            </motion.button>
+            <motion.button
+              type="button"
+              onClick={onOpenSettings}
+              className={`${pillBase} px-3 text-muted`}
+              aria-label="Settings"
+              {...pillMotion}
+            >
+              <SettingsIcon />
+            </motion.button>
+            <div className="ml-auto">
+              <ThemeToggle value={theme} onChange={onThemeChange} className="h-10" />
+            </div>
+          </div>
         </div>
-        <div className="hidden w-full items-center justify-end text-right md:flex">
+        <div className="flex w-full items-center justify-end text-right">
           <Clock />
         </div>
       </div>

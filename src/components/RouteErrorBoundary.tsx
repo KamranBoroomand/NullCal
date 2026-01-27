@@ -1,16 +1,16 @@
 import type { ReactNode } from 'react';
 import { Component } from 'react';
 
-type CalendarErrorBoundaryProps = {
+type RouteErrorBoundaryProps = {
   children: ReactNode;
 };
 
-type CalendarErrorBoundaryState = {
+type RouteErrorBoundaryState = {
   hasError: boolean;
 };
 
-class CalendarErrorBoundary extends Component<CalendarErrorBoundaryProps, CalendarErrorBoundaryState> {
-  state: CalendarErrorBoundaryState = { hasError: false };
+class RouteErrorBoundary extends Component<RouteErrorBoundaryProps, RouteErrorBoundaryState> {
+  state: RouteErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError() {
     return { hasError: true };
@@ -20,10 +20,10 @@ class CalendarErrorBoundary extends Component<CalendarErrorBoundaryProps, Calend
     if (this.state.hasError) {
       return (
         <div className="photon-panel rounded-3xl p-6 text-center">
-          <p className="text-xs uppercase tracking-[0.3em] text-muted">Calendar</p>
-          <h2 className="mt-3 text-xl font-semibold text-text">Calendar failed to load</h2>
+          <p className="text-xs uppercase tracking-[0.3em] text-muted">NullCal</p>
+          <h2 className="mt-3 text-xl font-semibold text-text">NullCal hit an unexpected error</h2>
           <p className="mt-2 text-sm text-muted">
-            Something went wrong while rendering the calendar. Reload the page to try again.
+            Something went wrong while rendering this view. Reload the page to try again.
           </p>
           <button
             type="button"
@@ -40,4 +40,4 @@ class CalendarErrorBoundary extends Component<CalendarErrorBoundaryProps, Calend
   }
 }
 
-export default CalendarErrorBoundary;
+export default RouteErrorBoundary;

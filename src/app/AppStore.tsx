@@ -78,8 +78,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     if (!state) {
       return;
     }
-    applyNetworkLock(state.settings.networkLock);
-  }, [state?.settings.networkLock]);
+    applyNetworkLock(true);
+  }, [state]);
 
   useEffect(() => {
     if (!state) {
@@ -142,7 +142,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         ...prev,
         settings: {
           ...prev.settings,
-          ...updates
+          ...updates,
+          networkLock: true
         }
       };
     });
