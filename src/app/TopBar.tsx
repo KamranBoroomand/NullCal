@@ -5,6 +5,10 @@ import ThemeToggle from '../components/ThemeToggle';
 import SecurityBadge from '../components/SecurityBadge';
 import type { ThemeMode } from '../theme/ThemeProvider';
 
+const base = import.meta.env.BASE_URL;
+const mark1x = `${base}mark-128.png?v=3`;
+const mark2x = `${base}mark-256.png?v=3`;
+
 const SettingsIcon = () => (
   <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
     <path
@@ -24,20 +28,6 @@ const ChevronIcon = ({ direction }: { direction: 'left' | 'right' }) => (
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-  </svg>
-);
-
-const BrandMark = () => (
-  <svg viewBox="0 0 64 64" aria-hidden="true">
-    <rect x="4" y="4" width="56" height="56" rx="12" fill="#070A0F" stroke="#141A23" strokeWidth="2" />
-    <rect x="10" y="10" width="44" height="10" rx="3" fill="#F4FF00" />
-    <g stroke="#10151D" strokeWidth="1" opacity="0.9">
-      <line x1="22" y1="22" x2="22" y2="54" />
-      <line x1="42" y1="22" x2="42" y2="54" />
-      <line x1="10" y1="32" x2="54" y2="32" />
-      <line x1="10" y1="44" x2="54" y2="44" />
-    </g>
-    <circle cx="32" cy="38" r="4" fill="#F4FF00" />
   </svg>
 );
 
@@ -139,7 +129,14 @@ const TopBar = ({
           aria-label="Go to calendar"
         >
           <span className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8">
-            <BrandMark />
+            <img
+              src={mark2x}
+              srcSet={`${mark1x} 1x, ${mark2x} 2x`}
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full rounded-xl"
+              draggable={false}
+            />
           </span>
           <span className="text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
           <span className="h-0.5 w-6 rounded-full bg-accent/80" />
