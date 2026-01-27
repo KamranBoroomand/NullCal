@@ -8,7 +8,6 @@ import AppShell from '../app/AppShell';
 import TopBar from '../app/TopBar';
 import SideBar from '../app/SideBar';
 import { encryptPayload } from '../security/encryption';
-import { canonicalSnapshot, hashSnapshot } from '../security/fingerprint';
 
 const formatDate = (value?: string) => {
   if (!value) {
@@ -51,8 +50,6 @@ const SafetyCenter = () => {
   const [wipedImportOpen, setWipedImportOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [includeSettings, setIncludeSettings] = useState(false);
-  const [fingerprint, setFingerprint] = useState<string | null>(null);
-  const [fingerprintLoading, setFingerprintLoading] = useState(false);
   const holdTimer = useRef<number | null>(null);
   const [searchParams] = useSearchParams();
 
