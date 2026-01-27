@@ -110,13 +110,13 @@ const TopBar = ({
   }, [menuOpen]);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[auto,1fr,auto] items-center gap-3 px-4 py-4 text-sm sm:px-6">
-      <div className="flex flex-nowrap items-center gap-3">
+    <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[auto,1fr,auto] items-start gap-3 px-4 py-4 text-sm sm:px-6">
+      <div className="flex min-w-0 items-center gap-3">
         {onOpenNav && (
           <button
             type="button"
             onClick={onOpenNav}
-            className="rounded-full border border-grid bg-panel px-3 py-2 text-muted transition hover:text-text md:hidden"
+            className="flex-none rounded-full border border-grid bg-panel px-3 py-2 text-muted transition hover:text-text md:hidden"
             aria-label="Open navigation"
           >
             <HamburgerIcon />
@@ -125,7 +125,7 @@ const TopBar = ({
         <button
           type="button"
           onClick={onHome}
-          className="flex flex-col items-center gap-1 rounded-2xl border border-grid bg-panel px-3 py-2 text-text transition hover:border-accent/60"
+          className="flex flex-none flex-col items-center gap-1 rounded-2xl border border-grid bg-panel px-3 py-2 text-text transition hover:border-accent/60"
           aria-label="Go to calendar"
         >
           <span className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8">
@@ -144,159 +144,169 @@ const TopBar = ({
         {onToday && (
           <button
             onClick={onToday}
-            className="rounded-full border border-grid bg-panel px-3 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
+            className="flex h-10 items-center whitespace-nowrap rounded-full border border-grid bg-panel px-4 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
           >
             Today
           </button>
         )}
-        {onPrev && onNext && (
-          <div className="hidden items-center gap-2 lg:flex">
-            <IconButton label="Previous" onClick={onPrev}>
-              <ChevronIcon direction="left" />
-            </IconButton>
-            <IconButton label="Next" onClick={onNext}>
-              <ChevronIcon direction="right" />
-            </IconButton>
-          </div>
-        )}
         {view && onViewChange && (
-          <div className="flex items-center gap-2 rounded-full border border-grid bg-panel p-1">
-            <button
-              onClick={() => onViewChange('timeGridWeek')}
-              className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
-                view === 'timeGridWeek' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
-              }`}
-            >
-              Week
-            </button>
-            <button
-              onClick={() => onViewChange('dayGridMonth')}
-              className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
-                view === 'dayGridMonth' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
-              }`}
-            >
-              Month
-            </button>
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex h-10 items-center gap-2 rounded-full border border-grid bg-panel px-1 whitespace-nowrap">
+              <button
+                onClick={() => onViewChange('timeGridWeek')}
+                className={`flex h-10 items-center whitespace-nowrap rounded-full px-4 text-xs uppercase tracking-[0.2em] transition ${
+                  view === 'timeGridWeek' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
+                }`}
+              >
+                Week
+              </button>
+              <button
+                onClick={() => onViewChange('dayGridMonth')}
+                className={`flex h-10 items-center whitespace-nowrap rounded-full px-4 text-xs uppercase tracking-[0.2em] transition ${
+                  view === 'dayGridMonth' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
+                }`}
+              >
+                Month
+              </button>
+            </div>
+            {onPrev && onNext && (
+              <div className="hidden items-center gap-2 lg:flex">
+                <IconButton label="Previous" onClick={onPrev}>
+                  <ChevronIcon direction="left" />
+                </IconButton>
+                <IconButton label="Next" onClick={onNext}>
+                  <ChevronIcon direction="right" />
+                </IconButton>
+              </div>
+            )}
           </div>
         )}
       </div>
-      <div className="flex min-w-0 items-center justify-start gap-2">
-        <SecurityBadge networkLocked={networkLocked} />
-        <ThemeToggle value={theme} onChange={onThemeChange} />
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex-none">
+          <SecurityBadge networkLocked={networkLocked} />
+        </div>
       </div>
-      <div className="flex flex-nowrap items-center justify-end gap-2 md:gap-3">
-        <Clock />
-        <div className="relative hidden md:block">
-          {onSearchChange && (
-            <input
-              value={search}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Search events"
-              className="h-10 w-44 rounded-full border border-grid bg-panel px-4 text-xs text-muted placeholder:text-muted/70 focus:outline-none focus:ring-2 focus:ring-accent/40 md:w-48"
-            />
+      <div className="flex min-w-0 flex-col items-end gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="hidden min-w-[160px] max-w-[260px] w-[240px] shrink md:block">
+            {onSearchChange && (
+              <input
+                value={search}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Search events"
+                className="h-10 w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-grid bg-panel px-4 text-xs text-muted placeholder:text-muted/70 focus:outline-none focus:ring-2 focus:ring-accent/40"
+              />
+            )}
+          </div>
+          <div className="hidden items-center gap-2 md:flex">
+            <select
+              value={activeProfileId}
+              onChange={(event) => onProfileChange(event.target.value)}
+              className="h-10 w-[120px] flex-none whitespace-nowrap rounded-full border border-grid bg-panel px-3 text-xs text-muted"
+            >
+              {profiles.map((profile) => (
+                <option key={profile.id} value={profile.id} className="bg-panel2">
+                  {profile.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={onCreateProfile}
+              className="hidden h-10 flex-none whitespace-nowrap rounded-full border border-grid bg-panel px-4 text-xs text-muted transition hover:text-text lg:inline-flex"
+            >
+              + Profile
+            </button>
+          </div>
+          {onInstall && (
+            <button
+              onClick={onInstall}
+              className="hidden flex-none whitespace-nowrap rounded-full border border-accent/40 bg-panel px-4 py-2 text-xs uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text md:inline-flex"
+            >
+              Install
+            </button>
           )}
-        </div>
-        <div className="hidden items-center gap-2 md:flex">
-          <select
-            value={activeProfileId}
-            onChange={(event) => onProfileChange(event.target.value)}
-            className="h-10 rounded-full border border-grid bg-panel px-3 text-xs text-muted"
-          >
-            {profiles.map((profile) => (
-              <option key={profile.id} value={profile.id} className="bg-panel2">
-                {profile.name}
-              </option>
-            ))}
-          </select>
           <button
-            onClick={onCreateProfile}
-            className="h-10 rounded-full border border-grid bg-panel px-3 text-xs text-muted transition hover:text-text"
+            onClick={onLockNow}
+            className="flex h-10 items-center whitespace-nowrap rounded-full border border-grid bg-panel px-4 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
           >
-            + Profile
+            Lock now
           </button>
-        </div>
-        {onInstall && (
-          <button
-            onClick={onInstall}
-            className="hidden rounded-full border border-accent/40 bg-panel px-3 py-2 text-xs uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text md:inline-flex"
-          >
-            Install
-          </button>
-        )}
-        <button
-          onClick={onLockNow}
-          className="rounded-full border border-grid bg-panel px-3 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
-        >
-          Lock now
-        </button>
-        <IconButton label="Settings" onClick={onOpenSettings}>
-          <SettingsIcon />
-        </IconButton>
-        <div className="relative md:hidden" ref={menuRef}>
-          <button
-            type="button"
-            onClick={() => setMenuOpen((open) => !open)}
-            className="rounded-full border border-grid bg-panel px-3 py-2 text-muted transition hover:text-text"
-            aria-label="Open menu"
-          >
-            <OverflowIcon />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-2xl border border-grid bg-panel p-4 shadow-2xl">
-              <div className="grid gap-3 text-xs text-muted">
-                {onSearchChange && (
-                  <input
-                    value={search}
-                    onChange={(event) => onSearchChange(event.target.value)}
-                    placeholder="Search events"
-                    className="h-10 w-full rounded-full border border-grid bg-panel2 px-4 text-xs text-muted placeholder:text-muted/70 focus:outline-none focus:ring-2 focus:ring-accent/40"
-                  />
-                )}
-                <div className="grid gap-2">
-                  <select
-                    value={activeProfileId}
-                    onChange={(event) => onProfileChange(event.target.value)}
-                    className="h-10 rounded-full border border-grid bg-panel2 px-3 text-xs text-muted"
-                  >
-                    {profiles.map((profile) => (
-                      <option key={profile.id} value={profile.id} className="bg-panel2">
-                        {profile.name}
-                      </option>
-                    ))}
-                  </select>
+          <div className="flex-none">
+            <IconButton label="Settings" onClick={onOpenSettings}>
+              <SettingsIcon />
+            </IconButton>
+          </div>
+          <ThemeToggle value={theme} onChange={onThemeChange} />
+          <div className="relative md:hidden" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              className="rounded-full border border-grid bg-panel px-3 py-2 text-muted transition hover:text-text"
+              aria-label="Open menu"
+            >
+              <OverflowIcon />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-2xl border border-grid bg-panel p-4 shadow-2xl">
+                <div className="grid gap-3 text-xs text-muted">
+                  {onSearchChange && (
+                    <input
+                      value={search}
+                      onChange={(event) => onSearchChange(event.target.value)}
+                      placeholder="Search events"
+                      className="h-10 w-full rounded-full border border-grid bg-panel2 px-4 text-xs text-muted placeholder:text-muted/70 focus:outline-none focus:ring-2 focus:ring-accent/40"
+                    />
+                  )}
+                  <div className="grid gap-2">
+                    <select
+                      value={activeProfileId}
+                      onChange={(event) => onProfileChange(event.target.value)}
+                      className="h-10 rounded-full border border-grid bg-panel2 px-3 text-xs text-muted"
+                    >
+                      {profiles.map((profile) => (
+                        <option key={profile.id} value={profile.id} className="bg-panel2">
+                          {profile.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => {
+                        onCreateProfile();
+                        setMenuOpen(false);
+                      }}
+                      className="h-10 rounded-full border border-grid bg-panel2 px-3 text-xs text-muted transition hover:text-text"
+                    >
+                      + Profile
+                    </button>
+                  </div>
+                  {onInstall && (
+                    <button
+                      onClick={() => {
+                        onInstall();
+                        setMenuOpen(false);
+                      }}
+                      className="rounded-full border border-accent/40 px-3 py-2 text-xs uppercase tracking-[0.2em] text-accent"
+                    >
+                      Install
+                    </button>
+                  )}
                   <button
                     onClick={() => {
-                      onCreateProfile();
+                      onOpenSettings();
                       setMenuOpen(false);
                     }}
-                    className="h-10 rounded-full border border-grid bg-panel2 px-3 text-xs text-muted transition hover:text-text"
+                    className="rounded-full border border-grid px-3 py-2 text-xs uppercase tracking-[0.2em] text-muted"
                   >
-                    + Profile
+                    Settings
                   </button>
                 </div>
-                {onInstall && (
-                  <button
-                    onClick={() => {
-                      onInstall();
-                      setMenuOpen(false);
-                    }}
-                    className="rounded-full border border-accent/40 px-3 py-2 text-xs uppercase tracking-[0.2em] text-accent"
-                  >
-                    Install
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    onOpenSettings();
-                    setMenuOpen(false);
-                  }}
-                  className="rounded-full border border-grid px-3 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                >
-                  Settings
-                </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        </div>
+        <div className="hidden items-center justify-end md:flex">
+          <Clock />
         </div>
       </div>
     </div>

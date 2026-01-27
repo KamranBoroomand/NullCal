@@ -7,6 +7,7 @@ import { useToast } from '../components/ToastProvider';
 import AppShell from '../app/AppShell';
 import TopBar from '../app/TopBar';
 import SideBar from '../app/SideBar';
+import { encryptPayload } from '../security/encryption';
 
 const formatDate = (value?: string) => {
   if (!value) {
@@ -48,6 +49,7 @@ const SafetyCenter = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [wipedImportOpen, setWipedImportOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  const [includeSettings, setIncludeSettings] = useState(false);
   const holdTimer = useRef<number | null>(null);
   const [searchParams] = useSearchParams();
 
@@ -152,6 +154,12 @@ const SafetyCenter = () => {
     }
     return state.calendars.filter((calendar) => calendar.profileId === activeProfile.id);
   }, [activeProfile, state.calendars]);
+  const events = useMemo(() => {
+    if (!activeProfile) {
+      return [];
+    }
+    return state.events.filter((event) => event.profileId === activeProfile.id);
+  }, [activeProfile, state.events]);
 
   const handleCreateProfile = () => {
     const name = window.prompt('Profile name');
@@ -204,6 +212,82 @@ const SafetyCenter = () => {
       notify('Backup imported successfully.', 'success');
     } catch {
       notify('Import failed.', 'error');
+    }
+  };
+
+  const buildZeroMetadataPayload = () => {
+    const basePayload = {
+      schemaVersion: 1,
+      calendars: calendars.map((calendar) => ({
+        id: calendar.id,
+        name: calendar.name,
+        color: calendar.color,
+        isVisible: calendar.isVisible
+      })),
+      events: events.map((event) => ({
+        id: event.id,
+        calendarId: event.calendarId,
+        title: event.title,
+        start: event.start,
+        end: event.end,
+        allDay: (event as typeof event & { allDay?: boolean }).allDay,
+        location: event.location,
+        notes: event.notes
+      }))
+    };
+
+    if (!includeSettings) {
+      return basePayload;
+    }
+
+    return {
+      ...basePayload,
+      settings: {
+        theme: state.settings.theme,
+        activeProfileId: state.settings.activeProfileId,
+        networkLock: state.settings.networkLock,
+        secureMode: state.settings.secureMode,
+        blurSensitive: state.settings.blurSensitive,
+        scanlines: state.settings.scanlines,
+        autoLockMinutes: state.settings.autoLockMinutes
+      }
+    };
+  };
+
+  const handleZeroMetadataExport = () => {
+    try {
+      const payload = buildZeroMetadataPayload();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `nullcal-zero-metadata-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      notify('Zero-metadata export saved.', 'success');
+    } catch {
+      notify('Zero-metadata export failed.', 'error');
+    }
+  };
+
+  const handleZeroMetadataEncryptedExport = async () => {
+    if (!exportPassphrase || exportPassphrase !== exportConfirm) {
+      notify('Passphrases do not match.', 'error');
+      return;
+    }
+    try {
+      const payload = buildZeroMetadataPayload();
+      const encryptedPayload = await encryptPayload(payload, exportPassphrase);
+      const blob = new Blob([JSON.stringify(encryptedPayload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `nullcal-zero-metadata-encrypted-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      notify('Encrypted (zero-metadata) backup exported.', 'success');
+    } catch {
+      notify('Encrypted zero-metadata export failed.', 'error');
     }
   };
 
@@ -473,6 +557,37 @@ const SafetyCenter = () => {
               >
                 Export encrypted
               </button>
+            </div>
+            <div className="mt-5 border-t border-grid pt-4">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Zero-metadata export</p>
+              <p className="mt-2 text-xs text-muted">
+                Exports only calendars and events (no timestamps, devices, or security settings).
+              </p>
+              <label className="mt-3 flex items-center gap-2 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={includeSettings}
+                  onChange={(event) => setIncludeSettings(event.target.checked)}
+                  className="h-4 w-4 rounded border border-grid bg-panel2"
+                />
+                Include settings (optional)
+              </label>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleZeroMetadataExport}
+                  className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                >
+                  Zero-metadata export
+                </button>
+                <button
+                  type="button"
+                  onClick={handleZeroMetadataEncryptedExport}
+                  className="rounded-full border border-accent/40 bg-panel px-4 py-2 text-xs uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text"
+                >
+                  Encrypted (zero-metadata) backup
+                </button>
+              </div>
             </div>
             <div className="mt-5 border-t border-grid pt-4">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Import Backup</p>
