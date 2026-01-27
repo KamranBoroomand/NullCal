@@ -45,6 +45,13 @@ const OverflowIcon = () => (
   </svg>
 );
 
+const SearchIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.6" />
+    <path d="m13.5 13.5 3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);
+
 type ProfileOption = {
   id: string;
   name: string;
@@ -94,7 +101,11 @@ const TopBar = ({
   onOpenNav
 }: TopBarProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const searchRef = useRef<HTMLDivElement | null>(null);
+  const pillBase =
+    'h-10 px-4 rounded-full border border-white/10 bg-panel text-sm leading-none inline-flex items-center gap-2 whitespace-nowrap';
 
   useEffect(() => {
     if (!menuOpen) {
@@ -108,6 +119,19 @@ const TopBar = ({
     window.addEventListener('click', handleClick);
     return () => window.removeEventListener('click', handleClick);
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (!searchOpen) {
+      return;
+    }
+    const handleClick = (event: MouseEvent) => {
+      if (!searchRef.current?.contains(event.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
+  }, [searchOpen]);
 
   return (
     <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[auto,1fr,auto] items-start gap-3 px-4 py-4 text-sm sm:px-6">
@@ -155,17 +179,17 @@ const TopBar = ({
         {onToday && (
           <button
             onClick={onToday}
-            className="flex h-10 items-center whitespace-nowrap rounded-full border border-grid bg-panel px-4 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
+            className={`${pillBase} uppercase tracking-[0.2em] text-muted transition hover:text-text`}
           >
             Today
           </button>
         )}
         {view && onViewChange && (
           <div className="flex flex-col items-center gap-2">
-            <div className="flex h-10 items-center gap-2 rounded-full border border-grid bg-panel px-1 whitespace-nowrap">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => onViewChange('timeGridWeek')}
-                className={`flex h-10 items-center whitespace-nowrap rounded-full px-4 text-xs uppercase tracking-[0.2em] transition ${
+                className={`${pillBase} uppercase tracking-[0.2em] transition ${
                   view === 'timeGridWeek' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
                 }`}
               >
@@ -173,7 +197,7 @@ const TopBar = ({
               </button>
               <button
                 onClick={() => onViewChange('dayGridMonth')}
-                className={`flex h-10 items-center whitespace-nowrap rounded-full px-4 text-xs uppercase tracking-[0.2em] transition ${
+                className={`${pillBase} uppercase tracking-[0.2em] transition ${
                   view === 'dayGridMonth' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
                 }`}
               >
@@ -199,32 +223,70 @@ const TopBar = ({
         </div>
       </div>
       <div className="flex min-w-0 flex-col items-end gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="hidden min-w-[160px] max-w-[260px] w-[240px] shrink md:block">
+        <div className="flex min-w-0 items-center gap-2 flex-none">
+          <div className="hidden flex-1 min-w-0 max-w-[260px] shrink lg:flex xl:max-w-[320px]">
             {onSearchChange && (
-              <input
-                value={search}
-                onChange={(event) => onSearchChange(event.target.value)}
-                placeholder="Search events"
-                className="h-10 w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-grid bg-panel px-4 text-xs text-muted placeholder:text-muted/70 focus:outline-none focus:ring-2 focus:ring-accent/40"
-              />
+              <div className={`${pillBase} w-full min-w-0 overflow-hidden`}>
+                <span className="flex-none text-muted">
+                  <SearchIcon />
+                </span>
+                <input
+                  value={search}
+                  onChange={(event) => onSearchChange(event.target.value)}
+                  placeholder="Search events"
+                  className="w-full min-w-0 bg-transparent text-sm leading-none text-muted placeholder:text-muted/70 focus:outline-none"
+                />
+              </div>
+            )}
+          </div>
+          <div className="relative lg:hidden" ref={searchRef}>
+            {onSearchChange && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen((open) => !open)}
+                  className={`${pillBase} px-3 text-muted transition hover:text-text`}
+                  aria-label="Open search"
+                >
+                  <SearchIcon />
+                </button>
+                {searchOpen && (
+                  <div className="absolute right-0 top-full z-30 mt-2 w-60">
+                    <div className={`${pillBase} w-full min-w-0 overflow-hidden`}>
+                      <span className="flex-none text-muted">
+                        <SearchIcon />
+                      </span>
+                      <input
+                        value={search}
+                        onChange={(event) => onSearchChange(event.target.value)}
+                        placeholder="Search events"
+                        className="w-full min-w-0 bg-transparent text-sm leading-none text-muted placeholder:text-muted/70 focus:outline-none"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
           <div className="hidden items-center gap-2 md:flex">
-            <select
-              value={activeProfileId}
-              onChange={(event) => onProfileChange(event.target.value)}
-              className="h-10 w-[120px] flex-none whitespace-nowrap rounded-full border border-grid bg-panel px-3 text-xs text-muted"
-            >
-              {profiles.map((profile) => (
-                <option key={profile.id} value={profile.id} className="bg-panel2">
-                  {profile.name}
-                </option>
-              ))}
-            </select>
+            <div className={`${pillBase} relative w-[120px] flex-none px-3`}>
+              <select
+                value={activeProfileId}
+                onChange={(event) => onProfileChange(event.target.value)}
+                className="h-full w-full appearance-none bg-transparent pr-6 text-sm leading-none text-muted outline-none"
+              >
+                {profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id} className="bg-panel2">
+                    {profile.name}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-3 text-muted">▾</span>
+            </div>
             <button
               onClick={onCreateProfile}
-              className="hidden h-10 flex-none whitespace-nowrap rounded-full border border-grid bg-panel px-4 text-xs text-muted transition hover:text-text lg:inline-flex"
+              className={`${pillBase} hidden flex-none text-muted transition hover:text-text lg:inline-flex`}
             >
               + Profile
             </button>
@@ -239,16 +301,19 @@ const TopBar = ({
           )}
           <button
             onClick={onLockNow}
-            className="flex h-10 items-center whitespace-nowrap rounded-full border border-grid bg-panel px-4 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
+            className={`${pillBase} uppercase tracking-[0.2em] text-muted transition hover:text-text`}
           >
             Lock now
           </button>
-          <div className="flex-none">
-            <IconButton label="Settings" onClick={onOpenSettings}>
-              <SettingsIcon />
-            </IconButton>
-          </div>
-          <ThemeToggle value={theme} onChange={onThemeChange} />
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className={`${pillBase} px-3 text-muted transition hover:text-text`}
+            aria-label="Settings"
+          >
+            <SettingsIcon />
+          </button>
+          <ThemeToggle value={theme} onChange={onThemeChange} className={pillBase} />
           <div className="relative md:hidden" ref={menuRef}>
             <button
               type="button"
@@ -316,7 +381,7 @@ const TopBar = ({
             )}
           </div>
         </div>
-        <div className="hidden items-center justify-end md:flex">
+        <div className="hidden w-full items-center justify-end text-right md:flex">
           <Clock />
         </div>
       </div>
