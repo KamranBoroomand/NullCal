@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 type AppShellProps = {
   topBar: ReactNode;
@@ -10,6 +11,8 @@ type AppShellProps = {
 };
 
 const AppShell = ({ topBar, sidebar, children, mobileNav, navOpen, onNavClose }: AppShellProps) => {
+  const reduceMotion = useReducedMotion();
+
   useEffect(() => {
     if (!navOpen) {
       return;
@@ -40,38 +43,48 @@ const AppShell = ({ topBar, sidebar, children, mobileNav, navOpen, onNavClose }:
         </div>
       </div>
       <footer className="w-full border-t border-grid px-4 py-4 text-center text-[11px] text-muted">
-        “NullCal lives off-grid. No clouds. No watchers. Your time stays yours.”
+        “No cloud. No observers. Your time stays yours.”
       </footer>
-      {mobileNav && (
-        <div
-          className={`fixed inset-0 z-40 transition md:hidden ${
-            navOpen ? 'pointer-events-auto' : 'pointer-events-none'
-          }`}
-        >
-          <div
-            className={`absolute inset-0 bg-black/60 transition-opacity ${navOpen ? 'opacity-100' : 'opacity-0'}`}
-            onClick={onNavClose}
-            role="presentation"
-          />
-          <aside
-            className={`absolute left-0 top-0 flex h-full w-[85vw] max-w-xs flex-col border-r border-grid bg-panel p-4 transition-transform ${
-              navOpen ? 'translate-x-0' : '-translate-x-full'
-            }`}
+      <AnimatePresence>
+        {mobileNav && navOpen && (
+          <motion.div
+            className="fixed inset-0 z-40 md:hidden"
+            initial={reduceMotion ? { opacity: 1 } : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.2 }}
           >
-            <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Menu</p>
-              <button
-                type="button"
-                onClick={onNavClose}
-                className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
-              >
-                Close
-              </button>
-            </div>
-            <div className="mt-4 flex-1 overflow-y-auto pr-2">{mobileNav}</div>
-          </aside>
-        </div>
-      )}
+            <motion.div
+              className="absolute inset-0 bg-black/60"
+              initial={reduceMotion ? { opacity: 1 } : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reduceMotion ? 0 : 0.2 }}
+              onClick={onNavClose}
+              role="presentation"
+            />
+            <motion.aside
+              className="absolute left-0 top-0 flex h-full w-[85vw] max-w-xs flex-col border-r border-grid bg-panel p-4 shadow-2xl"
+              initial={reduceMotion ? { x: 0 } : { x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={reduceMotion ? { x: 0 } : { x: '-100%' }}
+              transition={{ duration: reduceMotion ? 0 : 0.25, ease: 'easeOut' }}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Menu</p>
+                <button
+                  type="button"
+                  onClick={onNavClose}
+                  className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="mt-4 flex-1 overflow-y-auto pr-2">{mobileNav}</div>
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

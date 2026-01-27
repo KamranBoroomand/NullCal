@@ -12,7 +12,7 @@ import { useAppStore } from '../app/AppStore';
 import type { CalendarEvent } from '../storage/types';
 import { useToast } from '../components/ToastProvider';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
-import CalendarErrorBoundary from '../components/CalendarErrorBoundary';
+import RouteErrorBoundary from '../components/RouteErrorBoundary';
 
 const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 const fromInputValue = (value: string) => new Date(value).toISOString();
@@ -294,7 +294,6 @@ const AppPage = () => {
             onInstall={canInstall ? promptInstall : undefined}
             theme={state.settings.theme}
             onThemeChange={(theme) => updateSettings({ theme })}
-            networkLocked={state.settings.networkLock}
             onOpenNav={() => setNavOpen(true)}
           />
         }
@@ -344,7 +343,7 @@ const AppPage = () => {
           </div>
           <div className="overflow-x-auto">
             <div className="min-w-[640px]">
-              <CalendarErrorBoundary>
+              <RouteErrorBoundary>
                 <CalendarView
                   events={calendarEvents}
                   view={view}
@@ -357,7 +356,7 @@ const AppPage = () => {
                   onEventClick={handleEventClick}
                   onEventChange={handleEventChange}
                 />
-              </CalendarErrorBoundary>
+              </RouteErrorBoundary>
             </div>
           </div>
         </motion.div>

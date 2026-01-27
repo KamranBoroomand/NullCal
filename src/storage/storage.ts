@@ -133,14 +133,15 @@ export const loadAppState = async (): Promise<AppState> => {
 
   if (profiles.length) {
     const resolvedSettings = settings ?? buildDefaultSettings(profiles[0].id);
+    const normalizedSettings = { ...resolvedSettings, networkLock: true };
     const activeProfileExists = profiles.some((profile) => profile.id === resolvedSettings.activeProfileId);
     return {
       profiles,
       calendars,
       events,
       settings: activeProfileExists
-        ? resolvedSettings
-        : { ...resolvedSettings, activeProfileId: profiles[0].id },
+        ? normalizedSettings
+        : { ...normalizedSettings, activeProfileId: profiles[0].id },
       securityPrefs: securityPrefs ?? defaultSecurityPrefs
     };
   }

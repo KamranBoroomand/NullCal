@@ -14,9 +14,9 @@ export default defineConfig({
       manifestFilename: 'site.webmanifest',
       includeAssets: [
         'favicon.svg',
-        'favicon-16.png',
-        'favicon-32.png',
-        'apple-touch-icon.png',
+        'favicon-16-v4.png',
+        'favicon-32-v4.png',
+        'apple-touch-icon-v4.png',
         'android-chrome-192.png',
         'android-chrome-512.png'
       ],
@@ -28,6 +28,8 @@ export default defineConfig({
         background_color: '#070A0F',
         theme_color: '#070A0F',
         icons: [
+          { src: './favicon-16-v4.png', sizes: '16x16', type: 'image/png' },
+          { src: './favicon-32-v4.png', sizes: '32x32', type: 'image/png' },
           { src: './android-chrome-192.png', sizes: '192x192', type: 'image/png' },
           { src: './android-chrome-512.png', sizes: '512x512', type: 'image/png' }
         ]
