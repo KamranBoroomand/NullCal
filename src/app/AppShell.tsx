@@ -33,9 +33,14 @@ const AppShell = ({ topBar, sidebar, children, mobileNav, navOpen, onNavClose }:
       <header className="sticky top-0 z-20 border-b border-grid bg-panel backdrop-blur">
         {topBar}
       </header>
-      <div className="flex gap-5 px-3 py-6 md:px-4 lg:px-5">
-        <aside className="hidden w-64 shrink-0 md:block">{sidebar}</aside>
-        <main className="min-w-0 flex-1">{children}</main>
+      <div className="mx-auto w-full max-w-[1600px] px-3 py-5 md:px-4 lg:px-5">
+        <div className="flex gap-4">
+          <aside className="hidden w-[260px] shrink-0 md:block">{sidebar}</aside>
+          <main className="flex-1 min-w-0">{children}</main>
+        </div>
+        <footer className="mt-4 border-t border-grid pt-3 text-[11px] text-muted">
+          “NullCal lives off-grid. No clouds. No watchers. Your time stays yours.”
+        </footer>
       </div>
       {mobileNav && (
         <div
