@@ -110,97 +110,104 @@ const TopBar = ({
   }, [menuOpen]);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[auto,1fr,auto] items-center gap-3 px-4 py-4 text-sm sm:px-6">
-      <div className="flex flex-nowrap items-center gap-3">
-        {onOpenNav && (
+    <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[auto,1fr,auto] items-start gap-3 px-4 py-4 text-sm sm:px-6">
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          {onOpenNav && (
+            <button
+              type="button"
+              onClick={onOpenNav}
+              className="flex-none rounded-full border border-grid bg-panel px-3 py-2 text-muted transition hover:text-text md:hidden"
+              aria-label="Open navigation"
+            >
+              <HamburgerIcon />
+            </button>
+          )}
           <button
             type="button"
-            onClick={onOpenNav}
-            className="rounded-full border border-grid bg-panel px-3 py-2 text-muted transition hover:text-text md:hidden"
-            aria-label="Open navigation"
+            onClick={onHome}
+            className="flex flex-none flex-col items-center gap-1 rounded-2xl border border-grid bg-panel px-3 py-2 text-text transition hover:border-accent/60"
+            aria-label="Go to calendar"
           >
-            <HamburgerIcon />
+            <span className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8">
+              <img
+                src={mark2x}
+                srcSet={`${mark1x} 1x, ${mark2x} 2x`}
+                alt=""
+                aria-hidden="true"
+                className="h-full w-full rounded-xl"
+                draggable={false}
+              />
+            </span>
+            <span className="text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
+            <span className="h-0.5 w-6 rounded-full bg-accent/80" />
           </button>
-        )}
-        <button
-          type="button"
-          onClick={onHome}
-          className="flex flex-col items-center gap-1 rounded-2xl border border-grid bg-panel px-3 py-2 text-text transition hover:border-accent/60"
-          aria-label="Go to calendar"
-        >
-          <span className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8">
-            <img
-              src={mark2x}
-              srcSet={`${mark1x} 1x, ${mark2x} 2x`}
-              alt=""
-              aria-hidden="true"
-              className="h-full w-full rounded-xl"
-              draggable={false}
-            />
-          </span>
-          <span className="text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
-          <span className="h-0.5 w-6 rounded-full bg-accent/80" />
-        </button>
-        {onToday && (
-          <button
-            onClick={onToday}
-            className="rounded-full border border-grid bg-panel px-3 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
-          >
-            Today
-          </button>
-        )}
-        {onPrev && onNext && (
-          <div className="hidden items-center gap-2 lg:flex">
-            <IconButton label="Previous" onClick={onPrev}>
-              <ChevronIcon direction="left" />
-            </IconButton>
-            <IconButton label="Next" onClick={onNext}>
-              <ChevronIcon direction="right" />
-            </IconButton>
-          </div>
-        )}
-        {view && onViewChange && (
-          <div className="flex items-center gap-2 rounded-full border border-grid bg-panel p-1">
+          {onToday && (
             <button
-              onClick={() => onViewChange('timeGridWeek')}
-              className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
-                view === 'timeGridWeek' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
-              }`}
+              onClick={onToday}
+              className="flex-none whitespace-nowrap rounded-full border border-grid bg-panel px-3 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
             >
-              Week
+              Today
             </button>
-            <button
-              onClick={() => onViewChange('dayGridMonth')}
-              className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
-                view === 'dayGridMonth' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
-              }`}
-            >
-              Month
-            </button>
-          </div>
-        )}
+          )}
+          {view && onViewChange && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 rounded-full border border-grid bg-panel p-1 whitespace-nowrap">
+                <button
+                  onClick={() => onViewChange('timeGridWeek')}
+                  className={`whitespace-nowrap rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
+                    view === 'timeGridWeek' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
+                  }`}
+                >
+                  Week
+                </button>
+                <button
+                  onClick={() => onViewChange('dayGridMonth')}
+                  className={`whitespace-nowrap rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
+                    view === 'dayGridMonth' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
+                  }`}
+                >
+                  Month
+                </button>
+              </div>
+              {onPrev && onNext && (
+                <div className="hidden items-center justify-center gap-2 lg:flex">
+                  <IconButton label="Previous" onClick={onPrev}>
+                    <ChevronIcon direction="left" />
+                  </IconButton>
+                  <IconButton label="Next" onClick={onNext}>
+                    <ChevronIcon direction="right" />
+                  </IconButton>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-      <div className="flex min-w-0 items-center justify-start gap-2">
-        <SecurityBadge networkLocked={networkLocked} />
-        <ThemeToggle value={theme} onChange={onThemeChange} />
-      </div>
-      <div className="flex flex-nowrap items-center justify-end gap-2 md:gap-3">
-        <Clock />
-        <div className="relative hidden md:block">
+      <div className="flex min-w-0 items-center justify-start gap-3">
+        <div className="flex-none">
+          <SecurityBadge networkLocked={networkLocked} />
+        </div>
+        <div className="flex-none">
+          <Clock />
+        </div>
+        <div className="hidden min-w-[160px] max-w-[320px] flex-1 md:flex">
           {onSearchChange && (
             <input
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="Search events"
-              className="h-10 w-44 rounded-full border border-grid bg-panel px-4 text-xs text-muted placeholder:text-muted/70 focus:outline-none focus:ring-2 focus:ring-accent/40 md:w-48"
+              className="h-10 w-full rounded-full border border-grid bg-panel px-4 text-xs text-muted placeholder:text-muted/70 focus:outline-none focus:ring-2 focus:ring-accent/40"
             />
           )}
         </div>
+      </div>
+      <div className="flex min-w-0 flex-nowrap items-center justify-end gap-2 md:gap-3">
         <div className="hidden items-center gap-2 md:flex">
           <select
             value={activeProfileId}
             onChange={(event) => onProfileChange(event.target.value)}
-            className="h-10 rounded-full border border-grid bg-panel px-3 text-xs text-muted"
+            className="h-10 flex-none whitespace-nowrap rounded-full border border-grid bg-panel px-3 text-xs text-muted"
           >
             {profiles.map((profile) => (
               <option key={profile.id} value={profile.id} className="bg-panel2">
@@ -210,7 +217,7 @@ const TopBar = ({
           </select>
           <button
             onClick={onCreateProfile}
-            className="h-10 rounded-full border border-grid bg-panel px-3 text-xs text-muted transition hover:text-text"
+            className="h-10 flex-none whitespace-nowrap rounded-full border border-grid bg-panel px-3 text-xs text-muted transition hover:text-text"
           >
             + Profile
           </button>
@@ -218,20 +225,23 @@ const TopBar = ({
         {onInstall && (
           <button
             onClick={onInstall}
-            className="hidden rounded-full border border-accent/40 bg-panel px-3 py-2 text-xs uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text md:inline-flex"
+            className="hidden flex-none whitespace-nowrap rounded-full border border-accent/40 bg-panel px-3 py-2 text-xs uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text md:inline-flex"
           >
             Install
           </button>
         )}
         <button
           onClick={onLockNow}
-          className="rounded-full border border-grid bg-panel px-3 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
+          className="flex-none whitespace-nowrap rounded-full border border-grid bg-panel px-3 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
         >
           Lock now
         </button>
-        <IconButton label="Settings" onClick={onOpenSettings}>
-          <SettingsIcon />
-        </IconButton>
+        <div className="flex-none">
+          <IconButton label="Settings" onClick={onOpenSettings}>
+            <SettingsIcon />
+          </IconButton>
+        </div>
+        <ThemeToggle value={theme} onChange={onThemeChange} />
         <div className="relative md:hidden" ref={menuRef}>
           <button
             type="button"

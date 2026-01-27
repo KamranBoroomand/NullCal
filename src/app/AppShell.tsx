@@ -38,10 +38,10 @@ const AppShell = ({ topBar, sidebar, children, mobileNav, navOpen, onNavClose }:
           <aside className="hidden w-[260px] shrink-0 md:block">{sidebar}</aside>
           <main className="flex-1 min-w-0">{children}</main>
         </div>
-        <footer className="mt-4 border-t border-grid pt-3 text-[11px] text-muted">
-          “NullCal lives off-grid. No clouds. No watchers. Your time stays yours.”
-        </footer>
       </div>
+      <footer className="w-full border-t border-grid px-4 py-4 text-center text-[11px] text-muted">
+        “NullCal lives off-grid. No clouds. No watchers. Your time stays yours.”
+      </footer>
       {mobileNav && (
         <div
           className={`fixed inset-0 z-40 transition md:hidden ${

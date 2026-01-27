@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import Modal from '../components/Modal';
@@ -7,6 +7,8 @@ import { useToast } from '../components/ToastProvider';
 import AppShell from '../app/AppShell';
 import TopBar from '../app/TopBar';
 import SideBar from '../app/SideBar';
+import { encryptPayload } from '../security/encryption';
+import { canonicalSnapshot, hashSnapshot } from '../security/fingerprint';
 
 const formatDate = (value?: string) => {
   if (!value) {
@@ -48,6 +50,9 @@ const SafetyCenter = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [wipedImportOpen, setWipedImportOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  const [includeSettings, setIncludeSettings] = useState(false);
+  const [fingerprint, setFingerprint] = useState<string | null>(null);
+  const [fingerprintLoading, setFingerprintLoading] = useState(false);
   const holdTimer = useRef<number | null>(null);
   const [searchParams] = useSearchParams();
 
@@ -152,6 +157,12 @@ const SafetyCenter = () => {
     }
     return state.calendars.filter((calendar) => calendar.profileId === activeProfile.id);
   }, [activeProfile, state.calendars]);
+  const events = useMemo(() => {
+    if (!activeProfile) {
+      return [];
+    }
+    return state.events.filter((event) => event.profileId === activeProfile.id);
+  }, [activeProfile, state.events]);
 
   const handleCreateProfile = () => {
     const name = window.prompt('Profile name');
@@ -207,6 +218,82 @@ const SafetyCenter = () => {
     }
   };
 
+  const buildZeroMetadataPayload = () => {
+    const basePayload = {
+      schemaVersion: 1,
+      calendars: calendars.map((calendar) => ({
+        id: calendar.id,
+        name: calendar.name,
+        color: calendar.color,
+        isVisible: calendar.isVisible
+      })),
+      events: events.map((event) => ({
+        id: event.id,
+        calendarId: event.calendarId,
+        title: event.title,
+        start: event.start,
+        end: event.end,
+        allDay: (event as typeof event & { allDay?: boolean }).allDay,
+        location: event.location,
+        notes: event.notes
+      }))
+    };
+
+    if (!includeSettings) {
+      return basePayload;
+    }
+
+    return {
+      ...basePayload,
+      settings: {
+        theme: state.settings.theme,
+        activeProfileId: state.settings.activeProfileId,
+        networkLock: state.settings.networkLock,
+        secureMode: state.settings.secureMode,
+        blurSensitive: state.settings.blurSensitive,
+        scanlines: state.settings.scanlines,
+        autoLockMinutes: state.settings.autoLockMinutes
+      }
+    };
+  };
+
+  const handleZeroMetadataExport = () => {
+    try {
+      const payload = buildZeroMetadataPayload();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `nullcal-zero-metadata-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      notify('Zero-metadata export saved.', 'success');
+    } catch {
+      notify('Zero-metadata export failed.', 'error');
+    }
+  };
+
+  const handleZeroMetadataEncryptedExport = async () => {
+    if (!exportPassphrase || exportPassphrase !== exportConfirm) {
+      notify('Passphrases do not match.', 'error');
+      return;
+    }
+    try {
+      const payload = buildZeroMetadataPayload();
+      const encryptedPayload = await encryptPayload(payload, exportPassphrase);
+      const blob = new Blob([JSON.stringify(encryptedPayload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `nullcal-zero-metadata-encrypted-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      notify('Encrypted (zero-metadata) backup exported.', 'success');
+    } catch {
+      notify('Encrypted zero-metadata export failed.', 'error');
+    }
+  };
+
   const securityScoreChecklist = [
     { label: 'PIN enabled', value: state.securityPrefs.pinEnabled },
     { label: 'Auto-lock enabled', value: state.settings.autoLockMinutes > 0 },
@@ -259,6 +346,39 @@ const SafetyCenter = () => {
       notify('Import failed.', 'error');
     }
   };
+
+  const computeFingerprint = useCallback(async () => {
+    if (!activeProfile) {
+      setFingerprint(null);
+      return;
+    }
+    setFingerprintLoading(true);
+    try {
+      const snapshot = canonicalSnapshot({ calendars, events });
+      const digest = await hashSnapshot(snapshot);
+      setFingerprint(digest);
+    } catch {
+      notify('Failed to compute fingerprint.', 'error');
+    } finally {
+      setFingerprintLoading(false);
+    }
+  }, [activeProfile, calendars, events, notify]);
+
+  useEffect(() => {
+    void computeFingerprint();
+  }, [computeFingerprint]);
+
+  const handleCopyFingerprint = useCallback(async () => {
+    if (!fingerprint) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(fingerprint);
+      notify('Fingerprint copied.', 'success');
+    } catch {
+      notify('Copy failed.', 'error');
+    }
+  }, [fingerprint, notify]);
 
   const handleSetPin = async () => {
     if (!pinDraft || pinDraft !== pinConfirm) {
@@ -475,6 +595,37 @@ const SafetyCenter = () => {
               </button>
             </div>
             <div className="mt-5 border-t border-grid pt-4">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Zero-metadata export</p>
+              <p className="mt-2 text-xs text-muted">
+                Exports only calendars and events (no timestamps, devices, or security settings).
+              </p>
+              <label className="mt-3 flex items-center gap-2 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={includeSettings}
+                  onChange={(event) => setIncludeSettings(event.target.checked)}
+                  className="h-4 w-4 rounded border border-grid bg-panel2"
+                />
+                Include settings (optional)
+              </label>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleZeroMetadataExport}
+                  className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                >
+                  Zero-metadata export
+                </button>
+                <button
+                  type="button"
+                  onClick={handleZeroMetadataEncryptedExport}
+                  className="rounded-full border border-accent/40 bg-panel px-4 py-2 text-xs uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text"
+                >
+                  Encrypted (zero-metadata) backup
+                </button>
+              </div>
+            </div>
+            <div className="mt-5 border-t border-grid pt-4">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Import Backup</p>
               <div className="mt-3 grid gap-3 text-sm text-muted">
                 <input
@@ -500,6 +651,51 @@ const SafetyCenter = () => {
               </div>
             </div>
           </div>
+        </motion.section>
+
+        <motion.section {...panelMotion} className="photon-panel rounded-3xl p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Integrity fingerprint</p>
+              <p className="mt-2 text-sm text-muted">Hash of your local calendar snapshot (SHA-256)</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void computeFingerprint()}
+              className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+            >
+              {fingerprintLoading ? 'Recomputing…' : 'Recompute'}
+            </button>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="rounded-full border border-grid bg-panel2 px-4 py-2 text-sm text-text">
+              {fingerprint ? fingerprint.slice(0, 10) : '—'}
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleCopyFingerprint()}
+              className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+              disabled={!fingerprint}
+            >
+              Copy
+            </button>
+          </div>
+          <details className="mt-4 rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
+            <summary className="cursor-pointer text-xs uppercase tracking-[0.3em] text-muted">
+              Full fingerprint
+            </summary>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[11px] text-text">{fingerprint ?? '—'}</span>
+              <button
+                type="button"
+                onClick={() => void handleCopyFingerprint()}
+                className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                disabled={!fingerprint}
+              >
+                Copy
+              </button>
+            </div>
+          </details>
         </motion.section>
 
         <motion.section {...panelMotion} className="photon-panel rounded-3xl border border-danger p-5 sm:p-6">
