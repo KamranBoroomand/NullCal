@@ -95,6 +95,7 @@ const TopBar = ({
 }: TopBarProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const mobileStatusLabel = networkLocked ? 'LOCAL · LOCKED' : 'LOCAL · OPEN';
 
   useEffect(() => {
     if (!menuOpen) {
@@ -110,8 +111,8 @@ const TopBar = ({
   }, [menuOpen]);
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-4 text-sm sm:gap-4 sm:px-6">
-      <div className="flex items-center gap-3">
+    <div className="grid grid-cols-1 items-center gap-3 px-3 py-4 text-sm md:grid-cols-[auto,1fr,auto] md:px-4 lg:px-5">
+      <div className="flex flex-wrap items-center gap-3">
         {onOpenNav && (
           <button
             type="button"
@@ -159,30 +160,37 @@ const TopBar = ({
             </IconButton>
           </div>
         )}
-      </div>
-      {view && onViewChange && (
-        <div className="flex items-center gap-2 rounded-full border border-grid bg-panel p-1">
-          <button
-            onClick={() => onViewChange('timeGridWeek')}
-            className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
-              view === 'timeGridWeek' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
-            }`}
-          >
-            Week
-          </button>
-          <button
-            onClick={() => onViewChange('dayGridMonth')}
-            className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
-              view === 'dayGridMonth' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
-            }`}
-          >
-            Month
-          </button>
+        {view && onViewChange && (
+          <div className="flex items-center gap-2 rounded-full border border-grid bg-panel p-1">
+            <button
+              onClick={() => onViewChange('timeGridWeek')}
+              className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
+                view === 'timeGridWeek' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
+              }`}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => onViewChange('dayGridMonth')}
+              className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] transition ${
+                view === 'dayGridMonth' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
+              }`}
+            >
+              Month
+            </button>
+          </div>
+        )}
+        <div className="flex w-full items-center justify-start md:hidden">
+          <span className="rounded-full border border-grid bg-panel px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted">
+            {mobileStatusLabel}
+          </span>
         </div>
-      )}
-      <div className="ml-auto hidden flex-wrap items-center gap-3 md:flex">
+      </div>
+      <div className="hidden items-center justify-start gap-2 md:flex">
         <SecurityBadge networkLocked={networkLocked} />
         <ThemeToggle value={theme} onChange={onThemeChange} />
+      </div>
+      <div className="hidden items-center justify-end gap-3 md:flex">
         <Clock />
         <div className="relative">
           {onSearchChange && (
@@ -231,8 +239,7 @@ const TopBar = ({
           <SettingsIcon />
         </IconButton>
       </div>
-      <div className="relative ml-auto flex items-center gap-2 md:hidden" ref={menuRef}>
-        <SecurityBadge networkLocked={networkLocked} />
+      <div className="relative flex items-center justify-end gap-2 md:hidden" ref={menuRef}>
         <button
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
@@ -242,7 +249,7 @@ const TopBar = ({
           <OverflowIcon />
         </button>
         {menuOpen && (
-          <div className="absolute right-0 top-full z-20 mt-2 w-72 rounded-2xl border border-grid bg-panel p-4 shadow-2xl">
+          <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-2xl border border-grid bg-panel p-4 shadow-2xl">
             <div className="grid gap-3 text-xs text-muted">
               {onSearchChange && (
                 <input
