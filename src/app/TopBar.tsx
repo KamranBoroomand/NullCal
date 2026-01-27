@@ -119,7 +119,18 @@ const TopBar = ({
             className="flex-none rounded-full border border-grid bg-panel px-3 py-2 text-muted transition hover:text-text md:hidden"
             aria-label="Open navigation"
           >
-            <HamburgerIcon />
+            <span className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8">
+              <img
+                src={mark2x}
+                srcSet={`${mark1x} 1x, ${mark2x} 2x`}
+                alt=""
+                aria-hidden="true"
+                className="h-full w-full rounded-xl"
+                draggable={false}
+              />
+            </span>
+            <span className="text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
+            <span className="h-0.5 w-6 rounded-full bg-accent/80" />
           </button>
         )}
         <button

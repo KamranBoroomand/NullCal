@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import Modal from '../components/Modal';
@@ -344,6 +344,39 @@ const SafetyCenter = () => {
     }
   };
 
+  const computeFingerprint = useCallback(async () => {
+    if (!activeProfile) {
+      setFingerprint(null);
+      return;
+    }
+    setFingerprintLoading(true);
+    try {
+      const snapshot = canonicalSnapshot({ calendars, events });
+      const digest = await hashSnapshot(snapshot);
+      setFingerprint(digest);
+    } catch {
+      notify('Failed to compute fingerprint.', 'error');
+    } finally {
+      setFingerprintLoading(false);
+    }
+  }, [activeProfile, calendars, events, notify]);
+
+  useEffect(() => {
+    void computeFingerprint();
+  }, [computeFingerprint]);
+
+  const handleCopyFingerprint = useCallback(async () => {
+    if (!fingerprint) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(fingerprint);
+      notify('Fingerprint copied.', 'success');
+    } catch {
+      notify('Copy failed.', 'error');
+    }
+  }, [fingerprint, notify]);
+
   const handleSetPin = async () => {
     if (!pinDraft || pinDraft !== pinConfirm) {
       notify('PINs do not match.', 'error');
@@ -615,6 +648,51 @@ const SafetyCenter = () => {
               </div>
             </div>
           </div>
+        </motion.section>
+
+        <motion.section {...panelMotion} className="photon-panel rounded-3xl p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Integrity fingerprint</p>
+              <p className="mt-2 text-sm text-muted">Hash of your local calendar snapshot (SHA-256)</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void computeFingerprint()}
+              className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+            >
+              {fingerprintLoading ? 'Recomputing…' : 'Recompute'}
+            </button>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="rounded-full border border-grid bg-panel2 px-4 py-2 text-sm text-text">
+              {fingerprint ? fingerprint.slice(0, 10) : '—'}
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleCopyFingerprint()}
+              className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+              disabled={!fingerprint}
+            >
+              Copy
+            </button>
+          </div>
+          <details className="mt-4 rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
+            <summary className="cursor-pointer text-xs uppercase tracking-[0.3em] text-muted">
+              Full fingerprint
+            </summary>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[11px] text-text">{fingerprint ?? '—'}</span>
+              <button
+                type="button"
+                onClick={() => void handleCopyFingerprint()}
+                className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                disabled={!fingerprint}
+              >
+                Copy
+              </button>
+            </div>
+          </details>
         </motion.section>
 
         <motion.section {...panelMotion} className="photon-panel rounded-3xl border border-danger p-5 sm:p-6">
