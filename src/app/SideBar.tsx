@@ -300,7 +300,7 @@ const SideBar = ({
           setEditTarget(null);
         }}
       >
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           <label className="text-xs text-muted">
             Name
             <input

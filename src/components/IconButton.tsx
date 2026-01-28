@@ -5,16 +5,17 @@ type IconButtonProps = {
   label: string;
   onClick?: () => void;
   children: ReactNode;
+  className?: string;
 };
 
-const IconButton = ({ label, onClick, children }: IconButtonProps) => {
+const IconButton = ({ label, onClick, children, className }: IconButtonProps) => {
   const reduceMotion = useReducedMotion();
   return (
     <motion.button
       onClick={onClick}
       whileHover={reduceMotion ? undefined : { scale: 1.02 }}
       whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-      className="flex h-9 w-9 items-center justify-center rounded-full border border-grid bg-panel text-muted transition hover:text-text"
+      className={`flex items-center justify-center ${className ?? ''}`}
       aria-label={label}
     >
       {children}

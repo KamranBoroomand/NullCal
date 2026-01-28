@@ -10,8 +10,8 @@ const Clock = () => {
   }, []);
 
   return (
-    <div className="text-right text-xs">
-      <div className="font-mono text-sm text-text">
+    <div className="text-right text-[11px] leading-tight">
+      <div className="font-mono text-[13px] text-text">
         {format(now, 'HH')}
         <span className="px-0.5 text-accent">:</span>
         {format(now, 'mm')}
