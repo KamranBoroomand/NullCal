@@ -488,13 +488,13 @@ const TopBar = ({
       return;
     }
     const getLevel = (width: number) => {
-      if (width < 1200) {
+      if (width < 1120) {
         return 3;
       }
-      if (width < 1320) {
+      if (width < 1200) {
         return 2;
       }
-      if (width < 1440) {
+      if (width < 1280) {
         return 1;
       }
       return 0;
@@ -520,16 +520,17 @@ const TopBar = ({
   const collapseCreateProfile = collapseLevel >= 1;
   const collapseAgentDropdown = collapseLevel >= 2;
   const collapseSearchInput = collapseLevel >= 3;
+  const showDesktopOverflow = collapseCreateProfile || collapseAgentDropdown;
 
   return (
     <header className="w-full text-sm">
       <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6">
-        <div className="py-1.5">
+        <div className="py-1">
           <div
             ref={desktopGridRef}
-            className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] grid-rows-[auto_auto] items-center gap-x-4 gap-y-2 lg:grid"
+            className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] grid-rows-[auto_auto] items-center gap-x-6 gap-y-2 lg:grid"
           >
-            <div className="col-start-1 row-start-1 flex min-w-0 flex-wrap items-center gap-3">
+            <div className="col-start-1 row-start-1 flex min-w-0 flex-wrap items-center gap-2">
               {onOpenNav && (
                 <motion.button
                   type="button"
@@ -663,7 +664,7 @@ const TopBar = ({
                   ) : (
                     <div
                       className="w-full min-w-0"
-                      style={{ maxWidth: 'clamp(220px, 34vw, 520px)' }}
+                      style={{ maxWidth: 'clamp(220px, 26vw, 260px)' }}
                     >
                       <motion.div
                         className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`}
@@ -685,8 +686,8 @@ const TopBar = ({
               )}
             </div>
 
-            <div className="col-start-3 row-start-1 flex min-w-0 flex-wrap items-center justify-end gap-3">
-              <div className="flex min-w-0 items-center gap-1">
+            <div className="col-start-3 row-start-1 flex min-w-0 flex-wrap items-center justify-end gap-2">
+              <div className="flex min-w-0 items-center gap-2">
                 {allowProfileSwitch && !collapseAgentDropdown ? (
                   <AgentDropdown
                     options={profiles}
@@ -737,18 +738,20 @@ const TopBar = ({
                 onChange={onThemeChange}
                 className={`${pillBase} px-4 text-muted hover:text-text glow-pulse`}
               />
-              <OverflowMenu
-                onLockNow={onLockNow}
-                onOpenSettings={onOpenSettings}
-                onThemeToggle={handleThemeToggle}
-                onInstall={onInstall}
-                showProfileList={allowProfileSwitch && collapseAgentDropdown}
-                showCreateProfileItem={allowCreateProfile && collapseCreateProfile}
-                profiles={profiles}
-                activeProfileId={activeProfileId}
-                onProfileChange={onProfileChange}
-                onCreateProfile={onCreateProfile}
-              />
+              {showDesktopOverflow && (
+                <OverflowMenu
+                  onLockNow={onLockNow}
+                  onOpenSettings={onOpenSettings}
+                  onThemeToggle={handleThemeToggle}
+                  onInstall={onInstall}
+                  showProfileList={allowProfileSwitch && collapseAgentDropdown}
+                  showCreateProfileItem={allowCreateProfile && collapseCreateProfile}
+                  profiles={profiles}
+                  activeProfileId={activeProfileId}
+                  onProfileChange={onProfileChange}
+                  onCreateProfile={onCreateProfile}
+                />
+              )}
             </div>
 
             <div className="col-start-3 row-start-2 flex items-center justify-end">
@@ -915,6 +918,6 @@ const TopBar = ({
 export default TopBar;
 
 // Layout test checklist:
-// - Desktop grid uses minmax(0, 1fr) columns so pills can shrink without overlap.
-// - Priority collapse moves +Profile, then Agent, then Search into overflow/icon-only before overflow.
-// - All pill wrappers use min-w-0 and fixed heights to prevent content-based overflow.
+// - Desktop grid uses minmax(0, 1fr) columns with clamp-limited search to prevent overlap.
+// - Priority collapse moves +Profile, then Agent, then Search into overflow/icon-only at 1024–1280px.
+// - All pill wrappers use min-w-0 and h-9 to prevent content-based overflow.
