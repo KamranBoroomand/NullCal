@@ -87,7 +87,7 @@ const AgentDropdown = ({ options, activeId, onChange, className }: AgentDropdown
   }, [open]);
 
   return (
-    <div className={`relative ${className ?? ''}`} ref={ref}>
+    <div className={`relative min-w-0 ${className ?? ''}`} ref={ref}>
       <motion.button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -173,20 +173,20 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
 
   if (disabled) {
     return (
-      <div className={`${pillBase} px-3 text-muted`}>
+      <div className={`${pillBase} min-w-0 px-3 text-muted`}>
         <span className="truncate">Profile: {activeLabel}</span>
       </div>
     );
   }
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative min-w-0" ref={ref}>
       <motion.button
         type="button"
         onClick={() => setOpen((value) => !value)}
         whileHover={reduceMotion ? undefined : { y: -1, boxShadow: '0 8px 16px rgba(244, 255, 0, 0.14)' }}
         whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-        className={`${pillBase} gap-2 px-3 text-muted hover:text-text`}
+        className={`${pillBase} min-w-0 gap-2 px-3 text-muted hover:text-text`}
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -246,8 +246,8 @@ type OverflowMenuProps = {
   onOpenSettings: () => void;
   onThemeToggle: () => void;
   onInstall?: () => void;
-  showProfileItems: boolean;
-  allowCreateProfile: boolean;
+  showProfileList: boolean;
+  showCreateProfileItem: boolean;
   profiles: ProfileOption[];
   activeProfileId: string;
   onProfileChange: (id: string) => void;
@@ -259,8 +259,8 @@ const OverflowMenu = ({
   onOpenSettings,
   onThemeToggle,
   onInstall,
-  showProfileItems,
-  allowCreateProfile,
+  showProfileList,
+  showCreateProfileItem,
   profiles,
   activeProfileId,
   onProfileChange,
@@ -316,25 +316,26 @@ const OverflowMenu = ({
             transition={{ duration: 0.18 }}
             className="absolute right-0 z-40 mt-2 w-52 rounded-2xl border border-grid bg-panel p-2 shadow-2xl"
           >
-            {showProfileItems && (
+            {(showProfileList || showCreateProfileItem) && (
               <div className="mb-2 border-b border-grid pb-2">
-                {profiles.map((profile) => (
-                  <button
-                    key={profile.id}
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      onProfileChange(profile.id);
-                      setOpen(false);
-                    }}
-                    className={`w-full rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.2em] transition hover:text-text ${
-                      profile.id === activeProfileId ? 'bg-panel2 text-text' : 'text-muted'
-                    }`}
-                  >
-                    {profile.name}
-                  </button>
-                ))}
-                {allowCreateProfile && (
+                {showProfileList &&
+                  profiles.map((profile) => (
+                    <button
+                      key={profile.id}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        onProfileChange(profile.id);
+                        setOpen(false);
+                      }}
+                      className={`w-full rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.2em] transition hover:text-text ${
+                        profile.id === activeProfileId ? 'bg-panel2 text-text' : 'text-muted'
+                      }`}
+                    >
+                      {profile.name}
+                    </button>
+                  ))}
+                {showCreateProfileItem && (
                   <button
                     type="button"
                     onClick={() => {
@@ -448,6 +449,8 @@ const TopBar = ({
 }: TopBarProps) => {
   const reduceMotion = useReducedMotion();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [collapseLevel, setCollapseLevel] = useState(0);
+  const desktopGridRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLDivElement | null>(null);
   const pillMotion = reduceMotion
     ? {}
@@ -479,17 +482,54 @@ const TopBar = ({
     };
   }, [searchOpen]);
 
+  useEffect(() => {
+    const element = desktopGridRef.current;
+    if (!element) {
+      return;
+    }
+    const getLevel = (width: number) => {
+      if (width < 1200) {
+        return 3;
+      }
+      if (width < 1320) {
+        return 2;
+      }
+      if (width < 1440) {
+        return 1;
+      }
+      return 0;
+    };
+    const update = () => {
+      const nextLevel = getLevel(element.getBoundingClientRect().width);
+      setCollapseLevel((prev) => (prev === nextLevel ? prev : nextLevel));
+    };
+    update();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', update);
+      return () => window.removeEventListener('resize', update);
+    }
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   const activeProfileLabel = profiles.find((profile) => profile.id === activeProfileId)?.name ?? 'Profile';
   const allowProfileSwitch = profileSwitchAllowed && profiles.length > 0;
   const allowCreateProfile = showCreateProfile && allowProfileSwitch;
   const handleThemeToggle = () => onThemeChange(theme === 'dark' ? 'light' : 'dark');
+  const collapseCreateProfile = collapseLevel >= 1;
+  const collapseAgentDropdown = collapseLevel >= 2;
+  const collapseSearchInput = collapseLevel >= 3;
 
   return (
     <header className="w-full text-sm">
       <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6">
-        <div className="py-2">
-          <div className="hidden lg:flex lg:flex-wrap lg:items-center lg:gap-4 xl:flex-nowrap">
-            <div className="flex min-w-0 flex-none items-center gap-3">
+        <div className="py-1.5">
+          <div
+            ref={desktopGridRef}
+            className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] grid-rows-[auto_auto] items-center gap-x-4 gap-y-2 lg:grid"
+          >
+            <div className="col-start-1 row-start-1 flex min-w-0 flex-wrap items-center gap-3">
               {onOpenNav && (
                 <motion.button
                   type="button"
@@ -579,40 +619,85 @@ const TopBar = ({
               )}
             </div>
 
-            <div className="flex w-full min-w-0 justify-start lg:order-last lg:basis-full xl:order-none xl:basis-auto xl:flex-1 xl:justify-center">
+            <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-center">
               {onSearchChange && (
-                <div className="w-full max-w-[220px] min-w-0" ref={searchRef}>
-                  <motion.div
-                    className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`}
-                    {...pillMotion}
-                  >
-                    <span className="flex-none text-muted">
-                      <SearchIcon />
-                    </span>
-                    <input
-                      value={search ?? ''}
-                      onChange={(event) => onSearchChange(event.target.value)}
-                      placeholder="Search events"
-                      className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
-                    />
-                  </motion.div>
+                <div className="relative flex w-full min-w-0 justify-center" ref={searchRef}>
+                  {collapseSearchInput ? (
+                    <>
+                      <motion.button
+                        type="button"
+                        onClick={() => setSearchOpen((open) => !open)}
+                        className={`${pillBase} h-9 w-9 px-0 text-muted hover:text-text`}
+                        aria-haspopup="dialog"
+                        aria-expanded={searchOpen}
+                        {...pillMotion}
+                      >
+                        <SearchIcon />
+                        <span className="sr-only">Search events</span>
+                      </motion.button>
+                      <AnimatePresence>
+                        {searchOpen && (
+                          <motion.div
+                            initial={reduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.98, y: 6 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 6 }}
+                            transition={{ duration: 0.18 }}
+                            className="absolute left-1/2 top-full z-40 mt-2 w-72 max-w-[70vw] -translate-x-1/2"
+                          >
+                            <div className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`}>
+                              <span className="flex-none text-muted">
+                                <SearchIcon />
+                              </span>
+                              <input
+                                value={search ?? ''}
+                                onChange={(event) => onSearchChange(event.target.value)}
+                                placeholder="Search events"
+                                className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
+                                autoFocus
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </>
+                  ) : (
+                    <div
+                      className="w-full min-w-0"
+                      style={{ maxWidth: 'clamp(220px, 34vw, 520px)' }}
+                    >
+                      <motion.div
+                        className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`}
+                        {...pillMotion}
+                      >
+                        <span className="flex-none text-muted">
+                          <SearchIcon />
+                        </span>
+                        <input
+                          value={search ?? ''}
+                          onChange={(event) => onSearchChange(event.target.value)}
+                          placeholder="Search events"
+                          className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
+                        />
+                      </motion.div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            <div className="flex min-w-0 items-center justify-end gap-3 lg:ml-auto xl:gap-4 xl:pl-6">
+            <div className="col-start-3 row-start-1 flex min-w-0 flex-wrap items-center justify-end gap-3">
               <div className="flex min-w-0 items-center gap-1">
-                {allowProfileSwitch ? (
+                {allowProfileSwitch && !collapseAgentDropdown ? (
                   <AgentDropdown
                     options={profiles}
                     activeId={activeProfileId}
                     onChange={onProfileChange}
-                    className="min-w-[120px] max-w-[180px]"
+                    className="min-w-0 w-[clamp(120px,18vw,180px)]"
                   />
                 ) : (
-                  <div className={`${pillBase} px-3 text-muted`}>{activeProfileLabel}</div>
+                  !allowProfileSwitch && <div className={`${pillBase} px-3 text-muted`}>{activeProfileLabel}</div>
                 )}
-                {allowCreateProfile && (
+                {allowCreateProfile && !collapseCreateProfile && (
                   <motion.button
                     onClick={onCreateProfile}
                     className={`${pillBase} px-4 text-muted hover:text-text`}
@@ -652,6 +737,24 @@ const TopBar = ({
                 onChange={onThemeChange}
                 className={`${pillBase} px-4 text-muted hover:text-text glow-pulse`}
               />
+              <OverflowMenu
+                onLockNow={onLockNow}
+                onOpenSettings={onOpenSettings}
+                onThemeToggle={handleThemeToggle}
+                onInstall={onInstall}
+                showProfileList={allowProfileSwitch && collapseAgentDropdown}
+                showCreateProfileItem={allowCreateProfile && collapseCreateProfile}
+                profiles={profiles}
+                activeProfileId={activeProfileId}
+                onProfileChange={onProfileChange}
+                onCreateProfile={onCreateProfile}
+              />
+            </div>
+
+            <div className="col-start-3 row-start-2 flex items-center justify-end">
+              <div className="text-xs">
+                <Clock />
+              </div>
             </div>
           </div>
 
@@ -788,8 +891,8 @@ const TopBar = ({
                 onOpenSettings={onOpenSettings}
                 onThemeToggle={handleThemeToggle}
                 onInstall={onInstall}
-                showProfileItems={allowProfileSwitch}
-                allowCreateProfile={allowCreateProfile}
+                showProfileList={allowProfileSwitch}
+                showCreateProfileItem={allowCreateProfile}
                 profiles={profiles}
                 activeProfileId={activeProfileId}
                 onProfileChange={onProfileChange}
@@ -799,7 +902,7 @@ const TopBar = ({
           </div>
         </div>
 
-        <div className="flex items-center justify-end pb-1">
+        <div className="flex items-center justify-end pb-1 lg:hidden">
           <div className="text-xs">
             <Clock />
           </div>
@@ -810,3 +913,8 @@ const TopBar = ({
 };
 
 export default TopBar;
+
+// Layout test checklist:
+// - Desktop grid uses minmax(0, 1fr) columns so pills can shrink without overlap.
+// - Priority collapse moves +Profile, then Agent, then Search into overflow/icon-only before overflow.
+// - All pill wrappers use min-w-0 and fixed heights to prevent content-based overflow.
