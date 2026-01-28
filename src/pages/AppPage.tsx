@@ -294,8 +294,8 @@ const AppPage = () => {
             activeProfileId={activeProfile.id}
             onProfileChange={setActiveProfile}
             onCreateProfile={handleCreateProfile}
-            profileSwitchAllowed={false}
-            showCreateProfile={false}
+            profileSwitchAllowed={true}
+            showCreateProfile={true}
             onOpenSettings={() => setSettingsOpen(true)}
             onLockNow={lockNow}
             onInstall={canInstall ? promptInstall : undefined}
