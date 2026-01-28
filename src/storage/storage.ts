@@ -12,17 +12,23 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     id: 'app',
     theme,
     activeProfileId,
+    primaryProfileId: activeProfileId,
+    decoyProfileId: undefined,
     networkLock: true,
     secureMode: false,
     blurSensitive: false,
     scanlines: true,
-    autoLockMinutes: 10
+    autoLockMinutes: 10,
+    autoLockOnBlur: false,
+    autoLockGraceSeconds: 0,
+    privacyScreenHotkeyEnabled: true
   };
 };
 
 const defaultSecurityPrefs: SecurityPrefs = {
   id: 'security',
-  pinEnabled: false
+  pinEnabled: false,
+  decoyPinEnabled: false
 };
 
 const normalizeCalendars = (calendars: Calendar[]): Calendar[] =>
@@ -111,11 +117,12 @@ const migrateLegacy = (): AppState | null => {
         profileId: profile.id
       }))
     );
+    const settings = buildDefaultSettings(parsed.activeProfileId);
     return {
       profiles,
       calendars,
       events,
-      settings: buildDefaultSettings(parsed.activeProfileId),
+      settings,
       securityPrefs: defaultSecurityPrefs
     };
   } catch {
@@ -133,16 +140,31 @@ export const loadAppState = async (): Promise<AppState> => {
 
   if (profiles.length) {
     const resolvedSettings = settings ?? buildDefaultSettings(profiles[0].id);
-    const normalizedSettings = { ...resolvedSettings, networkLock: true };
+    const normalizedSettings = {
+      ...resolvedSettings,
+      networkLock: true,
+      primaryProfileId: resolvedSettings.primaryProfileId ?? resolvedSettings.activeProfileId,
+      autoLockOnBlur: resolvedSettings.autoLockOnBlur ?? false,
+      autoLockGraceSeconds: resolvedSettings.autoLockGraceSeconds ?? 0,
+      privacyScreenHotkeyEnabled: resolvedSettings.privacyScreenHotkeyEnabled ?? true
+    };
     const activeProfileExists = profiles.some((profile) => profile.id === resolvedSettings.activeProfileId);
+    const decoyProfileExists = profiles.some((profile) => profile.id === resolvedSettings.decoyProfileId);
     return {
       profiles,
       calendars,
       events,
       settings: activeProfileExists
-        ? normalizedSettings
-        : { ...normalizedSettings, activeProfileId: profiles[0].id },
-      securityPrefs: securityPrefs ?? defaultSecurityPrefs
+        ? { ...normalizedSettings, decoyProfileId: decoyProfileExists ? resolvedSettings.decoyProfileId : undefined }
+        : {
+            ...normalizedSettings,
+            activeProfileId: profiles[0].id,
+            decoyProfileId: decoyProfileExists ? resolvedSettings.decoyProfileId : undefined
+          },
+      securityPrefs: {
+        ...defaultSecurityPrefs,
+        ...securityPrefs
+      }
     };
   }
 

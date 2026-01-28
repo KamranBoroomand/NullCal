@@ -186,6 +186,17 @@ body.scanlines-on::before {
   filter: none;
 }
 
+.privacy-noise::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 0);
+  background-size: 3px 3px;
+  opacity: 0.12;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
 .modal-backdrop {
   background: rgba(6, 8, 11, 0.65);
   backdrop-filter: blur(6px);

@@ -13,6 +13,8 @@ import type { CalendarEvent } from '../storage/types';
 import { useToast } from '../components/ToastProvider';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import RouteErrorBoundary from '../components/RouteErrorBoundary';
+import { encryptPayload } from '../security/encryption';
+import { buildExportPayload, validateExportPayload } from '../security/exportUtils';
 
 const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 const fromInputValue = (value: string) => new Date(value).toISOString();
@@ -35,7 +37,6 @@ const AppPage = () => {
     toggleCalendarVisibility,
     upsertEvent,
     deleteEvent,
-    exportEncrypted,
     importEncrypted
   } =
     useAppStore();
@@ -171,8 +172,12 @@ const AppPage = () => {
       return;
     }
     try {
-      const payload = await exportEncrypted(passphrase);
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const payload = buildExportPayload(state, activeProfile.id, { mode: 'clean', keepTitles: false });
+      const sanityCheck = JSON.parse(JSON.stringify(payload)) as typeof payload;
+      validateExportPayload(sanityCheck);
+      const encryptedPayload = await encryptPayload(sanityCheck, passphrase);
+      updateSettings({ lastExportAt: new Date().toISOString() });
+      const blob = new Blob([JSON.stringify(encryptedPayload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -289,6 +294,8 @@ const AppPage = () => {
             activeProfileId={activeProfile.id}
             onProfileChange={setActiveProfile}
             onCreateProfile={handleCreateProfile}
+            profileSwitchAllowed={false}
+            showCreateProfile={false}
             onOpenSettings={() => setSettingsOpen(true)}
             onLockNow={lockNow}
             onInstall={canInstall ? promptInstall : undefined}

@@ -30,9 +30,9 @@ const RouteTransitionShell = () => {
     <AnimatePresence mode="wait">
       <motion.div
         key={location.pathname}
-        initial={reduceMotion ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={reduceMotion ? { opacity: 1 } : { opacity: 0 }}
+        initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -4 }}
         transition={{ duration: 0.2 }}
       >
         <Outlet />
