@@ -9,7 +9,7 @@ const base = import.meta.env.BASE_URL;
 const mark1x = `${base}mark-128.png?v=3`;
 const mark2x = `${base}mark-256.png?v=3`;
 const pillBase =
-  'h-9 rounded-full border border-white/10 bg-white/5 px-4 text-[11px] tracking-[0.18em] uppercase inline-flex items-center justify-center whitespace-nowrap transition';
+  'h-9 rounded-full border border-grid bg-panel px-4 text-[11px] tracking-[0.18em] uppercase inline-flex items-center justify-center whitespace-nowrap transition hover:bg-panel2';
 
 const SettingsIcon = () => (
   <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
@@ -93,11 +93,11 @@ const AgentDropdown = ({ options, activeId, onChange, className }: AgentDropdown
         onClick={() => setOpen((value) => !value)}
         whileHover={reduceMotion ? undefined : { y: -1, boxShadow: '0 8px 16px rgba(244, 255, 0, 0.14)' }}
         whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-        className={`${pillBase} w-full min-w-[140px] gap-2 px-4 text-muted hover:text-text`}
+        className={`${pillBase} w-full min-w-0 gap-2 px-4 text-muted hover:text-text`}
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <span className="flex w-full items-center justify-between gap-3">
+        <span className="flex w-full min-w-0 items-center justify-between gap-3">
           <span className="truncate text-center">{activeLabel}</span>
           <span className="flex items-center text-[10px]">▾</span>
         </span>
@@ -487,9 +487,9 @@ const TopBar = ({
   return (
     <header className="w-full text-sm">
       <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6">
-        <div className="py-3">
-          <div className="hidden lg:grid lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4">
-            <div className="flex min-w-0 items-center gap-3">
+        <div className="py-2">
+          <div className="hidden lg:flex lg:flex-wrap lg:items-center lg:gap-4 xl:flex-nowrap">
+            <div className="flex min-w-0 flex-none items-center gap-3">
               {onOpenNav && (
                 <motion.button
                   type="button"
@@ -535,13 +535,23 @@ const TopBar = ({
                   items={[
                     {
                       key: 'week',
-                      label: 'Week',
+                      label: (
+                        <>
+                          <span className="hidden xl:inline">Week</span>
+                          <span className="xl:hidden">Wk</span>
+                        </>
+                      ),
                       onClick: () => onViewChange('timeGridWeek'),
                       active: view === 'timeGridWeek'
                     },
                     {
                       key: 'month',
-                      label: 'Month',
+                      label: (
+                        <>
+                          <span className="hidden xl:inline">Month</span>
+                          <span className="xl:hidden">Mo</span>
+                        </>
+                      ),
                       onClick: () => onViewChange('dayGridMonth'),
                       active: view === 'dayGridMonth'
                     }
@@ -569,9 +579,9 @@ const TopBar = ({
               )}
             </div>
 
-            <div className="flex items-center justify-center">
+            <div className="flex w-full min-w-0 justify-start lg:order-last lg:basis-full xl:order-none xl:basis-auto xl:flex-1 xl:justify-center">
               {onSearchChange && (
-                <div className="w-full max-w-[280px]" ref={searchRef}>
+                <div className="w-full max-w-[220px] min-w-0" ref={searchRef}>
                   <motion.div
                     className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`}
                     {...pillMotion}
@@ -583,21 +593,21 @@ const TopBar = ({
                       value={search ?? ''}
                       onChange={(event) => onSearchChange(event.target.value)}
                       placeholder="Search events"
-                      className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-muted placeholder:text-muted/70 focus:outline-none"
+                      className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
                     />
                   </motion.div>
                 </div>
               )}
             </div>
 
-            <div className="flex min-w-0 items-center justify-end gap-3">
-              <div className="flex items-center gap-1">
+            <div className="flex min-w-0 items-center justify-end gap-3 lg:ml-auto xl:gap-4 xl:pl-6">
+              <div className="flex min-w-0 items-center gap-1">
                 {allowProfileSwitch ? (
                   <AgentDropdown
                     options={profiles}
                     activeId={activeProfileId}
                     onChange={onProfileChange}
-                    className="min-w-[140px]"
+                    className="min-w-[120px] max-w-[180px]"
                   />
                 ) : (
                   <div className={`${pillBase} px-3 text-muted`}>{activeProfileLabel}</div>
@@ -757,7 +767,7 @@ const TopBar = ({
                             value={search ?? ''}
                             onChange={(event) => onSearchChange(event.target.value)}
                             placeholder="Search events"
-                            className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-muted placeholder:text-muted/70 focus:outline-none"
+                            className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
                             autoFocus
                           />
                         </div>
@@ -789,7 +799,7 @@ const TopBar = ({
           </div>
         </div>
 
-        <div className="flex items-center justify-end pb-2">
+        <div className="flex items-center justify-end pb-1">
           <div className="text-xs">
             <Clock />
           </div>

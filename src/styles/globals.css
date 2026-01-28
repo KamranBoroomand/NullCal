@@ -23,10 +23,10 @@
   color-scheme: light;
   --bg: #f6f7fb;
   --panel: #ffffff;
-  --panel2: #f0f2f7;
+  --panel2: #e9eef5;
   --text: #0b0f14;
   --muted: #4b5563;
-  --grid: rgba(0, 0, 0, 0.06);
+  --grid: rgba(15, 23, 42, 0.08);
   --accent: #b7c800;
   --accent2: #9bff00;
   --danger: #d11a2a;
@@ -67,6 +67,10 @@ h6 {
 
 body[data-theme='light'] {
   background: radial-gradient(circle at top, rgba(255, 255, 255, 0.7), transparent 55%), var(--bg);
+}
+
+body[data-theme='light'] .photon-panel {
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
 }
 
 body.scanlines-on::before {

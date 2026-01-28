@@ -158,7 +158,7 @@ const SideBar = ({
             onClick={onNavigate}
             className={({ isActive }) =>
               `rounded-xl px-3 py-2 uppercase tracking-[0.2em] transition ${
-                isActive ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted hover:text-text'
+                isActive ? 'bg-accent text-[#0b0f14]' : 'text-muted hover:text-text'
               }`
             }
           >
@@ -169,7 +169,7 @@ const SideBar = ({
             onClick={onNavigate}
             className={({ isActive }) =>
               `rounded-xl px-3 py-2 uppercase tracking-[0.2em] transition ${
-                isActive ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted hover:text-text'
+                isActive ? 'bg-accent text-[#0b0f14]' : 'text-muted hover:text-text'
               }`
             }
           >
