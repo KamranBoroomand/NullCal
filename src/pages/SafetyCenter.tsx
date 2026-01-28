@@ -400,6 +400,8 @@ const SafetyCenter = () => {
           onHome={() => navigate('/')}
           theme={state.settings.theme}
           onThemeChange={(theme) => updateSettings({ theme })}
+          secureMode={state.settings.secureMode}
+          onToggleSecureMode={() => updateSettings({ secureMode: !state.settings.secureMode })}
           onOpenNav={() => setNavOpen(true)}
           commandStripMode={state.settings.commandStripMode}
           locked={locked}
@@ -652,7 +654,7 @@ const SafetyCenter = () => {
                 <div>
                   <p className="text-xs uppercase tracking-[0.3em] text-muted">Command Strip Mode</p>
                   <p className="mt-1 text-xs text-muted">
-                    Adds subtle command-strip styling cues to the TopBar, including scanlines and hotkey hints.
+                    Enables the grid-based command strip layout in the TopBar, plus scanlines and hotkey hints.
                   </p>
                 </div>
                 <input

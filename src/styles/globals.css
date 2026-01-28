@@ -113,6 +113,14 @@ body.scanlines-on::before {
   color: rgba(154, 164, 178, 0.7);
 }
 
+.pill-base {
+  border-color: var(--grid);
+}
+
+body[data-theme='light'] .pill-base {
+  border-color: rgba(15, 23, 42, 0.16);
+}
+
 .glow-pulse {
   animation: glowPulse 2.8s ease-in-out infinite;
 }
