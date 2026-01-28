@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode
 } from 'react';
-import { createSeedCalendars, createSeedProfile } from '../storage/seed';
+import { createDecoyCalendars, createSeedCalendars, createSeedProfile } from '../storage/seed';
 import {
   createCalendar as buildCalendar,
   deleteCalendar as deleteCalendarFromState,
@@ -33,6 +33,7 @@ type AppStoreContextValue = {
   updateSecurityPrefs: (updates: Partial<SecurityPrefs>) => void;
   setActiveProfile: (id: string) => void;
   createProfile: (name: string) => void;
+  createDecoyProfile: (name: string) => void;
   resetProfile: (profileId: string) => void;
   updateProfileName: (profileId: string, name: string) => void;
   createCalendar: (profileId: string, payload: { name: string; color: string }) => void;
@@ -45,24 +46,35 @@ type AppStoreContextValue = {
   replaceState: (next: AppState) => void;
   panicWipe: () => Promise<void>;
   setPin: (pin: string) => Promise<void>;
+  setDecoyPin: (pin: string) => Promise<void>;
   clearPin: () => void;
+  clearDecoyPin: () => void;
   exportEncrypted: (passphrase: string) => Promise<EncryptedPayload>;
   importEncrypted: (payload: EncryptedPayload, passphrase: string) => Promise<void>;
 };
 
 const AppStoreContext = createContext<AppStoreContextValue | null>(null);
+const baseSecurityPrefs: SecurityPrefs = {
+  id: 'security',
+  pinEnabled: false,
+  decoyPinEnabled: false
+};
 
 export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<AppState | null>(null);
   const [loading, setLoading] = useState(true);
   const [locked, setLocked] = useState(false);
   const autoLockTimer = useRef<number | null>(null);
+  const blurLockTimer = useRef<number | null>(null);
+  const lockNow = useCallback(() => {
+    setLocked(true);
+  }, []);
 
   useEffect(() => {
     loadAppState()
       .then((data) => {
         setState(data);
-        setLocked(Boolean(data.securityPrefs.pinEnabled));
+        setLocked(Boolean(data.securityPrefs.pinEnabled || data.securityPrefs.decoyPinEnabled));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -93,10 +105,10 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     if (!state) {
       return;
     }
-    if (!state.securityPrefs.pinEnabled) {
+    if (!state.securityPrefs.pinEnabled && !state.securityPrefs.decoyPinEnabled) {
       setLocked(false);
     }
-  }, [state?.securityPrefs.pinEnabled]);
+  }, [state?.securityPrefs.pinEnabled, state?.securityPrefs.decoyPinEnabled]);
 
   useEffect(() => {
     if (!state) {
@@ -111,7 +123,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         window.clearTimeout(autoLockTimer.current);
       }
       autoLockTimer.current = window.setTimeout(() => {
-        setLocked(true);
+        lockNow();
       }, minutes * 60 * 1000);
     };
     const handleActivity = () => {
@@ -131,7 +143,52 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       window.removeEventListener('keydown', handleActivity);
       window.removeEventListener('click', handleActivity);
     };
-  }, [state?.settings.autoLockMinutes, locked]);
+  }, [lockNow, state?.settings.autoLockMinutes, locked]);
+
+  useEffect(() => {
+    if (!state) {
+      return;
+    }
+    if (!state.settings.autoLockOnBlur) {
+      return;
+    }
+    const graceMs = Math.max(0, state.settings.autoLockGraceSeconds) * 1000;
+    const scheduleLock = () => {
+      if (locked) {
+        return;
+      }
+      if (blurLockTimer.current) {
+        window.clearTimeout(blurLockTimer.current);
+      }
+      blurLockTimer.current = window.setTimeout(() => {
+        lockNow();
+      }, graceMs);
+    };
+    const clearLock = () => {
+      if (blurLockTimer.current) {
+        window.clearTimeout(blurLockTimer.current);
+        blurLockTimer.current = null;
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        scheduleLock();
+      } else {
+        clearLock();
+      }
+    };
+    const handleBlur = () => scheduleLock();
+    const handleFocus = () => clearLock();
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      clearLock();
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [lockNow, state?.settings.autoLockOnBlur, state?.settings.autoLockGraceSeconds, locked]);
 
   const updateSettings = useCallback((updates: Partial<AppSettings>) => {
     setState((prev) => {
@@ -183,7 +240,31 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         events: prev.events,
         settings: {
           ...prev.settings,
-          activeProfileId: profile.id
+          activeProfileId: profile.id,
+          primaryProfileId: prev.settings.primaryProfileId ?? prev.settings.activeProfileId
+        }
+      };
+    });
+  }, []);
+
+  const createDecoyProfile = useCallback((name: string) => {
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      if (prev.settings.decoyProfileId) {
+        return prev;
+      }
+      const profile = createSeedProfile(name);
+      const calendars = createDecoyCalendars(profile.id);
+      return {
+        ...prev,
+        profiles: [...prev.profiles, profile],
+        calendars: [...prev.calendars, ...calendars],
+        settings: {
+          ...prev.settings,
+          decoyProfileId: profile.id,
+          primaryProfileId: prev.settings.primaryProfileId ?? prev.settings.activeProfileId
         }
       };
     });
@@ -313,33 +394,54 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  const lockNow = useCallback(() => {
-    setLocked(true);
-  }, []);
-
   const unlock = useCallback(
     async (pin?: string) => {
       if (!state) {
         return false;
       }
-      if (!state.securityPrefs.pinEnabled) {
+      if (!state.securityPrefs.pinEnabled && !state.securityPrefs.decoyPinEnabled) {
         setLocked(false);
         return true;
       }
-      if (!pin || !state.securityPrefs.pinHash || !state.securityPrefs.pinSalt) {
+      if (!pin) {
         return false;
       }
-      const ok = await verifyPin(pin, {
-        hash: state.securityPrefs.pinHash,
-        salt: state.securityPrefs.pinSalt,
-        iterations: state.securityPrefs.pinIterations ?? 90000
-      });
-      if (ok) {
+      const matchesPrimary =
+        state.securityPrefs.pinEnabled &&
+        state.securityPrefs.pinHash &&
+        state.securityPrefs.pinSalt
+          ? await verifyPin(pin, {
+              hash: state.securityPrefs.pinHash,
+              salt: state.securityPrefs.pinSalt,
+              iterations: state.securityPrefs.pinIterations ?? 90000
+            })
+          : false;
+      const matchesDecoy =
+        state.securityPrefs.decoyPinEnabled &&
+        state.securityPrefs.decoyPinHash &&
+        state.securityPrefs.decoyPinSalt
+          ? await verifyPin(pin, {
+              hash: state.securityPrefs.decoyPinHash,
+              salt: state.securityPrefs.decoyPinSalt,
+              iterations: state.securityPrefs.decoyPinIterations ?? 90000
+            })
+          : false;
+      if (matchesPrimary) {
         setLocked(false);
+        updateSettings({
+          activeProfileId: state.settings.primaryProfileId ?? state.settings.activeProfileId
+        });
+        return true;
       }
-      return ok;
+      if (matchesDecoy) {
+        setLocked(false);
+        const decoyProfileId = state.settings.decoyProfileId ?? state.settings.activeProfileId;
+        updateSettings({ activeProfileId: decoyProfileId });
+        return true;
+      }
+      return false;
     },
-    [state]
+    [state, updateSettings]
   );
 
   const setPin = useCallback(
@@ -356,6 +458,19 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     [updateSecurityPrefs]
   );
 
+  const setDecoyPin = useCallback(
+    async (pin: string) => {
+      const hashed = await hashPin(pin);
+      updateSecurityPrefs({
+        decoyPinEnabled: true,
+        decoyPinHash: hashed.hash,
+        decoyPinSalt: hashed.salt,
+        decoyPinIterations: hashed.iterations
+      });
+    },
+    [updateSecurityPrefs]
+  );
+
   const clearPin = useCallback(() => {
     updateSecurityPrefs({
       pinEnabled: false,
@@ -364,6 +479,15 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       pinIterations: undefined
     });
     setLocked(false);
+  }, [updateSecurityPrefs]);
+
+  const clearDecoyPin = useCallback(() => {
+    updateSecurityPrefs({
+      decoyPinEnabled: false,
+      decoyPinHash: undefined,
+      decoyPinSalt: undefined,
+      decoyPinIterations: undefined
+    });
   }, [updateSecurityPrefs]);
 
   const replaceState = useCallback((next: AppState) => {
@@ -400,8 +524,17 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       const activeProfileExists = decrypted.profiles.some(
         (profile) => profile.id === decrypted.settings.activeProfileId
       );
+      const resolvedPrimary =
+        decrypted.settings.primaryProfileId ??
+        decrypted.settings.activeProfileId ??
+        decrypted.profiles[0]?.id ??
+        decrypted.settings.activeProfileId;
       const settings = {
         ...decrypted.settings,
+        primaryProfileId: resolvedPrimary,
+        autoLockOnBlur: decrypted.settings.autoLockOnBlur ?? false,
+        autoLockGraceSeconds: decrypted.settings.autoLockGraceSeconds ?? 0,
+        privacyScreenHotkeyEnabled: decrypted.settings.privacyScreenHotkeyEnabled ?? true,
         activeProfileId: activeProfileExists
           ? decrypted.settings.activeProfileId
           : decrypted.profiles[0]?.id ?? decrypted.settings.activeProfileId
@@ -411,9 +544,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         calendars: decrypted.calendars ?? [],
         events: decrypted.events ?? [],
         settings,
-        securityPrefs: decrypted.securityPrefs
+        securityPrefs: {
+          ...baseSecurityPrefs,
+          ...decrypted.securityPrefs
+        }
       });
-      setLocked(Boolean(decrypted.securityPrefs.pinEnabled));
+      setLocked(Boolean(decrypted.securityPrefs.pinEnabled || decrypted.securityPrefs.decoyPinEnabled));
     },
     []
   );
@@ -438,6 +574,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       updateSecurityPrefs,
       setActiveProfile,
       createProfile,
+      createDecoyProfile,
       resetProfile,
       updateProfileName,
       createCalendar,
@@ -450,7 +587,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       replaceState,
       panicWipe,
       setPin,
+      setDecoyPin,
       clearPin,
+      clearDecoyPin,
       exportEncrypted,
       importEncrypted
     }),
@@ -464,6 +603,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       updateSecurityPrefs,
       setActiveProfile,
       createProfile,
+      createDecoyProfile,
       resetProfile,
       updateProfileName,
       createCalendar,
@@ -476,7 +616,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       replaceState,
       panicWipe,
       setPin,
+      setDecoyPin,
       clearPin,
+      clearDecoyPin,
       exportEncrypted,
       importEncrypted
     ]

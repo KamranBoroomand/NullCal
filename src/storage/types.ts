@@ -28,11 +28,16 @@ export type AppSettings = {
   id: 'app';
   theme: 'dark' | 'light';
   activeProfileId: string;
+  primaryProfileId: string;
+  decoyProfileId?: string;
   networkLock: boolean;
   secureMode: boolean;
   blurSensitive: boolean;
   scanlines: boolean;
   autoLockMinutes: number;
+  autoLockOnBlur: boolean;
+  autoLockGraceSeconds: number;
+  privacyScreenHotkeyEnabled: boolean;
   lastExportAt?: string;
 };
 
@@ -42,6 +47,10 @@ export type SecurityPrefs = {
   pinHash?: string;
   pinSalt?: string;
   pinIterations?: number;
+  decoyPinEnabled: boolean;
+  decoyPinHash?: string;
+  decoyPinSalt?: string;
+  decoyPinIterations?: number;
 };
 
 export type AppState = {

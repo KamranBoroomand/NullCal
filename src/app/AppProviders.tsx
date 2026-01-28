@@ -3,6 +3,7 @@ import ThemeProvider from '../theme/ThemeProvider';
 import { AppStoreProvider, useAppStore } from './AppStore';
 import { ToastProvider } from '../components/ToastProvider';
 import LockScreen from '../components/LockScreen';
+import { PrivacyScreenProvider } from '../state/privacy';
 
 const ThemeBridge = ({ children }: { children: ReactNode }) => {
   const { state, updateSettings, locked, unlock } = useAppStore();
@@ -15,8 +16,14 @@ const ThemeBridge = ({ children }: { children: ReactNode }) => {
   return (
     <ThemeProvider theme={theme} onThemeChange={(next) => updateSettings({ theme: next })}>
       <ToastProvider>
-        {children}
-        <LockScreen open={locked} pinEnabled={Boolean(state?.securityPrefs.pinEnabled)} onUnlock={unlock} />
+        <PrivacyScreenProvider>
+          {children}
+          <LockScreen
+            open={locked}
+            pinEnabled={Boolean(state?.securityPrefs.pinEnabled || state?.securityPrefs.decoyPinEnabled)}
+            onUnlock={unlock}
+          />
+        </PrivacyScreenProvider>
       </ToastProvider>
     </ThemeProvider>
   );

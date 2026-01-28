@@ -8,6 +8,8 @@ import AppShell from '../app/AppShell';
 import TopBar from '../app/TopBar';
 import SideBar from '../app/SideBar';
 import { encryptPayload } from '../security/encryption';
+import { buildExportPayload, type ExportMode, validateExportPayload } from '../security/exportUtils';
+import { usePrivacyScreen } from '../state/privacy';
 
 const formatDate = (value?: string) => {
   if (!value) {
@@ -24,6 +26,7 @@ const SafetyCenter = () => {
     updateSettings,
     setActiveProfile,
     createProfile,
+    createDecoyProfile,
     resetProfile,
     createCalendar,
     renameCalendar,
@@ -31,11 +34,13 @@ const SafetyCenter = () => {
     deleteCalendar,
     toggleCalendarVisibility,
     setPin,
+    setDecoyPin,
     clearPin,
-    exportEncrypted,
+    clearDecoyPin,
     importEncrypted,
     panicWipe
   } = useAppStore();
+  const { privacyScreenOn, togglePrivacyScreen } = usePrivacyScreen();
   const { notify } = useToast();
   const navigate = useNavigate();
   const [exportPassphrase, setExportPassphrase] = useState('');
@@ -44,12 +49,15 @@ const SafetyCenter = () => {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [pinDraft, setPinDraft] = useState('');
   const [pinConfirm, setPinConfirm] = useState('');
+  const [decoyPinDraft, setDecoyPinDraft] = useState('');
+  const [decoyPinConfirm, setDecoyPinConfirm] = useState('');
   const [panicOpen, setPanicOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [wipedImportOpen, setWipedImportOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
-  const [includeSettings, setIncludeSettings] = useState(false);
+  const [exportMode, setExportMode] = useState<ExportMode>('clean');
+  const [keepTitles, setKeepTitles] = useState(false);
   const holdTimer = useRef<number | null>(null);
   const [searchParams] = useSearchParams();
 
@@ -74,6 +82,25 @@ const SafetyCenter = () => {
   };
 
   const wiped = searchParams.get('wiped') === '1' || readSessionValue('nullcal:wiped') === '1';
+
+  const activeProfile = useMemo(() => {
+    if (!state) {
+      return null;
+    }
+    return state.profiles.find((profile) => profile.id === state.settings.activeProfileId) ?? state.profiles[0] ?? null;
+  }, [state]);
+  const calendars = useMemo(() => {
+    if (!state || !activeProfile) {
+      return [];
+    }
+    return state.calendars.filter((calendar) => calendar.profileId === activeProfile.id);
+  }, [activeProfile, state]);
+  const events = useMemo(() => {
+    if (!state || !activeProfile) {
+      return [];
+    }
+    return state.events.filter((event) => event.profileId === activeProfile.id);
+  }, [activeProfile, state]);
 
   if (wiped) {
     return (
@@ -163,20 +190,6 @@ const SafetyCenter = () => {
     );
   }
 
-  const activeProfile = state.profiles.find((profile) => profile.id === state.settings.activeProfileId) ?? state.profiles[0];
-  const calendars = useMemo(() => {
-    if (!activeProfile) {
-      return [];
-    }
-    return state.calendars.filter((calendar) => calendar.profileId === activeProfile.id);
-  }, [activeProfile, state.calendars]);
-  const events = useMemo(() => {
-    if (!activeProfile) {
-      return [];
-    }
-    return state.events.filter((event) => event.profileId === activeProfile.id);
-  }, [activeProfile, state.events]);
-
   const handleCreateProfile = () => {
     const name = window.prompt('Profile name');
     if (!name) {
@@ -196,14 +209,26 @@ const SafetyCenter = () => {
     resetProfile(activeProfile.id);
   };
 
+  const buildExportSnapshot = () => {
+    if (!state || !activeProfile) {
+      throw new Error('Missing profile');
+    }
+    const payload = buildExportPayload(state, activeProfile.id, { mode: exportMode, keepTitles });
+    const sanityCheck = JSON.parse(JSON.stringify(payload)) as typeof payload;
+    validateExportPayload(sanityCheck);
+    return sanityCheck;
+  };
+
   const handleQuickExport = async () => {
     const passphrase = window.prompt('Create a passphrase to encrypt this backup.');
     if (!passphrase) {
       return;
     }
     try {
-      const payload = await exportEncrypted(passphrase);
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const payload = buildExportSnapshot();
+      const encryptedPayload = await encryptPayload(payload, passphrase);
+      updateSettings({ lastExportAt: new Date().toISOString() });
+      const blob = new Blob([JSON.stringify(encryptedPayload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -231,85 +256,9 @@ const SafetyCenter = () => {
     }
   };
 
-  const buildZeroMetadataPayload = () => {
-    const basePayload = {
-      schemaVersion: 1,
-      calendars: calendars.map((calendar) => ({
-        id: calendar.id,
-        name: calendar.name,
-        color: calendar.color,
-        isVisible: calendar.isVisible
-      })),
-      events: events.map((event) => ({
-        id: event.id,
-        calendarId: event.calendarId,
-        title: event.title,
-        start: event.start,
-        end: event.end,
-        allDay: (event as typeof event & { allDay?: boolean }).allDay,
-        location: event.location,
-        notes: event.notes
-      }))
-    };
-
-    if (!includeSettings) {
-      return basePayload;
-    }
-
-    return {
-      ...basePayload,
-      settings: {
-        theme: state.settings.theme,
-        activeProfileId: state.settings.activeProfileId,
-        networkLock: state.settings.networkLock,
-        secureMode: state.settings.secureMode,
-        blurSensitive: state.settings.blurSensitive,
-        scanlines: state.settings.scanlines,
-        autoLockMinutes: state.settings.autoLockMinutes
-      }
-    };
-  };
-
-  const handleZeroMetadataExport = () => {
-    try {
-      const payload = buildZeroMetadataPayload();
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `nullcal-zero-metadata-${new Date().toISOString().slice(0, 10)}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-      notify('Zero-metadata export saved.', 'success');
-    } catch {
-      notify('Zero-metadata export failed.', 'error');
-    }
-  };
-
-  const handleZeroMetadataEncryptedExport = async () => {
-    if (!exportPassphrase || exportPassphrase !== exportConfirm) {
-      notify('Passphrases do not match.', 'error');
-      return;
-    }
-    try {
-      const payload = buildZeroMetadataPayload();
-      const encryptedPayload = await encryptPayload(payload, exportPassphrase);
-      const blob = new Blob([JSON.stringify(encryptedPayload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `nullcal-zero-metadata-encrypted-${new Date().toISOString().slice(0, 10)}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-      notify('Encrypted (zero-metadata) backup exported.', 'success');
-    } catch {
-      notify('Encrypted zero-metadata export failed.', 'error');
-    }
-  };
-
   const securityScoreChecklist = [
-    { label: 'PIN enabled', value: state.securityPrefs.pinEnabled },
-    { label: 'Auto-lock enabled', value: state.settings.autoLockMinutes > 0 },
+    { label: 'PIN enabled', value: state.securityPrefs.pinEnabled || state.securityPrefs.decoyPinEnabled },
+    { label: 'Auto-lock enabled', value: state.settings.autoLockMinutes > 0 || state.settings.autoLockOnBlur },
     { label: 'Offline mode enforced', value: state.settings.networkLock },
     { label: 'Secure mode enabled', value: state.settings.secureMode },
     {
@@ -327,8 +276,10 @@ const SafetyCenter = () => {
       return;
     }
     try {
-      const payload = await exportEncrypted(exportPassphrase);
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const payload = buildExportSnapshot();
+      const encryptedPayload = await encryptPayload(payload, exportPassphrase);
+      updateSettings({ lastExportAt: new Date().toISOString() });
+      const blob = new Blob([JSON.stringify(encryptedPayload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -366,9 +317,54 @@ const SafetyCenter = () => {
       return;
     }
     await setPin(pinDraft);
+    if (activeProfile) {
+      updateSettings({ primaryProfileId: activeProfile.id });
+    }
     setPinDraft('');
     setPinConfirm('');
     notify('PIN set. Lock screen enabled.', 'success');
+  };
+
+  const handleSetDecoyPin = async () => {
+    if (!decoyPinDraft || decoyPinDraft !== decoyPinConfirm) {
+      notify('Decoy PINs do not match.', 'error');
+      return;
+    }
+    if (!state.settings.decoyProfileId) {
+      notify('Create a decoy profile first.', 'error');
+      return;
+    }
+    await setDecoyPin(decoyPinDraft);
+    setDecoyPinDraft('');
+    setDecoyPinConfirm('');
+    notify('Decoy PIN set.', 'success');
+  };
+
+  const handleCreateDecoyProfile = () => {
+    if (state.settings.decoyProfileId) {
+      notify('Decoy profile already exists.', 'info');
+      return;
+    }
+    const name = window.prompt('Decoy profile name', 'Decoy');
+    if (!name) {
+      return;
+    }
+    createDecoyProfile(name.trim() || 'Decoy');
+  };
+
+  const handleManualProfileSwitch = (id: string) => {
+    if (!id) {
+      return;
+    }
+    if (state.securityPrefs.pinEnabled || state.securityPrefs.decoyPinEnabled) {
+      notify('Profile switching is tied to your PIN unlock.', 'error');
+      return;
+    }
+    const confirmed = window.confirm('Switch active profile?');
+    if (!confirmed) {
+      return;
+    }
+    setActiveProfile(id);
   };
 
   const handlePanicHoldStart = () => {
@@ -394,8 +390,10 @@ const SafetyCenter = () => {
         <TopBar
           profiles={state.profiles.map((profile) => ({ id: profile.id, name: profile.name }))}
           activeProfileId={activeProfile?.id ?? ''}
-          onProfileChange={setActiveProfile}
+          onProfileChange={handleManualProfileSwitch}
           onCreateProfile={handleCreateProfile}
+          profileSwitchAllowed={!state.securityPrefs.pinEnabled && !state.securityPrefs.decoyPinEnabled}
+          showCreateProfile={!state.securityPrefs.pinEnabled && !state.securityPrefs.decoyPinEnabled}
           onOpenSettings={() => setSettingsOpen(true)}
           onLockNow={lockNow}
           onHome={() => navigate('/')}
@@ -493,8 +491,72 @@ const SafetyCenter = () => {
 
         <motion.section {...panelMotion} className="grid gap-6 lg:grid-cols-2">
           <div className="photon-panel rounded-3xl p-5 sm:p-6">
-            <p className="text-xs uppercase tracking-[0.3em] text-muted">Lock Screen</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
             <div className="mt-4 space-y-4 text-sm text-muted">
+              <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Secure mode</p>
+                  <p className="mt-1 text-xs text-muted">
+                    Hides event titles until hover (anti shoulder-surf). Not encryption.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={state.settings.secureMode}
+                  onChange={(event) => updateSettings({ secureMode: event.target.checked })}
+                  className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                />
+              </label>
+              <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Blur sensitive</p>
+                  <p className="mt-1 text-xs text-muted">Blurs titles until hover.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={state.settings.blurSensitive}
+                  onChange={(event) => updateSettings({ blurSensitive: event.target.checked })}
+                  className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                />
+              </label>
+              <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy screen hotkey</p>
+                  <p className="mt-1 text-xs text-muted">Cmd/Ctrl+Shift+L toggles a decoy overlay.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={state.settings.privacyScreenHotkeyEnabled}
+                  onChange={(event) =>
+                    updateSettings({ privacyScreenHotkeyEnabled: event.target.checked })
+                  }
+                  className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={togglePrivacyScreen}
+                className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
+              >
+                {privacyScreenOn ? 'Exit privacy screen' : 'Activate privacy screen'}
+              </button>
+            </div>
+          </div>
+
+          <div className="photon-panel rounded-3xl p-5 sm:p-6">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted">Locking</p>
+            <div className="mt-4 space-y-4 text-sm text-muted">
+              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Lock now</p>
+                <p className="mt-1 text-xs text-muted">Immediately hides the calendar until you unlock.</p>
+                <button
+                  type="button"
+                  onClick={lockNow}
+                  className="mt-3 rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                >
+                  Lock now
+                </button>
+              </div>
               <div>
                 <label className="text-xs uppercase tracking-[0.3em] text-muted">Set PIN</label>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -546,87 +608,230 @@ const SafetyCenter = () => {
                 />
                 <p className="mt-2 text-xs text-muted">Set to 0 to disable inactivity lock.</p>
               </div>
-            </div>
-          </div>
-          <div className="photon-panel rounded-3xl p-5 sm:p-6">
-            <p className="text-xs uppercase tracking-[0.3em] text-muted">Encrypted Export</p>
-            <div className="mt-4 grid gap-3 text-sm text-muted">
-              <input
-                type="password"
-                placeholder="Passphrase"
-                value={exportPassphrase}
-                onChange={(event) => setExportPassphrase(event.target.value)}
-                className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-              />
-              <input
-                type="password"
-                placeholder="Confirm passphrase"
-                value={exportConfirm}
-                onChange={(event) => setExportConfirm(event.target.value)}
-                className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-              />
-              <button
-                type="button"
-                onClick={handleExport}
-                className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14]"
-              >
-                Export encrypted
-              </button>
-            </div>
-            <div className="mt-5 border-t border-grid pt-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Zero-metadata export</p>
-              <p className="mt-2 text-xs text-muted">
-                Exports only calendars and events (no timestamps, devices, or security settings).
-              </p>
-              <label className="mt-3 flex items-center gap-2 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  checked={includeSettings}
-                  onChange={(event) => setIncludeSettings(event.target.checked)}
-                  className="h-4 w-4 rounded border border-grid bg-panel2"
-                />
-                Include settings (optional)
-              </label>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleZeroMetadataExport}
-                  className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                >
-                  Zero-metadata export
-                </button>
-                <button
-                  type="button"
-                  onClick={handleZeroMetadataEncryptedExport}
-                  className="rounded-full border border-accent/40 bg-panel px-4 py-2 text-xs uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text"
-                >
-                  Encrypted (zero-metadata) backup
-                </button>
+              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                <label className="flex items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
+                  <span>Auto-lock on tab blur</span>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.autoLockOnBlur}
+                    onChange={(event) => updateSettings({ autoLockOnBlur: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                <div className="mt-3 flex items-center gap-3 text-xs text-muted">
+                  <span>Grace period</span>
+                  <select
+                    value={state.settings.autoLockGraceSeconds}
+                    onChange={(event) =>
+                      updateSettings({ autoLockGraceSeconds: Number(event.target.value || 0) })
+                    }
+                    className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                  >
+                    <option value={0} className="bg-panel2">
+                      0s
+                    </option>
+                    <option value={5} className="bg-panel2">
+                      5s
+                    </option>
+                    <option value={15} className="bg-panel2">
+                      15s
+                    </option>
+                  </select>
+                </div>
               </div>
             </div>
-            <div className="mt-5 border-t border-grid pt-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Import Backup</p>
-              <div className="mt-3 grid gap-3 text-sm text-muted">
+          </div>
+
+          <div className="photon-panel rounded-3xl p-5 sm:p-6">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted">Export Hygiene</p>
+            <div className="mt-4 space-y-4 text-sm text-muted">
+              <div className="space-y-3">
+                {(['full', 'clean', 'minimal'] as ExportMode[]).map((mode) => (
+                  <label
+                    key={mode}
+                    className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted">
+                        {mode === 'full' && 'Full export'}
+                        {mode === 'clean' && 'Clean export'}
+                        {mode === 'minimal' && 'Minimal export'}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        {mode === 'full' && 'Everything in the current profile.'}
+                        {mode === 'clean' &&
+                          'Removes notes, location, attendees; titles become “Busy” unless kept.'}
+                        {mode === 'minimal' && 'Only start/end times and topic/category.'}
+                      </p>
+                    </div>
+                    <input
+                      type="radio"
+                      name="export-mode"
+                      value={mode}
+                      checked={exportMode === mode}
+                      onChange={() => setExportMode(mode)}
+                      className="mt-1 h-4 w-4 rounded-full border border-grid bg-panel2"
+                    />
+                  </label>
+                ))}
+                {exportMode === 'clean' && (
+                  <label className="flex items-center gap-2 text-xs text-muted">
+                    <input
+                      type="checkbox"
+                      checked={keepTitles}
+                      onChange={(event) => setKeepTitles(event.target.checked)}
+                      className="h-4 w-4 rounded border border-grid bg-panel2"
+                    />
+                    Keep titles (still removes notes/location/attendees)
+                  </label>
+                )}
+                <p className="text-xs text-muted">Exports are files; handle them like secrets.</p>
+              </div>
+              <div className="grid gap-3 text-sm text-muted">
                 <input
-                  type="file"
-                  accept="application/json"
-                  onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+                  type="password"
+                  placeholder="Passphrase"
+                  value={exportPassphrase}
+                  onChange={(event) => setExportPassphrase(event.target.value)}
                   className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                 />
                 <input
                   type="password"
-                  placeholder="Passphrase"
-                  value={importPassphrase}
-                  onChange={(event) => setImportPassphrase(event.target.value)}
+                  placeholder="Confirm passphrase"
+                  value={exportConfirm}
+                  onChange={(event) => setExportConfirm(event.target.value)}
                   className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                 />
                 <button
                   type="button"
-                  onClick={handleImport}
+                  onClick={handleExport}
+                  className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14]"
+                >
+                  Export encrypted
+                </button>
+              </div>
+              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Quick export</p>
+                <p className="mt-1 text-xs text-muted">Prompt for a passphrase and export immediately.</p>
+                <button
+                  type="button"
+                  onClick={handleQuickExport}
+                  className="mt-3 rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                >
+                  Quick export
+                </button>
+              </div>
+              <div className="border-t border-grid pt-4">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Import Backup</p>
+                <div className="mt-3 grid gap-3 text-sm text-muted">
+                  <input
+                    type="file"
+                    accept="application/json"
+                    onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+                    className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Passphrase"
+                    value={importPassphrase}
+                    onChange={(event) => setImportPassphrase(event.target.value)}
+                    className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleImport}
+                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                  >
+                    Import
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="photon-panel rounded-3xl p-5 sm:p-6">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted">Decoy Profile</p>
+            <div className="mt-4 space-y-4 text-sm text-muted">
+              <p className="text-xs text-muted">
+                Decoy profile is a separate local workspace. Use a decoy PIN to open it under pressure.
+              </p>
+              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
+                <p>
+                  Active profile:{' '}
+                  <span className="text-text">{activeProfile?.name ?? 'Unknown'}</span>
+                </p>
+                <p className="mt-1">
+                  Decoy profile:{' '}
+                  <span className="text-text">
+                    {state.settings.decoyProfileId ? 'Configured' : 'Not created'}
+                  </span>
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleCreateDecoyProfile}
                   className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
                 >
-                  Import
+                  Create decoy shell
                 </button>
+                {state.settings.decoyProfileId &&
+                  !state.securityPrefs.pinEnabled &&
+                  !state.securityPrefs.decoyPinEnabled && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleManualProfileSwitch(state.settings.decoyProfileId ?? '')}
+                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                      >
+                        Switch to decoy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleManualProfileSwitch(state.settings.primaryProfileId)}
+                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                      >
+                        Switch to primary
+                      </button>
+                    </>
+                  )}
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-[0.3em] text-muted">Set decoy PIN</label>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    placeholder="Decoy PIN"
+                    value={decoyPinDraft}
+                    onChange={(event) => setDecoyPinDraft(event.target.value)}
+                    className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                  />
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    placeholder="Confirm decoy PIN"
+                    value={decoyPinConfirm}
+                    onChange={(event) => setDecoyPinConfirm(event.target.value)}
+                    className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSetDecoyPin}
+                    className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14]"
+                  >
+                    Save decoy PIN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearDecoyPin}
+                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                  >
+                    Clear decoy PIN
+                  </button>
+                </div>
               </div>
             </div>
           </div>
