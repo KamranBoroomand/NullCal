@@ -8,6 +8,8 @@ import type { ThemeMode } from '../theme/ThemeProvider';
 const base = import.meta.env.BASE_URL;
 const mark1x = `${base}mark-128.png?v=3`;
 const mark2x = `${base}mark-256.png?v=3`;
+const pillBase =
+  'h-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/7 text-xs tracking-[0.18em] uppercase inline-flex items-center gap-2 whitespace-nowrap transition';
 
 const SettingsIcon = () => (
   <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
@@ -91,7 +93,7 @@ const AgentDropdown = ({ options, activeId, onChange, className }: AgentDropdown
         onClick={() => setOpen((value) => !value)}
         whileHover={reduceMotion ? undefined : { y: -2, boxShadow: '0 8px 16px rgba(244, 255, 0, 0.16)' }}
         whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-        className="h-10 min-w-[140px] rounded-full border border-white/10 bg-panel px-4 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
+        className={`${pillBase} min-w-[140px] px-4 text-muted hover:text-text`}
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -175,8 +177,8 @@ const TopBar = ({
   onOpenNav
 }: TopBarProps) => {
   const reduceMotion = useReducedMotion();
-  const pillBase =
-    'h-10 px-4 rounded-full border border-white/10 bg-panel text-sm leading-none inline-flex items-center justify-center gap-2 whitespace-nowrap transition hover:text-text';
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement | null>(null);
   const pillMotion = reduceMotion
     ? {}
     : {
@@ -185,145 +187,214 @@ const TopBar = ({
         transition: { duration: 0.16 }
       };
 
+  useEffect(() => {
+    if (!searchOpen) {
+      return;
+    }
+    const handleClick = (event: MouseEvent) => {
+      if (!searchRef.current?.contains(event.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSearchOpen(false);
+      }
+    };
+    window.addEventListener('click', handleClick);
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('click', handleClick);
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, [searchOpen]);
+
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-4 py-4 text-sm sm:px-6">
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-start gap-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {onOpenNav && (
-              <motion.button
-                type="button"
-                onClick={onOpenNav}
-                className="flex-none rounded-full border border-grid bg-panel px-3 py-2 text-muted transition hover:text-text md:hidden"
-                aria-label="Open navigation"
-                {...pillMotion}
-              >
-                <HamburgerIcon />
-              </motion.button>
-            )}
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-3 text-sm sm:px-6">
+      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)] lg:items-center lg:gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {onOpenNav && (
             <motion.button
               type="button"
-              onClick={onHome}
-              className="flex flex-none flex-col items-center gap-1 rounded-2xl border border-grid bg-panel px-3 py-2 text-text transition hover:border-accent/60"
-              aria-label="Go to calendar"
+              onClick={onOpenNav}
+              className={`${pillBase} flex-none px-3 text-muted hover:text-text lg:hidden`}
+              aria-label="Open navigation"
               {...pillMotion}
             >
-              <span className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8">
-                <img
-                  src={mark2x}
-                  srcSet={`${mark1x} 1x, ${mark2x} 2x`}
-                  alt=""
-                  aria-hidden="true"
-                  className="h-full w-full rounded-xl"
-                  draggable={false}
-                />
-              </span>
-              <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">
-                NullCal
-              </span>
-              <span className="h-0.5 w-6 rounded-full bg-accent/80" />
+              <HamburgerIcon />
             </motion.button>
-            {onToday && (
-              <motion.button
-                onClick={onToday}
-                className={`${pillBase} uppercase tracking-[0.2em] text-muted`}
-                {...pillMotion}
-              >
-                Today
-              </motion.button>
-            )}
-            {view && onViewChange && (
-              <div className="flex flex-col items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <motion.button
-                    onClick={() => onViewChange('timeGridWeek')}
-                    className={`${pillBase} uppercase tracking-[0.2em] transition ${
-                      view === 'timeGridWeek' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
-                    }`}
-                    {...pillMotion}
-                  >
-                    Week
-                  </motion.button>
-                  <motion.button
-                    onClick={() => onViewChange('dayGridMonth')}
-                    className={`${pillBase} uppercase tracking-[0.2em] transition ${
-                      view === 'dayGridMonth' ? 'glow-pulse bg-accent text-[#0b0f14]' : 'text-muted'
-                    }`}
-                    {...pillMotion}
-                  >
-                    Month
-                  </motion.button>
-                </div>
-                {onPrev && onNext && (
-                  <div className="flex items-center gap-2">
-                    <IconButton label="Previous" onClick={onPrev}>
-                      <ChevronIcon direction="left" />
-                    </IconButton>
-                    <IconButton label="Next" onClick={onNext}>
-                      <ChevronIcon direction="right" />
-                    </IconButton>
-                  </div>
-                )}
+          )}
+          <motion.button
+            type="button"
+            onClick={onHome}
+            className="flex flex-none flex-col items-center gap-1 rounded-2xl border border-grid bg-panel px-3 py-2 text-text transition hover:border-accent/60"
+            aria-label="Go to calendar"
+            {...pillMotion}
+          >
+            <span className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8">
+              <img
+                src={mark2x}
+                srcSet={`${mark1x} 1x, ${mark2x} 2x`}
+                alt=""
+                aria-hidden="true"
+                className="h-full w-full rounded-xl"
+                draggable={false}
+              />
+            </span>
+            <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
+            <span className="h-0.5 w-6 rounded-full bg-accent/80" />
+          </motion.button>
+          {onToday && (
+            <motion.button
+              onClick={onToday}
+              className={`${pillBase} px-3 text-muted hover:text-text`}
+              {...pillMotion}
+            >
+              Today
+            </motion.button>
+          )}
+          {view && onViewChange && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2">
+                <motion.button
+                  onClick={() => onViewChange('timeGridWeek')}
+                  className={`${pillBase} px-3 ${
+                    view === 'timeGridWeek'
+                      ? 'bg-accent text-slate-950'
+                      : 'text-muted hover:text-text'
+                  }`}
+                  {...pillMotion}
+                >
+                  Week
+                </motion.button>
+                <motion.button
+                  onClick={() => onViewChange('dayGridMonth')}
+                  className={`${pillBase} px-3 ${
+                    view === 'dayGridMonth'
+                      ? 'bg-accent text-slate-950'
+                      : 'text-muted hover:text-text'
+                  }`}
+                  {...pillMotion}
+                >
+                  Month
+                </motion.button>
               </div>
-            )}
-          </div>
+              {onPrev && onNext && (
+                <div className="flex items-center gap-2">
+                  <IconButton
+                    label="Previous"
+                    onClick={onPrev}
+                    className={`${pillBase} w-9 justify-center text-muted hover:text-text`}
+                  >
+                    <ChevronIcon direction="left" />
+                  </IconButton>
+                  <IconButton
+                    label="Next"
+                    onClick={onNext}
+                    className={`${pillBase} w-9 justify-center text-muted hover:text-text`}
+                  >
+                    <ChevronIcon direction="right" />
+                  </IconButton>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            {onSearchChange && (
-              <div className="min-w-[180px] max-w-[240px] flex-1">
-                <motion.div className={`${pillBase} w-full min-w-0 overflow-hidden text-muted`} {...pillMotion}>
+        <div className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-center">
+          {onSearchChange && (
+            <div className="relative flex-1 min-w-0" ref={searchRef}>
+              <div className="hidden min-w-[160px] max-w-[240px] flex-1 lg:block xl:max-w-[280px]">
+                <motion.div
+                  className={`${pillBase} w-full min-w-0 overflow-hidden px-3 text-muted hover:text-text`}
+                  {...pillMotion}
+                >
                   <span className="flex-none text-muted">
                     <SearchIcon />
                   </span>
                   <input
-                    value={search}
+                    value={search ?? ''}
                     onChange={(event) => onSearchChange(event.target.value)}
                     placeholder="Search events"
-                    className="w-full min-w-0 bg-transparent text-sm leading-none text-muted placeholder:text-muted/70 focus:outline-none"
+                    className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-muted placeholder:text-muted/70 focus:outline-none"
                   />
                 </motion.div>
               </div>
-            )}
-            <AgentDropdown options={profiles} activeId={activeProfileId} onChange={onProfileChange} />
-            <motion.button
-              onClick={onCreateProfile}
-              className={`${pillBase} text-xs uppercase tracking-[0.2em] text-muted`}
-              {...pillMotion}
-            >
-              + Profile
-            </motion.button>
-            {onInstall && (
-              <motion.button
-                onClick={onInstall}
-                className="flex-none whitespace-nowrap rounded-full border border-accent/40 bg-panel px-4 py-2 text-xs uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text"
-                {...pillMotion}
-              >
-                Install
-              </motion.button>
-            )}
-            <motion.button
-              onClick={onLockNow}
-              className={`${pillBase} uppercase tracking-[0.2em] text-muted`}
-              {...pillMotion}
-            >
-              Lock now
-            </motion.button>
-            <motion.button
-              type="button"
-              onClick={onOpenSettings}
-              className={`${pillBase} px-3 text-muted`}
-              aria-label="Settings"
-              {...pillMotion}
-            >
-              <SettingsIcon />
-            </motion.button>
-            <div className="ml-auto">
-              <ThemeToggle value={theme} onChange={onThemeChange} className="h-10" />
+              <div className="lg:hidden">
+                <motion.button
+                  type="button"
+                  onClick={() => setSearchOpen((open) => !open)}
+                  className={`${pillBase} px-3 text-muted hover:text-text`}
+                  aria-haspopup="dialog"
+                  aria-expanded={searchOpen}
+                  {...pillMotion}
+                >
+                  <SearchIcon />
+                  <span className="sr-only">Search events</span>
+                </motion.button>
+                {searchOpen && (
+                  <div className="absolute left-0 top-full z-40 mt-2 w-64">
+                    <div className={`${pillBase} w-full px-3 text-muted hover:text-text`}>
+                      <span className="flex-none text-muted">
+                        <SearchIcon />
+                      </span>
+                      <input
+                        value={search ?? ''}
+                        onChange={(event) => onSearchChange(event.target.value)}
+                        placeholder="Search events"
+                        className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-muted placeholder:text-muted/70 focus:outline-none"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+          <AgentDropdown options={profiles} activeId={activeProfileId} onChange={onProfileChange} />
         </div>
-        <div className="flex w-full items-center justify-end text-right">
-          <Clock />
+
+        <div className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+          <motion.button
+            onClick={onCreateProfile}
+            className={`${pillBase} px-4 text-muted hover:text-text`}
+            {...pillMotion}
+          >
+            + Profile
+          </motion.button>
+          {onInstall && (
+            <motion.button
+              onClick={onInstall}
+              className={`${pillBase} px-4 border-accent/40 text-accent hover:border-accent hover:text-text`}
+              {...pillMotion}
+            >
+              Install
+            </motion.button>
+          )}
+          <motion.button
+            onClick={onLockNow}
+            className={`${pillBase} px-4 text-muted hover:text-text`}
+            {...pillMotion}
+          >
+            Lock now
+          </motion.button>
+          <motion.button
+            type="button"
+            onClick={onOpenSettings}
+            className={`${pillBase} px-3 text-muted hover:text-text`}
+            aria-label="Settings"
+            {...pillMotion}
+          >
+            <SettingsIcon />
+          </motion.button>
+          <div className="flex flex-col items-end gap-1 pl-2">
+            <ThemeToggle
+              value={theme}
+              onChange={onThemeChange}
+              className={`${pillBase} px-4 text-muted hover:text-text glow-pulse`}
+            />
+            <Clock />
+          </div>
         </div>
       </div>
     </div>
