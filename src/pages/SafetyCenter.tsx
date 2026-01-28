@@ -461,7 +461,7 @@ const SafetyCenter = () => {
                 </li>
                 <li className="flex items-center justify-between">
                   <span>Network</span>
-                  <span className="text-text">Offline-by-design</span>
+                  <span className="text-text">LOCAL-ONLY</span>
                 </li>
                 <li className="flex items-center justify-between">
                   <span>Sync</span>
@@ -497,7 +497,7 @@ const SafetyCenter = () => {
                 <div>
                   <p className="text-xs uppercase tracking-[0.3em] text-muted">Secure mode</p>
                   <p className="mt-1 text-xs text-muted">
-                    Hides event titles until hover (anti shoulder-surf). Not encryption.
+                    Hides event titles until hover or focus to deter shoulder-surfing. Not encryption.
                   </p>
                 </div>
                 <input

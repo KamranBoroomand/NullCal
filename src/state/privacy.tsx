@@ -34,7 +34,7 @@ const PrivacyScreenOverlay = ({ open }: { open: boolean }) => {
             animate={{ opacity: 1, scale: 1 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
             transition={{ duration: reduceMotion ? 0 : 0.2 }}
-            className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-[#0b0f14] p-8 text-center text-sm"
+            className="relative z-10 w-full max-w-md rounded-3xl border border-grid bg-panel p-8 text-center text-sm"
           >
             <p className="text-xs uppercase tracking-[0.4em] text-muted">LOCKED</p>
             <h2 className="mt-2 text-lg font-semibold text-text">Privacy Screen</h2>
