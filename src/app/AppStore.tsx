@@ -105,6 +105,15 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     if (!state) {
       return;
     }
+    const enabled = state.settings.commandStripMode;
+    document.documentElement.classList.toggle('cmdstrip', enabled);
+    window.localStorage.setItem('nullcal:commandStripMode', enabled ? '1' : '0');
+  }, [state?.settings.commandStripMode]);
+
+  useEffect(() => {
+    if (!state) {
+      return;
+    }
     if (!state.securityPrefs.pinEnabled && !state.securityPrefs.decoyPinEnabled) {
       setLocked(false);
     }

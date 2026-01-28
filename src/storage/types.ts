@@ -34,6 +34,7 @@ export type AppSettings = {
   secureMode: boolean;
   blurSensitive: boolean;
   scanlines: boolean;
+  commandStripMode: boolean;
   autoLockMinutes: number;
   autoLockOnBlur: boolean;
   autoLockGraceSeconds: number;

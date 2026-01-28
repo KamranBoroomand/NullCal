@@ -25,6 +25,7 @@ const AppPage = () => {
   const {
     state,
     loading,
+    locked,
     lockNow,
     updateSettings,
     setActiveProfile,
@@ -302,6 +303,8 @@ const AppPage = () => {
             theme={state.settings.theme}
             onThemeChange={(theme) => updateSettings({ theme })}
             onOpenNav={() => setNavOpen(true)}
+            commandStripMode={state.settings.commandStripMode}
+            locked={locked}
           />
         }
         sidebar={

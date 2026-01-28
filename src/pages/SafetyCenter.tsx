@@ -22,6 +22,7 @@ const SafetyCenter = () => {
   const reduceMotion = useReducedMotion();
   const {
     state,
+    locked,
     lockNow,
     updateSettings,
     setActiveProfile,
@@ -400,6 +401,8 @@ const SafetyCenter = () => {
           theme={state.settings.theme}
           onThemeChange={(theme) => updateSettings({ theme })}
           onOpenNav={() => setNavOpen(true)}
+          commandStripMode={state.settings.commandStripMode}
+          locked={locked}
         />
       }
       sidebar={
@@ -639,6 +642,26 @@ const SafetyCenter = () => {
                   </select>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="photon-panel rounded-3xl p-5 sm:p-6">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted">Appearance</p>
+            <div className="mt-4 space-y-4 text-sm text-muted">
+              <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Command Strip Mode</p>
+                  <p className="mt-1 text-xs text-muted">
+                    Adds subtle command-strip styling cues to the TopBar, including scanlines and hotkey hints.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={state.settings.commandStripMode}
+                  onChange={(event) => updateSettings({ commandStripMode: event.target.checked })}
+                  className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                />
+              </label>
             </div>
           </div>
 

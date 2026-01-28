@@ -13,9 +13,9 @@ const Clock = () => {
     <div className="text-right text-[11px] leading-tight">
       <div className="font-mono text-[13px] text-text">
         {format(now, 'HH')}
-        <span className="px-0.5 text-accent">:</span>
+        <span className="clock-colon px-0.5 text-accent">:</span>
         {format(now, 'mm')}
-        <span className="px-0.5 text-accent">:</span>
+        <span className="clock-colon px-0.5 text-accent">:</span>
         {format(now, 'ss')}
       </div>
       <div className="text-[10px] uppercase tracking-[0.3em] text-muted">{format(now, 'EEE, MMM d')}</div>

@@ -423,6 +423,8 @@ type TopBarProps = {
   theme: ThemeMode;
   onThemeChange: (theme: ThemeMode) => void;
   onOpenNav?: () => void;
+  commandStripMode?: boolean;
+  locked?: boolean;
 };
 
 const TopBar = ({
@@ -445,11 +447,14 @@ const TopBar = ({
   onInstall,
   theme,
   onThemeChange,
-  onOpenNav
+  onOpenNav,
+  commandStripMode = false,
+  locked = false
 }: TopBarProps) => {
   const reduceMotion = useReducedMotion();
   const [searchOpen, setSearchOpen] = useState(false);
   const [collapseLevel, setCollapseLevel] = useState(0);
+  const [altHeld, setAltHeld] = useState(false);
   const desktopGridRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLDivElement | null>(null);
   const pillMotion = reduceMotion
@@ -481,6 +486,32 @@ const TopBar = ({
       window.removeEventListener('keydown', handleKey);
     };
   }, [searchOpen]);
+
+  useEffect(() => {
+    if (!commandStripMode) {
+      setAltHeld(false);
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Alt') {
+        setAltHeld(true);
+      }
+    };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === 'Alt') {
+        setAltHeld(false);
+      }
+    };
+    const handleBlur = () => setAltHeld(false);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [commandStripMode]);
 
   useEffect(() => {
     const element = desktopGridRef.current;
@@ -523,104 +554,112 @@ const TopBar = ({
   const showDesktopOverflow = collapseCreateProfile || collapseAgentDropdown;
 
   return (
-    <header className="w-full text-sm">
+    <header className="topbar relative w-full text-sm">
       <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6">
         <div className="py-1">
           <div
             ref={desktopGridRef}
-            className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] grid-rows-[auto_auto] items-center gap-x-6 gap-y-2 lg:grid"
+            className="hidden grid-rows-[auto_auto] items-center gap-x-4 gap-y-1 lg:grid"
+            style={{
+              gridTemplateAreas: '"left center right" "left center clock"',
+              gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)'
+            }}
           >
-            <div className="col-start-1 row-start-1 flex min-w-0 flex-wrap items-center gap-2">
-              {onOpenNav && (
+            <div style={{ gridArea: 'left' }} className="min-w-0">
+              <div className="grid min-w-0 auto-cols-max grid-flow-col items-center gap-2">
+                {onOpenNav && (
+                  <motion.button
+                    type="button"
+                    onClick={onOpenNav}
+                    className={`${pillBase} flex-none px-3 text-muted hover:text-text lg:hidden`}
+                    aria-label="Open navigation"
+                    {...pillMotion}
+                  >
+                    <HamburgerIcon />
+                  </motion.button>
+                )}
                 <motion.button
                   type="button"
-                  onClick={onOpenNav}
-                  className={`${pillBase} flex-none px-3 text-muted hover:text-text lg:hidden`}
-                  aria-label="Open navigation"
+                  onClick={onHome}
+                  className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
+                  aria-label="Go to calendar"
                   {...pillMotion}
                 >
-                  <HamburgerIcon />
+                  <span className="h-6 w-6">
+                    <img
+                      src={mark2x}
+                      srcSet={`${mark1x} 1x, ${mark2x} 2x`}
+                      alt=""
+                      aria-hidden="true"
+                      className="h-full w-full rounded-lg"
+                      draggable={false}
+                    />
+                  </span>
+                  <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">
+                    NullCal
+                  </span>
                 </motion.button>
-              )}
-              <motion.button
-                type="button"
-                onClick={onHome}
-                className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
-                aria-label="Go to calendar"
-                {...pillMotion}
-              >
-                <span className="h-6 w-6">
-                  <img
-                    src={mark2x}
-                    srcSet={`${mark1x} 1x, ${mark2x} 2x`}
-                    alt=""
-                    aria-hidden="true"
-                    className="h-full w-full rounded-lg"
-                    draggable={false}
+                {onToday && (
+                  <motion.button
+                    onClick={onToday}
+                    className={`${pillBase} px-3 text-muted hover:text-text`}
+                    {...pillMotion}
+                  >
+                    Today
+                  </motion.button>
+                )}
+                {view && onViewChange && (
+                  <Segmented
+                    ariaLabel="Calendar view"
+                    items={[
+                      {
+                        key: 'week',
+                        label: (
+                          <>
+                            <span className="hidden xl:inline">Week</span>
+                            <span className="xl:hidden">Wk</span>
+                          </>
+                        ),
+                        onClick: () => onViewChange('timeGridWeek'),
+                        active: view === 'timeGridWeek'
+                      },
+                      {
+                        key: 'month',
+                        label: (
+                          <>
+                            <span className="hidden xl:inline">Month</span>
+                            <span className="xl:hidden">Mo</span>
+                          </>
+                        ),
+                        onClick: () => onViewChange('dayGridMonth'),
+                        active: view === 'dayGridMonth'
+                      }
+                    ]}
                   />
-                </span>
-                <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
-              </motion.button>
-              {onToday && (
-                <motion.button
-                  onClick={onToday}
-                  className={`${pillBase} px-3 text-muted hover:text-text`}
-                  {...pillMotion}
-                >
-                  Today
-                </motion.button>
-              )}
-              {view && onViewChange && (
-                <Segmented
-                  ariaLabel="Calendar view"
-                  items={[
-                    {
-                      key: 'week',
-                      label: (
-                        <>
-                          <span className="hidden xl:inline">Week</span>
-                          <span className="xl:hidden">Wk</span>
-                        </>
-                      ),
-                      onClick: () => onViewChange('timeGridWeek'),
-                      active: view === 'timeGridWeek'
-                    },
-                    {
-                      key: 'month',
-                      label: (
-                        <>
-                          <span className="hidden xl:inline">Month</span>
-                          <span className="xl:hidden">Mo</span>
-                        </>
-                      ),
-                      onClick: () => onViewChange('dayGridMonth'),
-                      active: view === 'dayGridMonth'
-                    }
-                  ]}
-                />
-              )}
-              {onPrev && onNext && (
-                <Segmented
-                  ariaLabel="Navigate calendar"
-                  items={[
-                    {
-                      key: 'prev',
-                      label: 'Previous',
-                      onClick: onPrev,
-                      icon: <ChevronIcon direction="left" />
-                    },
-                    {
-                      key: 'next',
-                      label: 'Next',
-                      onClick: onNext,
-                      icon: <ChevronIcon direction="right" />
-                    }
-                  ]}
-                />
-              )}
+                )}
+                {onPrev && onNext && (
+                  <Segmented
+                    ariaLabel="Navigate calendar"
+                    items={[
+                      {
+                        key: 'prev',
+                        label: 'Previous',
+                        onClick: onPrev,
+                        icon: <ChevronIcon direction="left" />
+                      },
+                      {
+                        key: 'next',
+                        label: 'Next',
+                        onClick: onNext,
+                        icon: <ChevronIcon direction="right" />
+                      }
+                    ]}
+                  />
+                )}
+              </div>
             </div>
 
-            <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-center">
+            <div style={{ gridArea: 'center' }} className="flex min-w-0 items-center justify-center">
               {onSearchChange && (
                 <div className="relative flex w-full min-w-0 justify-center" ref={searchRef}>
                   {collapseSearchInput ? (
@@ -664,7 +703,7 @@ const TopBar = ({
                   ) : (
                     <div
                       className="w-full min-w-0"
-                      style={{ maxWidth: 'clamp(220px, 26vw, 260px)' }}
+                      style={{ maxWidth: 'clamp(220px, 24vw, 280px)' }}
                     >
                       <motion.div
                         className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`}
@@ -686,7 +725,7 @@ const TopBar = ({
               )}
             </div>
 
-            <div className="col-start-3 row-start-1 flex min-w-0 flex-wrap items-center justify-end gap-2">
+            <div style={{ gridArea: 'right' }} className="flex min-w-0 items-center justify-end gap-2">
               <div className="flex min-w-0 items-center gap-2">
                 {allowProfileSwitch && !collapseAgentDropdown ? (
                   <AgentDropdown
@@ -697,7 +736,7 @@ const TopBar = ({
                   />
                 ) : (
                   !allowProfileSwitch && <div className={`${pillBase} px-3 text-muted`}>{activeProfileLabel}</div>
-                )}
+                  )}
                 {allowCreateProfile && !collapseCreateProfile && (
                   <motion.button
                     onClick={onCreateProfile}
@@ -719,9 +758,15 @@ const TopBar = ({
               )}
               <motion.button
                 onClick={onLockNow}
-                className={`${pillBase} px-4 text-muted hover:text-text`}
+                className={`${pillBase} gap-2 px-4 text-muted hover:text-text`}
                 {...pillMotion}
               >
+                {commandStripMode && (
+                  <span
+                    className={`cmdstrip-led ${locked ? 'cmdstrip-led--locked' : 'cmdstrip-led--unlocked'}`}
+                    aria-hidden="true"
+                  />
+                )}
                 Lock now
               </motion.button>
               <motion.button
@@ -754,7 +799,7 @@ const TopBar = ({
               )}
             </div>
 
-            <div className="col-start-3 row-start-2 flex items-center justify-end">
+            <div style={{ gridArea: 'clock' }} className="flex items-center justify-end">
               <div className="text-xs">
                 <Clock />
               </div>
@@ -911,13 +956,33 @@ const TopBar = ({
           </div>
         </div>
       </div>
+      {commandStripMode && altHeld && (
+        <div className="cmdstrip-hotkeys" role="status" aria-live="polite">
+          <div className="cmdstrip-hotkeys-title">Command Strip Hotkeys</div>
+          <div className="cmdstrip-hotkeys-grid">
+            <span className="cmdstrip-hotkeys-item">
+              <kbd>/</kbd> Search
+            </span>
+            <span className="cmdstrip-hotkeys-item">
+              <kbd>N</kbd> New event
+            </span>
+            <span className="cmdstrip-hotkeys-item">
+              <kbd>L</kbd> Lock
+            </span>
+            <span className="cmdstrip-hotkeys-item">
+              <kbd>T</kbd> Theme
+            </span>
+            <span className="cmdstrip-hotkeys-item">
+              <kbd>S</kbd> Settings
+            </span>
+          </div>
+        </div>
+      )}
     </header>
   );
 };
 
 export default TopBar;
 
-// Layout test checklist:
-// - Desktop grid uses minmax(0, 1fr) columns with clamp-limited search to prevent overlap.
-// - Priority collapse moves +Profile, then Agent, then Search into overflow/icon-only at 1024–1280px.
-// - All pill wrappers use min-w-0 and h-9 to prevent content-based overflow.
+// Layout notes: desktop uses grid areas (left/center/right on row 1, clock on row 2 right).
+// Collapse order is +Profile -> Agent -> Search (icon), with overflow only when a profile cluster collapses.

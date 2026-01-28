@@ -4,6 +4,9 @@ import { createSeedCalendars, createSeedProfile } from './seed';
 import type { AppSettings, AppState, Calendar, CalendarEvent, Profile, SecurityPrefs } from './types';
 
 const LEGACY_KEY = 'nullcal:v1';
+const COMMAND_STRIP_KEY = 'nullcal:commandStripMode';
+
+const readCommandStripMode = () => window.localStorage.getItem(COMMAND_STRIP_KEY) === '1';
 
 const buildDefaultSettings = (activeProfileId: string): AppSettings => {
   const savedTheme = window.localStorage.getItem('nullcal:theme');
@@ -18,6 +21,7 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     secureMode: false,
     blurSensitive: false,
     scanlines: true,
+    commandStripMode: readCommandStripMode(),
     autoLockMinutes: 10,
     autoLockOnBlur: false,
     autoLockGraceSeconds: 0,
@@ -146,7 +150,8 @@ export const loadAppState = async (): Promise<AppState> => {
       primaryProfileId: resolvedSettings.primaryProfileId ?? resolvedSettings.activeProfileId,
       autoLockOnBlur: resolvedSettings.autoLockOnBlur ?? false,
       autoLockGraceSeconds: resolvedSettings.autoLockGraceSeconds ?? 0,
-      privacyScreenHotkeyEnabled: resolvedSettings.privacyScreenHotkeyEnabled ?? true
+      privacyScreenHotkeyEnabled: resolvedSettings.privacyScreenHotkeyEnabled ?? true,
+      commandStripMode: resolvedSettings.commandStripMode ?? readCommandStripMode()
     };
     const activeProfileExists = profiles.some((profile) => profile.id === resolvedSettings.activeProfileId);
     const decoyProfileExists = profiles.some((profile) => profile.id === resolvedSettings.decoyProfileId);
