@@ -6,7 +6,13 @@ import type { AppSettings, AppState, Calendar, CalendarEvent, Profile, SecurityP
 const LEGACY_KEY = 'nullcal:v1';
 const COMMAND_STRIP_KEY = 'nullcal:commandStripMode';
 
-const readCommandStripMode = () => window.localStorage.getItem(COMMAND_STRIP_KEY) === '1';
+const readCommandStripMode = () => {
+  const value = window.localStorage.getItem(COMMAND_STRIP_KEY);
+  if (value === null) {
+    return true;
+  }
+  return value === '1';
+};
 
 const buildDefaultSettings = (activeProfileId: string): AppSettings => {
   const savedTheme = window.localStorage.getItem('nullcal:theme');

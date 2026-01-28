@@ -302,6 +302,8 @@ const AppPage = () => {
             onInstall={canInstall ? promptInstall : undefined}
             theme={state.settings.theme}
             onThemeChange={(theme) => updateSettings({ theme })}
+            secureMode={state.settings.secureMode}
+            onToggleSecureMode={() => updateSettings({ secureMode: !state.settings.secureMode })}
             onOpenNav={() => setNavOpen(true)}
             commandStripMode={state.settings.commandStripMode}
             locked={locked}
