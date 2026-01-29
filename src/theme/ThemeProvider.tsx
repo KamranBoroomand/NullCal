@@ -11,11 +11,12 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 type ThemeProviderProps = {
   theme: ThemeMode;
+  palette: string;
   onThemeChange: (theme: ThemeMode) => void;
   children: ReactNode;
 };
 
-const ThemeProvider = ({ theme, onThemeChange, children }: ThemeProviderProps) => {
+const ThemeProvider = ({ theme, palette, onThemeChange, children }: ThemeProviderProps) => {
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.theme = theme;
@@ -24,8 +25,16 @@ const ThemeProvider = ({ theme, onThemeChange, children }: ThemeProviderProps) =
   }, [theme]);
 
   useEffect(() => {
+    document.body.dataset.palette = palette;
+  }, [palette]);
+
+  useEffect(() => {
     window.localStorage.setItem('nullcal:theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    window.localStorage.setItem('nullcal:palette', palette);
+  }, [palette]);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme: onThemeChange }}>
