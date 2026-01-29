@@ -69,6 +69,36 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   const lockNow = useCallback(() => {
     setLocked(true);
   }, []);
+  const updateSettings = useCallback((updates: Partial<AppSettings>) => {
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          ...updates,
+          networkLock: true
+        }
+      };
+    });
+  }, []);
+
+  const updateSecurityPrefs = useCallback((updates: Partial<SecurityPrefs>) => {
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        securityPrefs: {
+          ...prev.securityPrefs,
+          ...updates
+        }
+      };
+    });
+  }, []);
 
   useEffect(() => {
     loadAppState()
@@ -232,37 +262,6 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     state?.settings.switchToDecoyOnBlur,
     updateSettings
   ]);
-
-  const updateSettings = useCallback((updates: Partial<AppSettings>) => {
-    setState((prev) => {
-      if (!prev) {
-        return prev;
-      }
-      return {
-        ...prev,
-        settings: {
-          ...prev.settings,
-          ...updates,
-          networkLock: true
-        }
-      };
-    });
-  }, []);
-
-  const updateSecurityPrefs = useCallback((updates: Partial<SecurityPrefs>) => {
-    setState((prev) => {
-      if (!prev) {
-        return prev;
-      }
-      return {
-        ...prev,
-        securityPrefs: {
-          ...prev.securityPrefs,
-          ...updates
-        }
-      };
-    });
-  }, []);
 
   const setActiveProfile = useCallback(
     (id: string) => updateSettings({ activeProfileId: id }),

@@ -468,7 +468,10 @@ const TopBar = ({
         transition: { duration: 0.16 }
       };
 
-  const handleThemeToggle = () => onThemeChange(theme === 'dark' ? 'light' : 'dark');
+  const handleThemeToggle = useCallback(
+    () => onThemeChange(theme === 'dark' ? 'light' : 'dark'),
+    [onThemeChange, theme]
+  );
 
   const focusInput = useCallback(() => {
     const isDesktop = window.matchMedia('(min-width: 1024px)').matches;

@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/ensure-icons.cjs && vite",
-    "build": "node scripts/ensure-icons.cjs && vite build && node scripts/postbuild.cjs",
-    "preview": "vite preview"
+    "build": "node scripts/ensure-icons.cjs && node scripts/check-hook-deps-order.cjs && vite build && node scripts/postbuild.cjs",
+    "preview": "vite preview",
+    "lint:hooks": "node scripts/check-hook-deps-order.cjs"
   },
   "dependencies": {
     "@fullcalendar/core": "6.1.15",
