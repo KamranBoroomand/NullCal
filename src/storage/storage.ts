@@ -6,16 +6,7 @@ import { safeLocalStorage } from './safeStorage';
 import { DEFAULT_THEME_BY_MODE, resolveThemeModeFromPalette } from '../theme/themePacks';
 
 const LEGACY_KEY = 'nullcal:v1';
-const COMMAND_STRIP_KEY = 'nullcal:commandStripMode';
 const PALETTE_KEY = 'nullcal:palette';
-
-const readCommandStripMode = () => {
-  const value = safeLocalStorage.getItem(COMMAND_STRIP_KEY);
-  if (value === null) {
-    return true;
-  }
-  return value === '1';
-};
 
 const readPalette = () => {
   const value = safeLocalStorage.getItem(PALETTE_KEY);
@@ -40,7 +31,6 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     secureMode: false,
     blurSensitive: false,
     scanlines: true,
-    commandStripMode: readCommandStripMode(),
     autoLockMinutes: 10,
     autoLockOnBlur: false,
     autoLockGraceSeconds: 0,
@@ -164,16 +154,17 @@ export const loadAppState = async (): Promise<AppState> => {
 
   if (profiles.length) {
     const resolvedSettings = settings ?? buildDefaultSettings(profiles[0].id);
+    const { commandStripMode: _ignored, ...resolvedWithoutCommandStrip } =
+      resolvedSettings as AppSettings & { commandStripMode?: boolean };
     const normalizedSettings = {
-      ...resolvedSettings,
+      ...resolvedWithoutCommandStrip,
       networkLock: true,
       palette: resolvedSettings.palette ?? readPalette(),
       primaryProfileId: resolvedSettings.primaryProfileId ?? resolvedSettings.activeProfileId,
       autoLockOnBlur: resolvedSettings.autoLockOnBlur ?? false,
       autoLockGraceSeconds: resolvedSettings.autoLockGraceSeconds ?? 0,
       switchToDecoyOnBlur: resolvedSettings.switchToDecoyOnBlur ?? false,
-      privacyScreenHotkeyEnabled: resolvedSettings.privacyScreenHotkeyEnabled ?? true,
-      commandStripMode: resolvedSettings.commandStripMode ?? readCommandStripMode()
+      privacyScreenHotkeyEnabled: resolvedSettings.privacyScreenHotkeyEnabled ?? true
     };
     const activeProfileExists = profiles.some((profile) => profile.id === resolvedSettings.activeProfileId);
     const decoyProfileExists = profiles.some((profile) => profile.id === resolvedSettings.decoyProfileId);
