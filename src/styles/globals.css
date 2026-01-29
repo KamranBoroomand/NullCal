@@ -9,14 +9,12 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
     monospace;
   --bg: #070a0f;
-  --surface: #0d121b;
-  --surface-2: #101827;
-  --border: rgba(255, 255, 255, 0.06);
-  --panel: var(--surface);
-  --panel2: var(--surface-2);
+  --panel: #0d121b;
+  --panel2: #101827;
   --text: #e6e9ef;
   --muted: #9aa4b2;
-  --grid: var(--border);
+  --border: rgba(255, 255, 255, 0.06);
+  --grid: color-mix(in srgb, var(--border) 80%, #f4ff00 20%);
   --accent: #f4ff00;
   --accent2: #9bff00;
   --accentText: #0b0f14;
@@ -31,28 +29,13 @@
   color-scheme: dark;
 }
 
-[data-theme='light'] {
-  color-scheme: light;
-  --bg: #f6f8fc;
-  --surface: #ffffff;
-  --surface-2: #eef2f8;
-  --border: rgba(15, 23, 42, 0.16);
-  --panel: var(--surface);
-  --panel2: var(--surface-2);
-  --text: #0b0f14;
-  --muted: #374151;
-  --grid: var(--border);
-  --accent: #9fb900;
-  --accent2: #9bff00;
-  --accentText: #0b0f14;
-  --accentSoft: color-mix(in srgb, var(--accent) 18%, transparent);
-  --glow: #9fb900;
-  --pillActiveBg: var(--accent);
-  --pillActiveText: var(--accentText);
-  --danger: #d11a2a;
-}
-
 body[data-palette='nullcal-neon'] {
+  --bg: #070a0f;
+  --panel: #0d121b;
+  --panel2: #101827;
+  --text: #e6e9ef;
+  --muted: #9aa4b2;
+  --border: rgba(255, 255, 255, 0.06);
   --accent: #f4ff00;
   --accent2: #9bff00;
   --accentText: #0b0f14;
@@ -61,31 +44,34 @@ body[data-palette='nullcal-neon'] {
   --glow: #f4ff00;
   --pillActiveBg: #f4ff00;
   --pillActiveText: #0b0f14;
+  --danger: #ff3b3b;
 }
 
 body[data-palette='catppuccin-mocha'] {
+  --bg: #11111b;
+  --panel: #1e1e2e;
+  --panel2: #24273a;
+  --text: #cdd6f4;
+  --muted: #a6adc8;
+  --border: rgba(205, 214, 244, 0.08);
   --accent: #89b4fa;
   --accent2: #f5c2e7;
-  --accentText: #0b0f14;
+  --accentText: #11111b;
   --accentSoft: color-mix(in srgb, #89b4fa 18%, transparent);
   --grid: color-mix(in srgb, var(--border) 80%, #89b4fa 20%);
   --glow: #89b4fa;
   --pillActiveBg: #89b4fa;
-  --pillActiveText: #0b0f14;
-}
-
-body[data-palette='catppuccin-latte'] {
-  --accent: #1e66f5;
-  --accent2: #dc8a78;
-  --accentText: #f8fafc;
-  --accentSoft: color-mix(in srgb, #1e66f5 18%, transparent);
-  --grid: color-mix(in srgb, var(--border) 85%, #1e66f5 15%);
-  --glow: #1e66f5;
-  --pillActiveBg: #1e66f5;
-  --pillActiveText: #f8fafc;
+  --pillActiveText: #11111b;
+  --danger: #f38ba8;
 }
 
 body[data-palette='nord'] {
+  --bg: #2e3440;
+  --panel: #3b4252;
+  --panel2: #434c5e;
+  --text: #eceff4;
+  --muted: #d8dee9;
+  --border: rgba(236, 239, 244, 0.08);
   --accent: #88c0d0;
   --accent2: #81a1c1;
   --accentText: #0b0f14;
@@ -94,9 +80,16 @@ body[data-palette='nord'] {
   --glow: #88c0d0;
   --pillActiveBg: #88c0d0;
   --pillActiveText: #0b0f14;
+  --danger: #bf616a;
 }
 
 body[data-palette='dracula'] {
+  --bg: #282a36;
+  --panel: #303241;
+  --panel2: #3b3f54;
+  --text: #f8f8f2;
+  --muted: #6272a4;
+  --border: rgba(248, 248, 242, 0.08);
   --accent: #bd93f9;
   --accent2: #ff79c6;
   --accentText: #0b0f14;
@@ -105,50 +98,24 @@ body[data-palette='dracula'] {
   --glow: #bd93f9;
   --pillActiveBg: #bd93f9;
   --pillActiveText: #0b0f14;
+  --danger: #ff5555;
 }
 
-body[data-palette='tokyo-night'] {
-  --accent: #7aa2f7;
-  --accent2: #bb9af7;
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f6f8fc;
+  --panel: #ffffff;
+  --panel2: #eef2f8;
+  --border: rgba(15, 23, 42, 0.16);
+  --text: #0b0f14;
+  --muted: #374151;
+  --grid: color-mix(in srgb, var(--border) 80%, var(--accent) 20%);
   --accentText: #0b0f14;
-  --accentSoft: color-mix(in srgb, #7aa2f7 18%, transparent);
-  --grid: color-mix(in srgb, var(--border) 80%, #7aa2f7 20%);
-  --glow: #7aa2f7;
-  --pillActiveBg: #7aa2f7;
-  --pillActiveText: #0b0f14;
-}
-
-body[data-palette='gruvbox'] {
-  --accent: #fabd2f;
-  --accent2: #fe8019;
-  --accentText: #0b0f14;
-  --accentSoft: color-mix(in srgb, #fabd2f 18%, transparent);
-  --grid: color-mix(in srgb, var(--border) 80%, #fabd2f 20%);
-  --glow: #fabd2f;
-  --pillActiveBg: #fabd2f;
-  --pillActiveText: #0b0f14;
-}
-
-body[data-palette='solarized'] {
-  --accent: #268bd2;
-  --accent2: #b58900;
-  --accentText: #f8fafc;
-  --accentSoft: color-mix(in srgb, #268bd2 18%, transparent);
-  --grid: color-mix(in srgb, var(--border) 85%, #268bd2 15%);
-  --glow: #268bd2;
-  --pillActiveBg: #268bd2;
-  --pillActiveText: #f8fafc;
-}
-
-body[data-palette='rose-pine'] {
-  --accent: #9ccfd8;
-  --accent2: #c4a7e7;
-  --accentText: #0b0f14;
-  --accentSoft: color-mix(in srgb, #9ccfd8 18%, transparent);
-  --grid: color-mix(in srgb, var(--border) 80%, #9ccfd8 20%);
-  --glow: #9ccfd8;
-  --pillActiveBg: #9ccfd8;
-  --pillActiveText: #0b0f14;
+  --accentSoft: color-mix(in srgb, var(--accent) 18%, transparent);
+  --glow: var(--accent);
+  --pillActiveBg: var(--accent);
+  --pillActiveText: var(--accentText);
+  --danger: #d11a2a;
 }
 
 * {
@@ -191,10 +158,13 @@ body[data-theme='light'] .photon-panel {
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
 }
 
-/* Safety Center cards use auto rows to prevent tall empty panels and keep the grid compact. */
+/* Safety Center cards use auto layout to avoid 1fr stretching and keep content-height cards compact. */
 .safety-grid {
   display: grid;
   grid-auto-rows: auto;
+  grid-auto-flow: row dense;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-content: start;
   align-items: start;
 }
 

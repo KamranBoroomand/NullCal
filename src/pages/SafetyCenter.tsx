@@ -19,16 +19,11 @@ const formatDate = (value?: string) => {
   return new Date(value).toLocaleString();
 };
 
-const paletteOptions = [
+const themeOptions = [
   { id: 'nullcal-neon', name: 'NullCal Neon', preview: ['#f4ff00', '#9bff00', '#00f6ff'] },
   { id: 'catppuccin-mocha', name: 'Catppuccin Mocha', preview: ['#f5c2e7', '#89b4fa', '#a6e3a1'] },
-  { id: 'catppuccin-latte', name: 'Catppuccin Latte', preview: ['#dc8a78', '#1e66f5', '#40a02b'] },
   { id: 'nord', name: 'Nord', preview: ['#88c0d0', '#81a1c1', '#a3be8c'] },
-  { id: 'dracula', name: 'Dracula', preview: ['#bd93f9', '#ff79c6', '#8be9fd'] },
-  { id: 'tokyo-night', name: 'Tokyo Night', preview: ['#7aa2f7', '#bb9af7', '#9ece6a'] },
-  { id: 'gruvbox', name: 'Gruvbox', preview: ['#fabd2f', '#fe8019', '#b8bb26'] },
-  { id: 'solarized', name: 'Solarized', preview: ['#b58900', '#268bd2', '#2aa198'] },
-  { id: 'rose-pine', name: 'Rosé Pine', preview: ['#ebbcba', '#9ccfd8', '#c4a7e7'] }
+  { id: 'dracula', name: 'Dracula', preview: ['#bd93f9', '#ff79c6', '#8be9fd'] }
 ];
 
 const SafetyCenter = () => {
@@ -134,8 +129,8 @@ const SafetyCenter = () => {
     }
     return state.events.filter((event) => event.profileId === activeProfile.id);
   }, [activeProfile, state]);
-  const activePalette = useMemo(
-    () => paletteOptions.find((palette) => palette.id === state?.settings.palette) ?? paletteOptions[0],
+  const activeTheme = useMemo(
+    () => themeOptions.find((palette) => palette.id === state?.settings.palette) ?? themeOptions[0],
     [state?.settings.palette]
   );
 
@@ -548,225 +543,225 @@ const SafetyCenter = () => {
     >
       <RouteErrorBoundary>
         <div className="space-y-6">
-        <motion.section {...panelMotion} className="photon-panel rounded-3xl p-5 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Safety Center</p>
-              <h1 className="mt-2 text-2xl font-semibold text-text">Privacy & Security</h1>
+          <motion.section {...panelMotion} className="photon-panel rounded-3xl p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Safety Center</p>
+                <h1 className="mt-2 text-2xl font-semibold text-text">Privacy & Security</h1>
+              </div>
+              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-center">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Score</p>
+                <p className="text-2xl font-semibold text-accent">{score}/5</p>
+              </div>
             </div>
-            <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-center">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Score</p>
-              <p className="text-2xl font-semibold text-accent">{score}/5</p>
-            </div>
-          </div>
-          <div className="mt-5 grid gap-4 text-sm text-muted lg:grid-cols-2">
-            <div className="rounded-2xl border border-grid bg-panel2 p-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy Status</p>
-              <ul className="mt-3 space-y-2">
-                <li className="flex items-center justify-between">
-                  <span>Storage</span>
-                  <span className="text-text">Local-only</span>
-                </li>
-                <li className="flex items-center justify-between">
-                  <span>Network access</span>
-                  <span className="text-text">Blocked (offline-only)</span>
-                </li>
-                <li className="flex items-center justify-between">
-                  <span>Sync</span>
-                  <span className="text-text">Off</span>
-                </li>
-                <li className="flex items-center justify-between">
-                  <span>Last export</span>
-                  <span className="text-text">{formatDate(state.settings.lastExportAt)}</span>
-                </li>
-              </ul>
-            </div>
-            <div className="rounded-2xl border border-grid bg-panel2 p-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Checklist</p>
-              <ul className="mt-3 space-y-2">
-                {securityScoreChecklist.map((item) => (
-                  <li key={item.label} className="flex items-center justify-between">
-                    <span>{item.label}</span>
-                    <span className={item.value ? 'text-accent' : 'text-muted'}>
-                      {item.value ? 'Enabled' : 'Off'}
-                    </span>
+            <div className="mt-5 grid gap-4 text-sm text-muted lg:grid-cols-2">
+              <div className="rounded-2xl border border-grid bg-panel2 p-4">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy Status</p>
+                <ul className="mt-3 space-y-2">
+                  <li className="flex items-center justify-between">
+                    <span>Storage</span>
+                    <span className="text-text">Local-only</span>
                   </li>
-                ))}
-              </ul>
+                  <li className="flex items-center justify-between">
+                    <span>Network access</span>
+                    <span className="text-text">Blocked (offline-only)</span>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span>Sync</span>
+                    <span className="text-text">Off</span>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span>Last export</span>
+                    <span className="text-text">{formatDate(state.settings.lastExportAt)}</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="rounded-2xl border border-grid bg-panel2 p-4">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Checklist</p>
+                <ul className="mt-3 space-y-2">
+                  {securityScoreChecklist.map((item) => (
+                    <li key={item.label} className="flex items-center justify-between">
+                      <span>{item.label}</span>
+                      <span className={item.value ? 'text-accent' : 'text-muted'}>
+                        {item.value ? 'Enabled' : 'Off'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-          </div>
-        </motion.section>
+          </motion.section>
 
-        <motion.section {...panelMotion} className="safety-grid gap-6 lg:grid-cols-2">
-          <div className="photon-panel rounded-3xl p-5 sm:p-6">
-            <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
-            <div className="mt-4 space-y-4 text-sm text-muted">
-              <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Secure mode</p>
-                  <p className="mt-1 text-xs text-muted">
-                    Hides event titles until hover or focus to deter shoulder-surfing. Not encryption.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={state.settings.secureMode}
-                  onChange={(event) => updateSettings({ secureMode: event.target.checked })}
-                  className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
-                />
-              </label>
-              <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Blur sensitive</p>
-                  <p className="mt-1 text-xs text-muted">Blurs titles until hover.</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={state.settings.blurSensitive}
-                  onChange={(event) => updateSettings({ blurSensitive: event.target.checked })}
-                  className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
-                />
-              </label>
-              <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy screen hotkey</p>
-                  <p className="mt-1 text-xs text-muted">Cmd/Ctrl+Shift+L toggles a decoy overlay.</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={state.settings.privacyScreenHotkeyEnabled}
-                  onChange={(event) =>
-                    updateSettings({ privacyScreenHotkeyEnabled: event.target.checked })
-                  }
-                  className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={togglePrivacyScreen}
-                className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
-              >
-                {privacyScreenOn ? 'Exit privacy screen' : 'Activate privacy screen'}
-              </button>
-            </div>
-          </div>
-
-          <div className="photon-panel rounded-3xl p-5 sm:p-6">
-            <p className="text-xs uppercase tracking-[0.3em] text-muted">Locking</p>
-            <div className="mt-4 space-y-4 text-sm text-muted">
-              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.3em] text-muted">Lock now</p>
-                <p className="mt-1 text-xs text-muted">Immediately hides the calendar until you unlock.</p>
+          <motion.section {...panelMotion} className="safety-grid gap-6">
+            <div className="photon-panel rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
+              <div className="mt-4 space-y-4 text-sm text-muted">
+                <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Secure mode</p>
+                    <p className="mt-1 text-xs text-muted">
+                      Hides event titles until hover or focus to deter shoulder-surfing. Not encryption.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.secureMode}
+                    onChange={(event) => updateSettings({ secureMode: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Blur sensitive</p>
+                    <p className="mt-1 text-xs text-muted">Blurs titles until hover.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.blurSensitive}
+                    onChange={(event) => updateSettings({ blurSensitive: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy screen hotkey</p>
+                    <p className="mt-1 text-xs text-muted">Cmd/Ctrl+Shift+L toggles a decoy overlay.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.privacyScreenHotkeyEnabled}
+                    onChange={(event) =>
+                      updateSettings({ privacyScreenHotkeyEnabled: event.target.checked })
+                    }
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
                 <button
                   type="button"
-                  onClick={lockNow}
-                  className="mt-3 rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                  onClick={togglePrivacyScreen}
+                  className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
                 >
-                  Lock now
+                  {privacyScreenOn ? 'Exit privacy screen' : 'Activate privacy screen'}
                 </button>
               </div>
-              <div>
-                <label className="text-xs uppercase tracking-[0.3em] text-muted">Set PIN</label>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    placeholder="New PIN"
-                    value={pinDraft}
-                    onChange={(event) => setPinDraft(event.target.value)}
-                    className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                  />
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    placeholder="Confirm PIN"
-                    value={pinConfirm}
-                    onChange={(event) => setPinConfirm(event.target.value)}
-                    className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                  />
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+            </div>
+
+            <div className="photon-panel rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Locking</p>
+              <div className="mt-4 space-y-4 text-sm text-muted">
+                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Lock now</p>
+                  <p className="mt-1 text-xs text-muted">Immediately hides the calendar until you unlock.</p>
                   <button
                     type="button"
-                    onClick={handleSetPin}
-                    className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                    onClick={lockNow}
+                    className="mt-3 rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
                   >
-                    Save PIN
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearPin}
-                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                  >
-                    Clear PIN
+                    Lock now
                   </button>
                 </div>
-              </div>
-              <div>
-                <label className="text-xs uppercase tracking-[0.3em] text-muted">Auto-lock (minutes)</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={120}
-                  value={state.settings.autoLockMinutes}
-                  onChange={(event) =>
-                    updateSettings({ autoLockMinutes: Number(event.target.value || 0) })
-                  }
-                  className="mt-2 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                />
-                <p className="mt-2 text-xs text-muted">Set to 0 to disable inactivity lock.</p>
-              </div>
-              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                <label className="flex items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
-                  <span>Auto-lock on tab blur</span>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.3em] text-muted">Set PIN</label>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      placeholder="New PIN"
+                      value={pinDraft}
+                      onChange={(event) => setPinDraft(event.target.value)}
+                      className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    />
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      placeholder="Confirm PIN"
+                      value={pinConfirm}
+                      onChange={(event) => setPinConfirm(event.target.value)}
+                      className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    />
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSetPin}
+                      className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                    >
+                      Save PIN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearPin}
+                      className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                    >
+                      Clear PIN
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.3em] text-muted">Auto-lock (minutes)</label>
                   <input
-                    type="checkbox"
-                    checked={state.settings.autoLockOnBlur}
-                    onChange={(event) => updateSettings({ autoLockOnBlur: event.target.checked })}
-                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
-                  />
-                </label>
-                <div className="mt-3 flex items-center gap-3 text-xs text-muted">
-                  <span>Grace period</span>
-                  <select
-                    value={state.settings.autoLockGraceSeconds}
+                    type="number"
+                    min={0}
+                    max={120}
+                    value={state.settings.autoLockMinutes}
                     onChange={(event) =>
-                      updateSettings({ autoLockGraceSeconds: Number(event.target.value || 0) })
+                      updateSettings({ autoLockMinutes: Number(event.target.value || 0) })
                     }
-                    className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
-                  >
-                    <option value={0} className="bg-panel2">
-                      0s
-                    </option>
-                    <option value={5} className="bg-panel2">
-                      5s
-                    </option>
-                    <option value={15} className="bg-panel2">
-                      15s
-                    </option>
-                  </select>
-                </div>
-                <label className="mt-3 flex items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
-                  <span>Switch to decoy on blur</span>
-                  <input
-                    type="checkbox"
-                    checked={state.settings.switchToDecoyOnBlur}
-                    onChange={(event) => updateSettings({ switchToDecoyOnBlur: event.target.checked })}
-                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
-                    disabled={!state.settings.decoyProfileId}
+                    className="mt-2 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                   />
-                </label>
-                {!state.settings.decoyProfileId && (
-                  <p className="mt-2 text-xs text-muted">Select a decoy profile to enable this option.</p>
-                )}
+                  <p className="mt-2 text-xs text-muted">Set to 0 to disable inactivity lock.</p>
+                </div>
+                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <label className="flex items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
+                    <span>Auto-lock on tab blur</span>
+                    <input
+                      type="checkbox"
+                      checked={state.settings.autoLockOnBlur}
+                      onChange={(event) => updateSettings({ autoLockOnBlur: event.target.checked })}
+                      className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                    />
+                  </label>
+                  <div className="mt-3 flex items-center gap-3 text-xs text-muted">
+                    <span>Grace period</span>
+                    <select
+                      value={state.settings.autoLockGraceSeconds}
+                      onChange={(event) =>
+                        updateSettings({ autoLockGraceSeconds: Number(event.target.value || 0) })
+                      }
+                      className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                    >
+                      <option value={0} className="bg-panel2">
+                        0s
+                      </option>
+                      <option value={5} className="bg-panel2">
+                        5s
+                      </option>
+                      <option value={15} className="bg-panel2">
+                        15s
+                      </option>
+                    </select>
+                  </div>
+                  <label className="mt-3 flex items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
+                    <span>Switch to decoy on blur</span>
+                    <input
+                      type="checkbox"
+                      checked={state.settings.switchToDecoyOnBlur}
+                      onChange={(event) => updateSettings({ switchToDecoyOnBlur: event.target.checked })}
+                      className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                      disabled={!state.settings.decoyProfileId}
+                    />
+                  </label>
+                  {!state.settings.decoyProfileId && (
+                    <p className="mt-2 text-xs text-muted">Select a decoy profile to enable this option.</p>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
           <div className="photon-panel rounded-3xl p-4 sm:p-5">
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Appearance</p>
-            <div className="mt-4 space-y-4 text-sm text-muted">
-              <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+            <div className="mt-4 space-y-3 text-sm text-muted">
+              <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-2.5">
                 <div>
                   <p className="text-xs uppercase tracking-[0.3em] text-muted">Command Strip Mode</p>
                   <p className="mt-1 text-xs text-muted">
@@ -780,22 +775,22 @@ const SafetyCenter = () => {
                   className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
                 />
               </label>
-              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
                   <span>Theme</span>
                   <span className="text-[10px] tracking-[0.2em] text-muted">{activeTheme.name}</span>
                 </div>
                 <p className="mt-2 text-xs text-muted">
-                  Pick a theme to recolor the UI accents. Saved locally on this device.
+                  Pick a theme to restyle the entire interface. Saved locally on this device.
                 </p>
                 <select
                   value={state.settings.palette}
                   onChange={(event) => updateSettings({ palette: event.target.value })}
                   className="mt-3 w-full rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
                 >
-                  {themeOptions.map((palette) => (
-                    <option key={palette.id} value={palette.id} className="bg-panel2">
-                      {palette.name}
+                  {themeOptions.map((theme) => (
+                    <option key={theme.id} value={theme.id} className="bg-panel2">
+                      {theme.name}
                     </option>
                   ))}
                 </select>
