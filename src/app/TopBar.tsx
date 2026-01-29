@@ -2,37 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import Clock from '../components/Clock';
 import Segmented from '../components/Segmented';
-import ThemeToggle from '../components/ThemeToggle';
 import type { ThemeMode } from '../theme/ThemeProvider';
 import HotkeysModal from './HotkeysModal';
-import { useToast } from '../components/ToastProvider';
+import Modal from '../components/Modal';
+import ThemePicker from '../components/ThemePicker';
+import { THEME_PACKS } from '../theme/themePacks';
 
 const base = import.meta.env.BASE_URL;
 const mark1x = `${base}mark-128.png?v=3`;
 const mark2x = `${base}mark-256.png?v=3`;
 const pillBase =
   'pill-base h-9 rounded-full border border-grid bg-panel px-4 text-[11px] tracking-[0.18em] uppercase inline-flex items-center justify-center whitespace-nowrap transition hover:bg-panel2';
-
-const SettingsIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-    <path
-      d="M9.999 6.1a3.9 3.9 0 1 0 0 7.8 3.9 3.9 0 0 0 0-7.8Zm8.1 3.9a7.9 7.9 0 0 0-.08-1.12l1.87-1.45-1.88-3.26-2.27.88a7.9 7.9 0 0 0-1.94-1.12l-.35-2.4H7.59l-.35 2.4a7.9 7.9 0 0 0-1.94 1.12l-2.27-.88-1.88 3.26 1.87 1.45a8.35 8.35 0 0 0 0 2.24L1.15 12.7l1.88 3.26 2.27-.88c.6.46 1.25.84 1.94 1.12l.35 2.4h4.77l.35-2.4a7.9 7.9 0 0 0 1.94-1.12l2.27.88 1.88-3.26-1.87-1.46c.05-.37.08-.74.08-1.12Z"
-      stroke="currentColor"
-      strokeWidth="1.2"
-    />
-  </svg>
-);
-
-const ShieldIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-    <path
-      d="M10 2.5 16 4.8v5.2c0 4.2-2.9 7.3-6 7.5-3.1-.2-6-3.3-6-7.5V4.8L10 2.5Z"
-      stroke="currentColor"
-      strokeWidth="1.3"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
 
 const ChevronIcon = ({ direction }: { direction: 'left' | 'right' }) => (
   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -403,21 +383,13 @@ type TopBarProps = {
   showCreateProfile?: boolean;
   onOpenSettings: () => void;
   onLockNow: () => void;
-  onInstall?: () => void;
-  theme: ThemeMode;
-  onThemeChange: (theme: ThemeMode) => void;
-  secureMode: boolean;
-  onToggleSecureMode: () => void;
   onOpenNav?: () => void;
-  commandStripMode?: boolean;
-  locked?: boolean;
+  palette: string;
+  onPaletteChange: (paletteId: string, themeMode: ThemeMode) => void;
   onCommandAdd?: () => void;
-  onCommandPrivacy?: () => void;
   onCommandDecoy?: () => void;
   onCommandExport?: (mode: 'clean' | 'full') => void;
 };
-
-type HiddenAction = 'lock' | 'settings' | 'theme' | 'secure';
 
 const TopBar = ({
   view,
@@ -436,30 +408,18 @@ const TopBar = ({
   showCreateProfile = true,
   onOpenSettings,
   onLockNow,
-  onInstall,
-  theme,
-  onThemeChange,
-  secureMode,
-  onToggleSecureMode,
   onOpenNav,
-  commandStripMode = false,
-  locked = false,
+  palette,
+  onPaletteChange,
   onCommandAdd,
-  onCommandPrivacy,
   onCommandDecoy,
   onCommandExport
 }: TopBarProps) => {
   const reduceMotion = useReducedMotion();
-  const { notify } = useToast();
-  const [hiddenActions, setHiddenActions] = useState<HiddenAction[]>([]);
-  const [altHeld, setAltHeld] = useState(false);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
-  const [commandValue, setCommandValue] = useState(search ?? '');
-  const desktopGridRef = useRef<HTMLDivElement | null>(null);
+  const [themeOpen, setThemeOpen] = useState(false);
   const desktopSearchInputRef = useRef<HTMLInputElement | null>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
-  const desktopCommandInputRef = useRef<HTMLInputElement | null>(null);
-  const mobileCommandInputRef = useRef<HTMLInputElement | null>(null);
   const pillMotion = reduceMotion
     ? {}
     : {
@@ -468,48 +428,11 @@ const TopBar = ({
         transition: { duration: 0.16 }
       };
 
-  const handleThemeToggle = useCallback(
-    () => onThemeChange(theme === 'dark' ? 'light' : 'dark'),
-    [onThemeChange, theme]
-  );
-
   const focusInput = useCallback(() => {
     const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
-    const input = commandStripMode
-      ? isDesktop
-        ? desktopCommandInputRef.current
-        : mobileCommandInputRef.current
-      : isDesktop
-        ? desktopSearchInputRef.current
-        : mobileSearchInputRef.current;
+    const input = isDesktop ? desktopSearchInputRef.current : mobileSearchInputRef.current;
     input?.focus();
-  }, [commandStripMode]);
-
-  useEffect(() => {
-    if (!commandStripMode) {
-      setAltHeld(false);
-      return;
-    }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Alt') {
-        setAltHeld(true);
-      }
-    };
-    const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.key === 'Alt') {
-        setAltHeld(false);
-      }
-    };
-    const handleBlur = () => setAltHeld(false);
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('blur', handleBlur);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('blur', handleBlur);
-    };
-  }, [commandStripMode]);
+  }, []);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -517,207 +440,108 @@ const TopBar = ({
         return;
       }
       const target = event.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) {
-          return;
-        }
+      const isEditable =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+      if (isEditable && !(event.metaKey || event.ctrlKey)) {
+        return;
       }
-      if (event.key === '?') {
+      if (event.key === '?' || (event.key === '/' && event.shiftKey)) {
         event.preventDefault();
         setHotkeysOpen(true);
         return;
       }
-      if (
-        event.key === '/' &&
-        !event.shiftKey &&
-        !event.metaKey &&
-        !event.ctrlKey &&
-        !event.altKey
-      ) {
-        if (!onSearchChange && !commandStripMode) {
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey) {
+        const key = event.key.toLowerCase();
+        if (key === 'k') {
+          event.preventDefault();
+          focusInput();
           return;
         }
-        event.preventDefault();
-        requestAnimationFrame(() => {
-          focusInput();
-        });
-        return;
+        if (key === 'n') {
+          if (!onCommandAdd) {
+            return;
+          }
+          event.preventDefault();
+          onCommandAdd();
+          return;
+        }
+        if (key === 'l') {
+          event.preventDefault();
+          onLockNow();
+          return;
+        }
       }
       if ((event.metaKey || event.ctrlKey) && event.shiftKey) {
         const key = event.key.toLowerCase();
-        if (key === 's') {
+        if (key === 'd') {
+          if (!onCommandDecoy) {
+            return;
+          }
           event.preventDefault();
-          onToggleSecureMode();
+          onCommandDecoy();
+          return;
         }
-        if (key === 't') {
+        if (key === 'e') {
+          if (!onCommandExport) {
+            return;
+          }
           event.preventDefault();
-          handleThemeToggle();
+          onCommandExport('clean');
+          return;
         }
-        if (key === 'k') {
-          event.preventDefault();
-          onLockNow();
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key === 'ArrowLeft') {
+        if (!onPrev) {
+          return;
         }
+        event.preventDefault();
+        onPrev();
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key === 'ArrowRight') {
+        if (!onNext) {
+          return;
+        }
+        event.preventDefault();
+        onNext();
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [commandStripMode, focusInput, handleThemeToggle, onLockNow, onSearchChange, onToggleSecureMode]);
-
-  useEffect(() => {
-    if (!commandStripMode) {
-      return;
-    }
-    if (!commandValue.startsWith('/')) {
-      setCommandValue(search ?? '');
-    }
-  }, [commandStripMode, commandValue, search]);
-
-  useEffect(() => {
-    const element = desktopGridRef.current;
-    if (!element) {
-      return;
-    }
-    const update = () => {
-      const width = element.getBoundingClientRect().width;
-      const nextHidden: HiddenAction[] = [];
-      if (width < 1260) {
-        nextHidden.push('theme');
-      }
-      if (width < 1180) {
-        nextHidden.push('settings');
-      }
-      if (width < 1100) {
-        nextHidden.push('secure');
-      }
-      if (width < 1020) {
-        nextHidden.push('lock');
-      }
-      setHiddenActions((prev) => {
-        if (prev.length === nextHidden.length && prev.every((item, index) => item === nextHidden[index])) {
-          return prev;
-        }
-        return nextHidden;
-      });
-    };
-    update();
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', update);
-      return () => window.removeEventListener('resize', update);
-    }
-    const observer = new ResizeObserver(update);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  const handleCommand = useCallback(
-    (rawValue: string) => {
-      const trimmed = rawValue.trim();
-      if (!trimmed.startsWith('/')) {
-        return false;
-      }
-      const [command, ...rest] = trimmed.slice(1).split(' ');
-      const arg = rest.join(' ').trim().toLowerCase();
-      switch (command.toLowerCase()) {
-        case 'add':
-          if (!onCommandAdd) {
-            notify('Add command is not available here.', 'error');
-            return true;
-          }
-          onCommandAdd();
-          return true;
-        case 'lock':
-          onLockNow();
-          return true;
-        case 'privacy':
-          if (!onCommandPrivacy) {
-            notify('Privacy screen toggle is unavailable.', 'error');
-            return true;
-          }
-          onCommandPrivacy();
-          return true;
-        case 'decoy':
-          if (!onCommandDecoy) {
-            notify('Decoy profile action is unavailable.', 'error');
-            return true;
-          }
-          onCommandDecoy();
-          return true;
-        case 'export':
-          if (!onCommandExport) {
-            notify('Export commands are unavailable.', 'error');
-            return true;
-          }
-          if (arg !== 'clean' && arg !== 'full') {
-            notify('Use /export clean or /export full.', 'error');
-            return true;
-          }
-          onCommandExport(arg);
-          return true;
-        default:
-          notify('Unknown command. Try /add, /lock, /privacy, /decoy, /export clean, /export full.', 'error');
-          return true;
-      }
-    },
-    [notify, onCommandAdd, onCommandDecoy, onCommandExport, onCommandPrivacy, onLockNow]
-  );
-
-  const handleCommandSubmit = useCallback(() => {
-    if (!commandValue.trim()) {
-      return;
-    }
-    if (handleCommand(commandValue)) {
-      setCommandValue('');
-      onSearchChange?.('');
-    }
-  }, [commandValue, handleCommand, onSearchChange]);
+  }, [focusInput, onCommandAdd, onCommandDecoy, onCommandExport, onLockNow, onPrev, onNext]);
 
   const activeProfileLabel = profiles.find((profile) => profile.id === activeProfileId)?.name ?? 'Profile';
   const allowProfileSwitch = profileSwitchAllowed && profiles.length > 0;
   const allowCreateProfile = showCreateProfile && allowProfileSwitch;
-  const hiddenSet = useMemo(() => new Set(hiddenActions), [hiddenActions]);
-  const isActionHidden = (key: HiddenAction) => hiddenSet.has(key);
-  const showOverflowProfileList = false;
-  const showOverflowCreateProfile = false;
+  const themeOptions = THEME_PACKS;
+  const activeTheme = useMemo(
+    () => themeOptions.find((pack) => pack.id === palette) ?? themeOptions[0],
+    [palette, themeOptions]
+  );
   const desktopOverflowActions = useMemo<OverflowAction[]>(() => {
     const actions: OverflowAction[] = [];
-    if (isActionHidden('lock')) {
-      actions.push({ key: 'lock', label: 'Lock now', onClick: onLockNow });
-    }
-    if (isActionHidden('settings')) {
-      actions.push({ key: 'settings', label: 'Settings', onClick: onOpenSettings });
-    }
-    if (isActionHidden('theme')) {
-      actions.push({ key: 'theme', label: 'Theme toggle', onClick: handleThemeToggle });
-    }
-    if (isActionHidden('secure')) {
-      actions.push({
-        key: 'secure',
-        label: secureMode ? 'Secure mode on' : 'Secure mode off',
-        onClick: onToggleSecureMode
-      });
-    }
-    actions.push({ key: 'hotkeys', label: 'Hotkeys', onClick: () => setHotkeysOpen(true) });
-    return actions;
-  }, [handleThemeToggle, isActionHidden, onLockNow, onOpenSettings, onToggleSecureMode, secureMode]);
-  const mobileOverflowActions = useMemo<OverflowAction[]>(() => {
-    const actions: OverflowAction[] = [];
-    if (onInstall) {
-      actions.push({ key: 'install', label: 'Install', onClick: onInstall, tone: 'accent' });
+    if (allowCreateProfile) {
+      actions.push({ key: 'profile', label: '+ Profile', onClick: onCreateProfile });
     }
     actions.push({ key: 'settings', label: 'Settings', onClick: onOpenSettings });
-    actions.push({ key: 'theme', label: 'Theme toggle', onClick: handleThemeToggle });
-    actions.push({
-      key: 'secure',
-      label: secureMode ? 'Secure mode on' : 'Secure mode off',
-      onClick: onToggleSecureMode
-    });
-    actions.push({ key: 'lock', label: 'Lock now', onClick: onLockNow });
+    actions.push({ key: 'theme', label: 'Theme', onClick: () => setThemeOpen(true) });
     actions.push({ key: 'hotkeys', label: 'Hotkeys', onClick: () => setHotkeysOpen(true) });
     return actions;
-  }, [handleThemeToggle, onInstall, onLockNow, onOpenSettings, onToggleSecureMode, secureMode]);
-  const showDesktopOverflow =
-    desktopOverflowActions.length > 0 || showOverflowProfileList || showOverflowCreateProfile;
+  }, [allowCreateProfile, onCreateProfile, onOpenSettings]);
+  const mobileOverflowActions = useMemo<OverflowAction[]>(() => {
+    const actions: OverflowAction[] = [];
+    if (allowCreateProfile) {
+      actions.push({ key: 'profile', label: '+ Profile', onClick: onCreateProfile });
+    }
+    actions.push({ key: 'settings', label: 'Settings', onClick: onOpenSettings });
+    actions.push({ key: 'theme', label: 'Theme', onClick: () => setThemeOpen(true) });
+    actions.push({ key: 'hotkeys', label: 'Hotkeys', onClick: () => setHotkeysOpen(true) });
+    return actions;
+  }, [allowCreateProfile, onCreateProfile, onOpenSettings]);
+  const showDesktopOverflow = desktopOverflowActions.length > 0;
 
   const renderSearchInput = (inputRef: React.RefObject<HTMLInputElement>) => (
     <motion.div className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`} {...pillMotion}>
@@ -729,31 +553,8 @@ const TopBar = ({
         value={search ?? ''}
         onChange={(event) => onSearchChange?.(event.target.value)}
         placeholder="Search events"
-        className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
-      />
-    </motion.div>
-  );
-
-  const renderCommandInput = (inputRef: React.RefObject<HTMLInputElement>) => (
-    <motion.div className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`} {...pillMotion}>
-      <span className="flex-none text-muted">›</span>
-      <input
-        ref={inputRef}
-        value={commandValue}
-        onChange={(event) => {
-          const next = event.target.value;
-          setCommandValue(next);
-          if (!next.trim().startsWith('/')) {
-            onSearchChange?.(next);
-          }
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            handleCommandSubmit();
-          }
-        }}
-        placeholder="/add, /lock, /privacy, /decoy, /export clean"
+        readOnly={!onSearchChange}
+        aria-disabled={!onSearchChange}
         className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
       />
     </motion.div>
@@ -764,204 +565,141 @@ const TopBar = ({
       <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6">
         <div className="py-2">
           <div
-            ref={desktopGridRef}
-            className="hidden items-start gap-x-4 gap-y-2 lg:grid"
-            style={{
-              gridTemplateColumns: 'minmax(0,1fr) minmax(240px,1fr) auto',
-              gridTemplateRows: 'auto auto'
-            }}
+            className="hidden min-w-0 grid-cols-[auto_auto_auto_auto_auto_minmax(0,1fr)_auto] grid-rows-[auto_auto] items-center gap-x-3 gap-y-2 lg:grid"
           >
-            <div className="row-span-2 min-w-0">
-              <div className="grid min-w-0 grid-cols-[auto_auto] grid-rows-[auto_auto] items-center gap-x-2 gap-y-1">
-                <div className="flex min-w-0 items-center gap-2">
-                  <motion.button
-                    type="button"
-                    onClick={onHome}
-                    className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
-                    aria-label="Go to calendar"
-                    {...pillMotion}
-                  >
-                    <span className="h-6 w-6">
-                      <img
-                        src={mark2x}
-                        srcSet={`${mark1x} 1x, ${mark2x} 2x`}
-                        alt=""
-                        aria-hidden="true"
-                        className="h-full w-full rounded-lg"
-                        draggable={false}
-                      />
-                    </span>
-                    <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">
-                      NullCal
-                    </span>
-                  </motion.button>
-                  {onToday && (
-                    <motion.button
-                      onClick={onToday}
-                      className={`${pillBase} px-3 text-muted hover:text-text`}
-                      {...pillMotion}
-                    >
-                      Today
-                    </motion.button>
-                  )}
-                </div>
-
-                <div className="flex min-w-0 justify-center">
-                  {view && onViewChange && (
-                    <Segmented
-                      ariaLabel="Calendar view"
-                      items={[
-                        {
-                          key: 'week',
-                          label: (
-                            <>
-                              <span className="hidden xl:inline">Week</span>
-                              <span className="xl:hidden">Wk</span>
-                            </>
-                          ),
-                          onClick: () => onViewChange('timeGridWeek'),
-                          active: view === 'timeGridWeek'
-                        },
-                        {
-                          key: 'month',
-                          label: (
-                            <>
-                              <span className="hidden xl:inline">Month</span>
-                              <span className="xl:hidden">Mo</span>
-                            </>
-                          ),
-                          onClick: () => onViewChange('dayGridMonth'),
-                          active: view === 'dayGridMonth'
-                        }
-                      ]}
-                    />
-                  )}
-                </div>
-
-                <div className="col-start-2 row-start-2 flex min-w-0 justify-center">
-                  {onPrev && onNext && (
-                    <Segmented
-                      ariaLabel="Navigate calendar"
-                      items={[
-                        {
-                          key: 'prev',
-                          label: 'Previous',
-                          onClick: onPrev,
-                          icon: <ChevronIcon direction="left" />
-                        },
-                        {
-                          key: 'next',
-                          label: 'Next',
-                          onClick: onNext,
-                          icon: <ChevronIcon direction="right" />
-                        }
-                      ]}
-                    />
-                  )}
-                </div>
-              </div>
+            <div className="col-start-1 row-start-1 flex min-w-0 items-center">
+              <motion.button
+                type="button"
+                onClick={onHome}
+                className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
+                aria-label="Go to calendar"
+                {...pillMotion}
+              >
+                <span className="h-6 w-6">
+                  <img
+                    src={mark2x}
+                    srcSet={`${mark1x} 1x, ${mark2x} 2x`}
+                    alt=""
+                    aria-hidden="true"
+                    className="h-full w-full rounded-lg"
+                    draggable={false}
+                  />
+                </span>
+                <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
+              </motion.button>
             </div>
 
-            <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-center">
-              {(commandStripMode || onSearchChange) && (
-                <div className="w-full min-w-0" style={{ width: 'min(520px, 40vw)', minWidth: '220px' }}>
-                  {commandStripMode
-                    ? renderCommandInput(desktopCommandInputRef)
-                    : onSearchChange && renderSearchInput(desktopSearchInputRef)}
-                </div>
+            <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-start">
+              {onToday && (
+                <motion.button
+                  onClick={onToday}
+                  className={`${pillBase} px-3 text-muted hover:text-text`}
+                  {...pillMotion}
+                >
+                  Today
+                </motion.button>
               )}
             </div>
 
-            <div className="col-start-3 row-start-1 flex min-w-0 items-center justify-end gap-2">
+            <div className="col-start-3 row-start-1 flex min-w-0 items-center justify-center">
+              {view && onViewChange && (
+                <Segmented
+                  ariaLabel="Calendar view"
+                  items={[
+                    {
+                      key: 'week',
+                      label: (
+                        <>
+                          <span className="hidden xl:inline">Week</span>
+                          <span className="xl:hidden">Wk</span>
+                        </>
+                      ),
+                      onClick: () => onViewChange('timeGridWeek'),
+                      active: view === 'timeGridWeek'
+                    },
+                    {
+                      key: 'month',
+                      label: (
+                        <>
+                          <span className="hidden xl:inline">Month</span>
+                          <span className="xl:hidden">Mo</span>
+                        </>
+                      ),
+                      onClick: () => onViewChange('dayGridMonth'),
+                      active: view === 'dayGridMonth'
+                    }
+                  ]}
+                />
+              )}
+            </div>
+
+            <div className="col-start-4 row-start-1 flex min-w-0 items-center justify-start">
               {allowProfileSwitch ? (
-                <div className="flex min-w-0 items-center gap-2">
-                  <AgentDropdown
-                    options={profiles}
-                    activeId={activeProfileId}
-                    onChange={onProfileChange}
-                    className="w-[clamp(140px,16vw,200px)] min-w-0"
-                  />
-                  {allowCreateProfile && (
-                    <motion.button
-                      onClick={onCreateProfile}
-                      className={`${pillBase} px-4 text-muted hover:text-text`}
-                      {...pillMotion}
-                    >
-                      + Profile
-                    </motion.button>
-                  )}
-                </div>
+                <AgentDropdown
+                  options={profiles}
+                  activeId={activeProfileId}
+                  onChange={onProfileChange}
+                  className="w-[clamp(140px,18vw,220px)] min-w-0"
+                />
               ) : (
                 <div className={`${pillBase} px-3 text-muted`}>{activeProfileLabel}</div>
               )}
-              {onInstall && (
-                <motion.button
-                  onClick={onInstall}
-                  className={`${pillBase} px-4 border-accent/40 text-accent hover:border-accent hover:text-text`}
-                  {...pillMotion}
-                >
-                  Install
-                </motion.button>
-              )}
-              {!isActionHidden('secure') && (
-                <motion.button
-                  onClick={onToggleSecureMode}
-                  className={`${pillBase} gap-2 px-4 ${
-                    secureMode ? 'border-accent/60 text-accent' : 'text-muted hover:text-text'
-                  }`}
-                  {...pillMotion}
-                >
-                  <ShieldIcon />
-                  Secure
-                </motion.button>
-              )}
-              {!isActionHidden('lock') && (
-                <motion.button
-                  onClick={onLockNow}
-                  className={`${pillBase} gap-2 px-4 text-muted hover:text-text`}
-                  {...pillMotion}
-                >
-                  {commandStripMode && (
-                    <span
-                      className={`cmdstrip-led ${locked ? 'cmdstrip-led--locked' : 'cmdstrip-led--unlocked'}`}
-                      aria-hidden="true"
-                    />
-                  )}
-                  Lock now
-                </motion.button>
-              )}
-              {!isActionHidden('settings') && (
-                <motion.button
-                  type="button"
-                  onClick={onOpenSettings}
-                  className={`${pillBase} px-3 text-muted hover:text-text`}
-                  aria-label="Settings"
-                  {...pillMotion}
-                >
-                  <SettingsIcon />
-                </motion.button>
-              )}
-              {!isActionHidden('theme') && (
-                <ThemeToggle
-                  value={theme}
-                  onChange={onThemeChange}
-                  className={`${pillBase} px-4 text-muted hover:text-text glow-pulse`}
-                />
-              )}
+            </div>
+
+            <div className="col-start-5 row-start-1 flex min-w-0 items-center justify-start">
+              <motion.button
+                onClick={onLockNow}
+                className={`${pillBase} gap-2 px-4 text-muted hover:text-text`}
+                {...pillMotion}
+              >
+                Lock now
+              </motion.button>
+            </div>
+
+            <div className="col-start-6 row-start-1 flex min-w-0 items-center">
+              <div className="w-full min-w-0" style={{ width: 'min(520px, 40vw)', minWidth: '200px' }}>
+                {renderSearchInput(desktopSearchInputRef)}
+              </div>
+            </div>
+
+            <div className="col-start-7 row-start-1 flex min-w-0 items-center justify-end">
               {showDesktopOverflow && (
                 <OverflowMenu
                   actions={desktopOverflowActions}
-                  showProfileList={showOverflowProfileList}
-                  showCreateProfileItem={showOverflowCreateProfile}
+                  showProfileList={false}
+                  showCreateProfileItem={false}
                   profiles={profiles}
                   activeProfileId={activeProfileId}
                   onProfileChange={onProfileChange}
                   onCreateProfile={onCreateProfile}
                 />
               )}
-              <div className="text-xs">
-                <Clock />
-              </div>
+            </div>
+
+            <div className="col-start-3 row-start-2 flex min-w-0 items-center justify-center">
+              {onPrev && onNext && (
+                <Segmented
+                  ariaLabel="Navigate calendar"
+                  items={[
+                    {
+                      key: 'prev',
+                      label: 'Previous',
+                      onClick: onPrev,
+                      icon: <ChevronIcon direction="left" />
+                    },
+                    {
+                      key: 'next',
+                      label: 'Next',
+                      onClick: onNext,
+                      icon: <ChevronIcon direction="right" />
+                    }
+                  ]}
+                />
+              )}
+            </div>
+
+            <div className="col-start-7 row-start-2 flex min-w-0 items-center justify-end text-xs">
+              <Clock />
             </div>
           </div>
 
@@ -1013,7 +751,6 @@ const TopBar = ({
                 options={profiles}
                 activeId={activeProfileId}
                 onChange={allowProfileSwitch ? onProfileChange : undefined}
-                onCreateProfile={allowCreateProfile ? onCreateProfile : undefined}
                 disabled={!allowProfileSwitch}
               />
               <OverflowMenu
@@ -1067,48 +804,41 @@ const TopBar = ({
                 ]}
               />
             )}
-            {(commandStripMode || onSearchChange) && (
-              <div className="w-full min-w-0">
-                {commandStripMode
-                  ? renderCommandInput(mobileCommandInputRef)
-                  : onSearchChange && renderSearchInput(mobileSearchInputRef)}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      {commandStripMode && altHeld && (
-        <div className="cmdstrip-hotkeys-wrapper" role="status" aria-live="polite">
-          <div className="cmdstrip-hotkeys">
-            <div className="cmdstrip-hotkeys-title">Command Strip Hotkeys</div>
-            <div className="cmdstrip-hotkeys-note">Privacy screen cheat: Cmd/Ctrl+Shift+L</div>
-            <div className="cmdstrip-hotkeys-grid">
-              <span className="cmdstrip-hotkeys-item">
-                <kbd>/</kbd> Search
-              </span>
-              <span className="cmdstrip-hotkeys-item">
-                <kbd>N</kbd> New event
-              </span>
-              <span className="cmdstrip-hotkeys-item">
-                <kbd>L</kbd> Lock
-              </span>
-              <span className="cmdstrip-hotkeys-item">
-                <kbd>P</kbd> Privacy
-              </span>
-              <span className="cmdstrip-hotkeys-item">
-                <kbd>D</kbd> Decoy
-              </span>
-              <span className="cmdstrip-hotkeys-item">
-                <kbd>T</kbd> Theme
-              </span>
-              <span className="cmdstrip-hotkeys-item">
-                <kbd>S</kbd> Settings
-              </span>
+            <motion.button
+              onClick={onLockNow}
+              className={`${pillBase} flex-none px-4 text-muted hover:text-text`}
+              {...pillMotion}
+            >
+              Lock now
+            </motion.button>
+            <div className="w-full min-w-0">
+              {renderSearchInput(mobileSearchInputRef)}
             </div>
           </div>
         </div>
-      )}
+      </div>
       <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
+      <Modal title="Theme Packs" open={themeOpen} onClose={() => setThemeOpen(false)}>
+        <div className="space-y-3 text-sm text-muted">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs uppercase tracking-[0.3em] text-muted">Current</span>
+            <span className="text-[11px] uppercase tracking-[0.2em] text-text">{activeTheme.name}</span>
+          </div>
+          <p className="text-xs text-muted">Select a theme pack to restyle the entire interface.</p>
+          <ThemePicker
+            themes={themeOptions}
+            activeId={palette}
+            onSelect={(nextId) => {
+              const next = themeOptions.find((pack) => pack.id === nextId);
+              if (!next) {
+                return;
+              }
+              onPaletteChange(next.id, next.mode);
+              setThemeOpen(false);
+            }}
+          />
+        </div>
+      </Modal>
     </header>
   );
 };

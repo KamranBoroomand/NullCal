@@ -8,10 +8,11 @@ import { useToast } from '../components/ToastProvider';
 import AppShell from '../app/AppShell';
 import TopBar from '../app/TopBar';
 import SideBar from '../app/SideBar';
+import ThemePicker from '../components/ThemePicker';
 import { encryptPayload } from '../security/encryption';
 import { buildExportPayload, type ExportMode, validateExportPayload } from '../security/exportUtils';
 import { usePrivacyScreen } from '../state/privacy';
-import { DEFAULT_THEME_BY_MODE, THEME_PACKS, resolvePaletteForMode } from '../theme/themePacks';
+import { DEFAULT_THEME_BY_MODE, THEME_PACKS, resolveThemeModeFromPalette } from '../theme/themePacks';
 
 const formatDate = (value?: string) => {
   if (!value) {
@@ -26,7 +27,6 @@ const SafetyCenter = () => {
   const reduceMotion = useReducedMotion();
   const {
     state,
-    locked,
     lockNow,
     updateSettings,
     setActiveProfile,
@@ -481,20 +481,15 @@ const SafetyCenter = () => {
           onOpenSettings={() => setSettingsOpen(true)}
           onLockNow={lockNow}
           onHome={() => navigate('/')}
-          theme={state.settings.theme}
-          onThemeChange={(theme) =>
+          palette={state.settings.palette}
+          onPaletteChange={(paletteId, themeMode) =>
             updateSettings({
-              theme,
-              palette: resolvePaletteForMode(state.settings.palette, theme)
+              palette: paletteId,
+              theme: resolveThemeModeFromPalette(paletteId, themeMode)
             })
           }
-          secureMode={state.settings.secureMode}
-          onToggleSecureMode={() => updateSettings({ secureMode: !state.settings.secureMode })}
           onOpenNav={() => setNavOpen(true)}
-          commandStripMode={state.settings.commandStripMode}
-          locked={locked}
           onCommandAdd={handleCommandAdd}
-          onCommandPrivacy={togglePrivacyScreen}
           onCommandDecoy={handleSwitchToDecoy}
           onCommandExport={handleCommandExport}
         />
@@ -589,7 +584,7 @@ const SafetyCenter = () => {
 
           <motion.section
             {...panelMotion}
-            className="safety-grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-12"
+            className="safety-grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12"
           >
             <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-4">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
@@ -623,7 +618,7 @@ const SafetyCenter = () => {
                 <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy screen hotkey</p>
-                    <p className="mt-1 text-xs text-muted">Cmd/Ctrl+Shift+L toggles a decoy overlay.</p>
+                    <p className="mt-1 text-xs text-muted">Cmd/Ctrl+Shift+P toggles a decoy overlay.</p>
                   </div>
                   <input
                     type="checkbox"
@@ -644,7 +639,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-5">
+            <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-4">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Locking</p>
               <div className="mt-4 space-y-4 text-sm text-muted">
                 <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -756,58 +751,27 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-          <div className="photon-panel rounded-3xl p-4 sm:p-5 lg:col-span-3">
+          <div className="photon-panel rounded-3xl p-4 sm:p-5 lg:col-span-4">
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Appearance</p>
-            <div className="mt-4 space-y-3 text-sm text-muted">
-              <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-2.5">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Command Strip Mode</p>
-                  <p className="mt-1 text-xs text-muted">
-                    Enables the grid-based command strip layout in the TopBar, plus scanlines and hotkey hints.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={state.settings.commandStripMode}
-                  onChange={(event) => updateSettings({ commandStripMode: event.target.checked })}
-                  className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
-                />
-              </label>
-              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-2.5">
+            <div className="mt-4 space-y-4 text-sm text-muted">
+              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
-                  <span>Theme</span>
+                  <span>Theme Packs</span>
                   <span className="text-[10px] tracking-[0.2em] text-muted">{activeTheme.name}</span>
                 </div>
                 <p className="mt-2 text-xs text-muted">
                   Pick a theme to restyle the entire interface. Saved locally on this device.
                 </p>
-                <select
-                  value={state.settings.palette}
-                  onChange={(event) => {
-                    const nextPalette = event.target.value;
-                    const nextTheme =
-                      themeOptions.find((theme) => theme.id === nextPalette)?.mode ?? state.settings.theme;
-                    updateSettings({ palette: nextPalette, theme: nextTheme });
-                  }}
-                  className="mt-3 w-full min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
-                >
-                  {themeOptions.map((theme) => (
-                    <option key={theme.id} value={theme.id} className="bg-panel2">
-                      {theme.name}
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
-                  <span className="text-[10px] uppercase tracking-[0.3em] text-muted">Preview</span>
-                  <div className="flex items-center gap-2">
-                    {activeTheme.preview.map((color) => (
-                      <span
-                        key={color}
-                        className="h-3 w-3 rounded-full border border-grid"
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
+                <div className="mt-3">
+                  <ThemePicker
+                    themes={themeOptions}
+                    activeId={state.settings.palette}
+                    onSelect={(nextPalette) => {
+                      const nextTheme =
+                        themeOptions.find((theme) => theme.id === nextPalette)?.mode ?? state.settings.theme;
+                      updateSettings({ palette: nextPalette, theme: nextTheme });
+                    }}
+                  />
                 </div>
               </div>
             </div>

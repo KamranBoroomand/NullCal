@@ -15,8 +15,7 @@ import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import RouteErrorBoundary from '../components/RouteErrorBoundary';
 import { encryptPayload } from '../security/encryption';
 import { buildExportPayload, validateExportPayload } from '../security/exportUtils';
-import { usePrivacyScreen } from '../state/privacy';
-import { resolvePaletteForMode } from '../theme/themePacks';
+import { resolveThemeModeFromPalette } from '../theme/themePacks';
 
 const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 const fromInputValue = (value: string) => new Date(value).toISOString();
@@ -27,7 +26,6 @@ const AppPage = () => {
   const {
     state,
     loading,
-    locked,
     lockNow,
     updateSettings,
     setActiveProfile,
@@ -44,7 +42,6 @@ const AppPage = () => {
   } =
     useAppStore();
   const { notify } = useToast();
-  const { togglePrivacyScreen } = usePrivacyScreen();
   const [view, setView] = useState<'timeGridWeek' | 'dayGridMonth'>('timeGridWeek');
   const [search, setSearch] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -353,21 +350,15 @@ const AppPage = () => {
             showCreateProfile={true}
             onOpenSettings={() => setSettingsOpen(true)}
             onLockNow={lockNow}
-            onInstall={canInstall ? promptInstall : undefined}
-            theme={state.settings.theme}
-            onThemeChange={(theme) =>
+            palette={state.settings.palette}
+            onPaletteChange={(paletteId, themeMode) =>
               updateSettings({
-                theme,
-                palette: resolvePaletteForMode(state.settings.palette, theme)
+                palette: paletteId,
+                theme: resolveThemeModeFromPalette(paletteId, themeMode)
               })
             }
-            secureMode={state.settings.secureMode}
-            onToggleSecureMode={() => updateSettings({ secureMode: !state.settings.secureMode })}
             onOpenNav={() => setNavOpen(true)}
-            commandStripMode={state.settings.commandStripMode}
-            locked={locked}
             onCommandAdd={handleCommandAdd}
-            onCommandPrivacy={togglePrivacyScreen}
             onCommandDecoy={handleCommandDecoy}
             onCommandExport={handleCommandExport}
           />
@@ -522,6 +513,14 @@ const AppPage = () => {
           <p>
             Storage: <span className="text-text">Local IndexedDB</span>
           </p>
+          {canInstall && (
+            <button
+              onClick={promptInstall}
+              className="rounded-full border border-grid px-4 py-2 text-xs text-accent transition hover:text-text"
+            >
+              Install app
+            </button>
+          )}
           <button
             onClick={() => {
               setSettingsOpen(false);

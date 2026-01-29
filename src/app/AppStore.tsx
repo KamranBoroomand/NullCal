@@ -22,7 +22,6 @@ import type { AppSettings, AppState, CalendarEvent, SecurityPrefs } from '../sto
 import { applyNetworkLock } from '../security/networkLock';
 import { hashPin, verifyPin } from '../security/pin';
 import { decryptPayload, encryptPayload, type EncryptedPayload } from '../security/encryption';
-import { safeLocalStorage } from '../storage/safeStorage';
 
 type AppStoreContextValue = {
   state: AppState | null;
@@ -131,15 +130,6 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     const scanlinesEnabled = state.settings.scanlines && state.settings.theme === 'dark';
     document.body.classList.toggle('scanlines-on', scanlinesEnabled);
   }, [state?.settings.scanlines, state?.settings.theme]);
-
-  useEffect(() => {
-    if (!state) {
-      return;
-    }
-    const enabled = state.settings.commandStripMode;
-    document.documentElement.classList.toggle('cmdstrip', enabled);
-    safeLocalStorage.setItem('nullcal:commandStripMode', enabled ? '1' : '0');
-  }, [state?.settings.commandStripMode]);
 
   useEffect(() => {
     if (!state) {

@@ -39,7 +39,7 @@ const PrivacyScreenOverlay = ({ open }: { open: boolean }) => {
             <p className="text-xs uppercase tracking-[0.4em] text-muted">LOCKED</p>
             <h2 className="mt-2 text-lg font-semibold text-text">Privacy Screen</h2>
             <p className="mt-2 text-xs text-muted">
-              Press {modifier}+Shift+L to return.
+              Press {modifier}+Shift+P to return.
             </p>
           </motion.div>
         </motion.div>
@@ -58,7 +58,7 @@ export const PrivacyScreenProvider = ({ children }: { children: ReactNode }) => 
       return;
     }
     const handleKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'l') {
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'p') {
         event.preventDefault();
         setPrivacyScreenOn((prev) => !prev);
       }
