@@ -5,6 +5,7 @@ import Segmented from '../components/Segmented';
 import ThemeToggle from '../components/ThemeToggle';
 import type { ThemeMode } from '../theme/ThemeProvider';
 import HotkeysModal from './HotkeysModal';
+import { useToast } from '../components/ToastProvider';
 
 const base = import.meta.env.BASE_URL;
 const mark1x = `${base}mark-128.png?v=3`;
@@ -410,7 +411,13 @@ type TopBarProps = {
   onOpenNav?: () => void;
   commandStripMode?: boolean;
   locked?: boolean;
+  onCommandAdd?: () => void;
+  onCommandPrivacy?: () => void;
+  onCommandDecoy?: () => void;
+  onCommandExport?: (mode: 'clean' | 'full') => void;
 };
+
+type HiddenAction = 'agent' | 'lock' | 'settings' | 'theme' | 'secure';
 
 const TopBar = ({
   view,
@@ -436,19 +443,23 @@ const TopBar = ({
   onToggleSecureMode,
   onOpenNav,
   commandStripMode = false,
-  locked = false
+  locked = false,
+  onCommandAdd,
+  onCommandPrivacy,
+  onCommandDecoy,
+  onCommandExport
 }: TopBarProps) => {
   const reduceMotion = useReducedMotion();
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [collapseSearchInput, setCollapseSearchInput] = useState(false);
-  const [hiddenActions, setHiddenActions] = useState<Array<'settings' | 'theme' | 'lock' | 'secure'>>([]);
+  const { notify } = useToast();
+  const [hiddenActions, setHiddenActions] = useState<HiddenAction[]>([]);
   const [altHeld, setAltHeld] = useState(false);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
+  const [commandValue, setCommandValue] = useState(search ?? '');
   const desktopGridRef = useRef<HTMLDivElement | null>(null);
-  const desktopSearchRef = useRef<HTMLDivElement | null>(null);
-  const mobileSearchRef = useRef<HTMLDivElement | null>(null);
   const desktopSearchInputRef = useRef<HTMLInputElement | null>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const desktopCommandInputRef = useRef<HTMLInputElement | null>(null);
+  const mobileCommandInputRef = useRef<HTMLInputElement | null>(null);
   const pillMotion = reduceMotion
     ? {}
     : {
@@ -456,40 +467,20 @@ const TopBar = ({
         whileTap: { scale: 0.98 },
         transition: { duration: 0.16 }
       };
-  const focusSearchInput = useCallback(() => {
+
+  const handleThemeToggle = () => onThemeChange(theme === 'dark' ? 'light' : 'dark');
+
+  const focusInput = useCallback(() => {
     const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
-    const input = isDesktop ? desktopSearchInputRef.current : mobileSearchInputRef.current;
+    const input = commandStripMode
+      ? isDesktop
+        ? desktopCommandInputRef.current
+        : mobileCommandInputRef.current
+      : isDesktop
+        ? desktopSearchInputRef.current
+        : mobileSearchInputRef.current;
     input?.focus();
-  }, []);
-
-  useEffect(() => {
-    if (!searchOpen) {
-      return;
-    }
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (!desktopSearchRef.current?.contains(target) && !mobileSearchRef.current?.contains(target)) {
-        setSearchOpen(false);
-      }
-    };
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setSearchOpen(false);
-      }
-    };
-    window.addEventListener('click', handleClick);
-    window.addEventListener('keydown', handleKey);
-    return () => {
-      window.removeEventListener('click', handleClick);
-      window.removeEventListener('keydown', handleKey);
-    };
-  }, [searchOpen]);
-
-  useEffect(() => {
-    if (searchOpen) {
-      focusSearchInput();
-    }
-  }, [focusSearchInput, searchOpen]);
+  }, [commandStripMode]);
 
   useEffect(() => {
     if (!commandStripMode) {
@@ -541,15 +532,12 @@ const TopBar = ({
         !event.ctrlKey &&
         !event.altKey
       ) {
-        if (!onSearchChange) {
+        if (!onSearchChange && !commandStripMode) {
           return;
         }
         event.preventDefault();
-        if (collapseSearchInput) {
-          setSearchOpen(true);
-        }
         requestAnimationFrame(() => {
-          focusSearchInput();
+          focusInput();
         });
         return;
       }
@@ -571,7 +559,16 @@ const TopBar = ({
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [collapseSearchInput, focusSearchInput, handleThemeToggle, onLockNow, onSearchChange, onToggleSecureMode]);
+  }, [commandStripMode, focusInput, handleThemeToggle, onLockNow, onSearchChange, onToggleSecureMode]);
+
+  useEffect(() => {
+    if (!commandStripMode) {
+      return;
+    }
+    if (!commandValue.startsWith('/')) {
+      setCommandValue(search ?? '');
+    }
+  }, [commandStripMode, commandValue, search]);
 
   useEffect(() => {
     const element = desktopGridRef.current;
@@ -580,20 +577,22 @@ const TopBar = ({
     }
     const update = () => {
       const width = element.getBoundingClientRect().width;
-      const nextHidden: Array<'settings' | 'theme' | 'lock' | 'secure'> = [];
-      if (width < 1360) {
-        nextHidden.push('settings');
+      const nextHidden: HiddenAction[] = [];
+      if (width < 1340) {
+        nextHidden.push('agent');
       }
-      if (width < 1300) {
-        nextHidden.push('theme');
-      }
-      if (width < 1240) {
+      if (width < 1260) {
         nextHidden.push('lock');
       }
       if (width < 1180) {
+        nextHidden.push('settings');
+      }
+      if (width < 1120) {
+        nextHidden.push('theme');
+      }
+      if (width < 1060) {
         nextHidden.push('secure');
       }
-      setCollapseSearchInput(width < 1180);
       setHiddenActions((prev) => {
         if (prev.length === nextHidden.length && prev.every((item, index) => item === nextHidden[index])) {
           return prev;
@@ -611,24 +610,85 @@ const TopBar = ({
     return () => observer.disconnect();
   }, []);
 
+  const handleCommand = useCallback(
+    (rawValue: string) => {
+      const trimmed = rawValue.trim();
+      if (!trimmed.startsWith('/')) {
+        return false;
+      }
+      const [command, ...rest] = trimmed.slice(1).split(' ');
+      const arg = rest.join(' ').trim().toLowerCase();
+      switch (command.toLowerCase()) {
+        case 'add':
+          if (!onCommandAdd) {
+            notify('Add command is not available here.', 'error');
+            return true;
+          }
+          onCommandAdd();
+          return true;
+        case 'lock':
+          onLockNow();
+          return true;
+        case 'privacy':
+          if (!onCommandPrivacy) {
+            notify('Privacy screen toggle is unavailable.', 'error');
+            return true;
+          }
+          onCommandPrivacy();
+          return true;
+        case 'decoy':
+          if (!onCommandDecoy) {
+            notify('Decoy profile action is unavailable.', 'error');
+            return true;
+          }
+          onCommandDecoy();
+          return true;
+        case 'export':
+          if (!onCommandExport) {
+            notify('Export commands are unavailable.', 'error');
+            return true;
+          }
+          if (arg !== 'clean' && arg !== 'full') {
+            notify('Use /export clean or /export full.', 'error');
+            return true;
+          }
+          onCommandExport(arg);
+          return true;
+        default:
+          notify('Unknown command. Try /add, /lock, /privacy, /decoy, /export clean, /export full.', 'error');
+          return true;
+      }
+    },
+    [notify, onCommandAdd, onCommandDecoy, onCommandExport, onCommandPrivacy, onLockNow]
+  );
+
+  const handleCommandSubmit = useCallback(() => {
+    if (!commandValue.trim()) {
+      return;
+    }
+    if (handleCommand(commandValue)) {
+      setCommandValue('');
+      onSearchChange?.('');
+    }
+  }, [commandValue, handleCommand, onSearchChange]);
+
   const activeProfileLabel = profiles.find((profile) => profile.id === activeProfileId)?.name ?? 'Profile';
   const allowProfileSwitch = profileSwitchAllowed && profiles.length > 0;
   const allowCreateProfile = showCreateProfile && allowProfileSwitch;
-  const handleThemeToggle = () => onThemeChange(theme === 'dark' ? 'light' : 'dark');
   const hiddenSet = useMemo(() => new Set(hiddenActions), [hiddenActions]);
-  const isActionHidden = (key: 'settings' | 'theme' | 'lock' | 'secure') => hiddenSet.has(key);
-  const showOverflowProfileList = false;
-  const showOverflowCreateProfile = false;
+  const isActionHidden = (key: HiddenAction) => hiddenSet.has(key);
+  const showOverflowProfileList = allowProfileSwitch && isActionHidden('agent');
+  const showOverflowCreateProfile = allowCreateProfile && isActionHidden('agent');
   const desktopOverflowActions = useMemo<OverflowAction[]>(() => {
     const actions: OverflowAction[] = [];
+    if (isActionHidden('lock')) {
+      actions.push({ key: 'lock', label: 'Lock now', onClick: onLockNow });
+    }
     if (isActionHidden('settings')) {
       actions.push({ key: 'settings', label: 'Settings', onClick: onOpenSettings });
     }
     if (isActionHidden('theme')) {
       actions.push({ key: 'theme', label: 'Theme toggle', onClick: handleThemeToggle });
-    }
-    if (isActionHidden('lock')) {
-      actions.push({ key: 'lock', label: 'Lock now', onClick: onLockNow });
     }
     if (isActionHidden('secure')) {
       actions.push({
@@ -639,7 +699,7 @@ const TopBar = ({
     }
     actions.push({ key: 'hotkeys', label: 'Hotkeys', onClick: () => setHotkeysOpen(true) });
     return actions;
-  }, [handleThemeToggle, onLockNow, onOpenSettings, onToggleSecureMode, secureMode, hiddenSet]);
+  }, [handleThemeToggle, isActionHidden, onLockNow, onOpenSettings, onToggleSecureMode, secureMode]);
   const mobileOverflowActions = useMemo<OverflowAction[]>(() => {
     const actions: OverflowAction[] = [];
     if (onInstall) {
@@ -659,205 +719,180 @@ const TopBar = ({
   const showDesktopOverflow =
     desktopOverflowActions.length > 0 || showOverflowProfileList || showOverflowCreateProfile;
 
+  const renderSearchInput = (inputRef: React.RefObject<HTMLInputElement>) => (
+    <motion.div className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`} {...pillMotion}>
+      <span className="flex-none text-muted">
+        <SearchIcon />
+      </span>
+      <input
+        ref={inputRef}
+        value={search ?? ''}
+        onChange={(event) => onSearchChange?.(event.target.value)}
+        placeholder="Search events"
+        className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
+      />
+    </motion.div>
+  );
+
+  const renderCommandInput = (inputRef: React.RefObject<HTMLInputElement>) => (
+    <motion.div className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`} {...pillMotion}>
+      <span className="flex-none text-muted">›</span>
+      <input
+        ref={inputRef}
+        value={commandValue}
+        onChange={(event) => {
+          const next = event.target.value;
+          setCommandValue(next);
+          if (!next.trim().startsWith('/')) {
+            onSearchChange?.(next);
+          }
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            handleCommandSubmit();
+          }
+        }}
+        placeholder="/add, /lock, /privacy, /decoy, /export clean"
+        className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
+      />
+    </motion.div>
+  );
+
   return (
     <header className="topbar relative w-full text-sm">
       <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6">
-        <div className="py-1">
+        <div className="py-2">
           <div
             ref={desktopGridRef}
-            className="hidden grid-rows-[auto_auto] items-center gap-x-3 gap-y-1 lg:grid"
-            style={{
-              gridTemplateAreas: '"left view search agent actions" "left view search agent clock"',
-              gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr) auto auto'
-            }}
+            className="hidden items-center gap-4 lg:grid"
+            style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)' }}
           >
-            <div style={{ gridArea: 'left' }} className="min-w-0">
-              <div className="grid min-w-0 auto-cols-max grid-flow-col items-center gap-2">
-                {onOpenNav && (
+            <div className="min-w-0">
+              <div className="grid min-w-0 grid-cols-[auto_auto] grid-rows-[auto_auto] items-center gap-x-2 gap-y-1">
+                <div className="flex min-w-0 items-center gap-2">
                   <motion.button
                     type="button"
-                    onClick={onOpenNav}
-                    className={`${pillBase} flex-none px-3 text-muted hover:text-text lg:hidden`}
-                    aria-label="Open navigation"
+                    onClick={onHome}
+                    className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
+                    aria-label="Go to calendar"
                     {...pillMotion}
                   >
-                    <HamburgerIcon />
+                    <span className="h-6 w-6">
+                      <img
+                        src={mark2x}
+                        srcSet={`${mark1x} 1x, ${mark2x} 2x`}
+                        alt=""
+                        aria-hidden="true"
+                        className="h-full w-full rounded-lg"
+                        draggable={false}
+                      />
+                    </span>
+                    <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">
+                      NullCal
+                    </span>
                   </motion.button>
-                )}
-                <motion.button
-                  type="button"
-                  onClick={onHome}
-                  className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
-                  aria-label="Go to calendar"
-                  {...pillMotion}
-                >
-                  <span className="h-6 w-6">
-                    <img
-                      src={mark2x}
-                      srcSet={`${mark1x} 1x, ${mark2x} 2x`}
-                      alt=""
-                      aria-hidden="true"
-                      className="h-full w-full rounded-lg"
-                      draggable={false}
-                    />
-                  </span>
-                  <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">
-                    NullCal
-                  </span>
-                </motion.button>
-                {onToday && (
-                  <motion.button
-                    onClick={onToday}
-                    className={`${pillBase} px-3 text-muted hover:text-text`}
-                    {...pillMotion}
-                  >
-                    Today
-                  </motion.button>
-                )}
-              </div>
-            </div>
-
-            <div style={{ gridArea: 'view' }} className="flex min-w-0 items-center justify-center">
-              <div className="inline-grid min-w-0 justify-items-center gap-y-1">
-                {view && onViewChange && (
-                  <Segmented
-                    ariaLabel="Calendar view"
-                    items={[
-                      {
-                        key: 'week',
-                        label: (
-                          <>
-                            <span className="hidden xl:inline">Week</span>
-                            <span className="xl:hidden">Wk</span>
-                          </>
-                        ),
-                        onClick: () => onViewChange('timeGridWeek'),
-                        active: view === 'timeGridWeek'
-                      },
-                      {
-                        key: 'month',
-                        label: (
-                          <>
-                            <span className="hidden xl:inline">Month</span>
-                            <span className="xl:hidden">Mo</span>
-                          </>
-                        ),
-                        onClick: () => onViewChange('dayGridMonth'),
-                        active: view === 'dayGridMonth'
-                      }
-                    ]}
-                  />
-                )}
-                {onPrev && onNext && (
-                  <Segmented
-                    ariaLabel="Navigate calendar"
-                    items={[
-                      {
-                        key: 'prev',
-                        label: 'Previous',
-                        onClick: onPrev,
-                        icon: <ChevronIcon direction="left" />
-                      },
-                      {
-                        key: 'next',
-                        label: 'Next',
-                        onClick: onNext,
-                        icon: <ChevronIcon direction="right" />
-                      }
-                    ]}
-                  />
-                )}
-              </div>
-            </div>
-
-            <div style={{ gridArea: 'search' }} className="flex min-w-0 items-center justify-center">
-              {onSearchChange && (
-                <div className="relative flex w-full min-w-0 justify-center" ref={desktopSearchRef}>
-                  {collapseSearchInput ? (
-                    <>
-                      <motion.button
-                        type="button"
-                        onClick={() => setSearchOpen((open) => !open)}
-                        className={`${pillBase} h-9 w-9 px-0 text-muted hover:text-text`}
-                        aria-haspopup="dialog"
-                        aria-expanded={searchOpen}
-                        {...pillMotion}
-                      >
-                        <SearchIcon />
-                        <span className="sr-only">Search events</span>
-                      </motion.button>
-                      <AnimatePresence>
-                        {searchOpen && (
-                          <motion.div
-                            initial={reduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.98, y: 6 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 6 }}
-                            transition={{ duration: 0.18 }}
-                            className="absolute left-1/2 top-full z-40 mt-2 w-[min(520px,80vw)] -translate-x-1/2"
-                          >
-                            <div className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`}>
-                              <span className="flex-none text-muted">
-                                <SearchIcon />
-                              </span>
-                              <input
-                                ref={desktopSearchInputRef}
-                                value={search ?? ''}
-                                onChange={(event) => onSearchChange(event.target.value)}
-                                placeholder="Search events"
-                                className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
-                                autoFocus
-                              />
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </>
-                  ) : (
-                    <div className="w-full min-w-0" style={{ width: 'min(520px, 100%)', minWidth: '240px' }}>
-                      <motion.div
-                        className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`}
-                        {...pillMotion}
-                      >
-                        <span className="flex-none text-muted">
-                          <SearchIcon />
-                        </span>
-                        <input
-                          ref={desktopSearchInputRef}
-                          value={search ?? ''}
-                          onChange={(event) => onSearchChange(event.target.value)}
-                          placeholder="Search events"
-                          className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
-                        />
-                      </motion.div>
-                    </div>
+                  {onToday && (
+                    <motion.button
+                      onClick={onToday}
+                      className={`${pillBase} px-3 text-muted hover:text-text`}
+                      {...pillMotion}
+                    >
+                      Today
+                    </motion.button>
                   )}
                 </div>
-              )}
+
+                <div className="flex min-w-0 justify-center">
+                  {view && onViewChange && (
+                    <Segmented
+                      ariaLabel="Calendar view"
+                      items={[
+                        {
+                          key: 'week',
+                          label: (
+                            <>
+                              <span className="hidden xl:inline">Week</span>
+                              <span className="xl:hidden">Wk</span>
+                            </>
+                          ),
+                          onClick: () => onViewChange('timeGridWeek'),
+                          active: view === 'timeGridWeek'
+                        },
+                        {
+                          key: 'month',
+                          label: (
+                            <>
+                              <span className="hidden xl:inline">Month</span>
+                              <span className="xl:hidden">Mo</span>
+                            </>
+                          ),
+                          onClick: () => onViewChange('dayGridMonth'),
+                          active: view === 'dayGridMonth'
+                        }
+                      ]}
+                    />
+                  )}
+                </div>
+
+                <div className="col-start-2 row-start-2 flex justify-center">
+                  {onPrev && onNext && (
+                    <Segmented
+                      ariaLabel="Navigate calendar"
+                      items={[
+                        {
+                          key: 'prev',
+                          label: 'Previous',
+                          onClick: onPrev,
+                          icon: <ChevronIcon direction="left" />
+                        },
+                        {
+                          key: 'next',
+                          label: 'Next',
+                          onClick: onNext,
+                          icon: <ChevronIcon direction="right" />
+                        }
+                      ]}
+                    />
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div style={{ gridArea: 'agent' }} className="flex min-w-0 items-center justify-end gap-2">
+            <div className="flex min-w-0 items-center justify-center">
+              {commandStripMode
+                ? renderCommandInput(desktopCommandInputRef)
+                : onSearchChange && (
+                    <div className="w-full min-w-0" style={{ width: 'min(520px, 100%)', minWidth: '240px' }}>
+                      {renderSearchInput(desktopSearchInputRef)}
+                    </div>
+                  )}
+            </div>
+
+            <div className="flex min-w-0 items-center justify-end gap-2">
               {allowProfileSwitch ? (
-                <AgentDropdown
-                  options={profiles}
-                  activeId={activeProfileId}
-                  onChange={onProfileChange}
-                  className="min-w-0 w-[clamp(140px,16vw,200px)]"
-                />
+                !isActionHidden('agent') && (
+                  <div className="flex min-w-0 items-center gap-2">
+                    <AgentDropdown
+                      options={profiles}
+                      activeId={activeProfileId}
+                      onChange={onProfileChange}
+                      className="min-w-0 w-[clamp(140px,16vw,200px)]"
+                    />
+                    {allowCreateProfile && (
+                      <motion.button
+                        onClick={onCreateProfile}
+                        className={`${pillBase} px-4 text-muted hover:text-text`}
+                        {...pillMotion}
+                      >
+                        + Profile
+                      </motion.button>
+                    )}
+                  </div>
+                )
               ) : (
                 <div className={`${pillBase} px-3 text-muted`}>{activeProfileLabel}</div>
               )}
-              {allowCreateProfile && (
-                <motion.button
-                  onClick={onCreateProfile}
-                  className={`${pillBase} px-4 text-muted hover:text-text`}
-                  {...pillMotion}
-                >
-                  + Profile
-                </motion.button>
-              )}
-            </div>
-
-            <div style={{ gridArea: 'actions' }} className="flex min-w-0 items-center justify-end gap-2">
               {onInstall && (
                 <motion.button
                   onClick={onInstall}
@@ -923,9 +958,6 @@ const TopBar = ({
                   onCreateProfile={onCreateProfile}
                 />
               )}
-            </div>
-
-            <div style={{ gridArea: 'clock' }} className="flex items-center justify-end">
               <div className="text-xs">
                 <Clock />
               </div>
@@ -973,87 +1005,9 @@ const TopBar = ({
                   Today
                 </motion.button>
               )}
-              {view && onViewChange && (
-                <Segmented
-                  ariaLabel="Calendar view"
-                  items={[
-                    {
-                      key: 'week',
-                      label: 'Week',
-                      onClick: () => onViewChange('timeGridWeek'),
-                      active: view === 'timeGridWeek'
-                    },
-                    {
-                      key: 'month',
-                      label: 'Month',
-                      onClick: () => onViewChange('dayGridMonth'),
-                      active: view === 'dayGridMonth'
-                    }
-                  ]}
-                />
-              )}
-              {onPrev && onNext && (
-                <Segmented
-                  ariaLabel="Navigate calendar"
-                  items={[
-                    {
-                      key: 'prev',
-                      label: 'Previous',
-                      onClick: onPrev,
-                      icon: <ChevronIcon direction="left" />
-                    },
-                    {
-                      key: 'next',
-                      label: 'Next',
-                      onClick: onNext,
-                      icon: <ChevronIcon direction="right" />
-                    }
-                  ]}
-                />
-              )}
             </div>
 
-            <div className="flex items-center gap-4">
-              {onSearchChange && (
-                <div className="relative" ref={mobileSearchRef}>
-                  <motion.button
-                    type="button"
-                    onClick={() => setSearchOpen((open) => !open)}
-                    className={`${pillBase} px-3 text-muted hover:text-text`}
-                    aria-haspopup="dialog"
-                    aria-expanded={searchOpen}
-                    {...pillMotion}
-                  >
-                    <SearchIcon />
-                    <span className="sr-only">Search events</span>
-                  </motion.button>
-                  <AnimatePresence>
-                    {searchOpen && (
-                      <motion.div
-                        initial={reduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.98, y: 6 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 6 }}
-                        transition={{ duration: 0.18 }}
-                        className="absolute right-0 top-full z-40 mt-2 w-64 max-w-[80vw]"
-                      >
-                        <div className={`${pillBase} w-full justify-start gap-2 px-3 text-muted hover:text-text`}>
-                          <span className="flex-none text-muted">
-                            <SearchIcon />
-                          </span>
-                          <input
-                            ref={mobileSearchInputRef}
-                            value={search ?? ''}
-                            onChange={(event) => onSearchChange(event.target.value)}
-                            placeholder="Search events"
-                            className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
-                            autoFocus
-                          />
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              )}
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <ProfileMenu
                 options={profiles}
                 activeId={activeProfileId}
@@ -1072,11 +1026,53 @@ const TopBar = ({
               />
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center justify-end pb-1 lg:hidden">
-          <div className="text-xs">
-            <Clock />
+          <div className="mt-2 flex flex-wrap items-center gap-3 lg:hidden">
+            {view && onViewChange && (
+              <Segmented
+                ariaLabel="Calendar view"
+                items={[
+                  {
+                    key: 'week',
+                    label: 'Week',
+                    onClick: () => onViewChange('timeGridWeek'),
+                    active: view === 'timeGridWeek'
+                  },
+                  {
+                    key: 'month',
+                    label: 'Month',
+                    onClick: () => onViewChange('dayGridMonth'),
+                    active: view === 'dayGridMonth'
+                  }
+                ]}
+              />
+            )}
+            {onPrev && onNext && (
+              <Segmented
+                ariaLabel="Navigate calendar"
+                items={[
+                  {
+                    key: 'prev',
+                    label: 'Previous',
+                    onClick: onPrev,
+                    icon: <ChevronIcon direction="left" />
+                  },
+                  {
+                    key: 'next',
+                    label: 'Next',
+                    onClick: onNext,
+                    icon: <ChevronIcon direction="right" />
+                  }
+                ]}
+              />
+            )}
+            {(commandStripMode || onSearchChange) && (
+              <div className="w-full min-w-0">
+                {commandStripMode
+                  ? renderCommandInput(mobileCommandInputRef)
+                  : onSearchChange && renderSearchInput(mobileSearchInputRef)}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1094,6 +1090,12 @@ const TopBar = ({
               <kbd>L</kbd> Lock
             </span>
             <span className="cmdstrip-hotkeys-item">
+              <kbd>P</kbd> Privacy
+            </span>
+            <span className="cmdstrip-hotkeys-item">
+              <kbd>D</kbd> Decoy
+            </span>
+            <span className="cmdstrip-hotkeys-item">
               <kbd>T</kbd> Theme
             </span>
             <span className="cmdstrip-hotkeys-item">
@@ -1109,4 +1111,4 @@ const TopBar = ({
 
 export default TopBar;
 
-// Layout notes: desktop uses grid areas (left/view/search/agent/actions on row 1, clock on row 2).
+// Layout notes: desktop uses a 3-zone grid (left/center/right) with stacked view + nav controls.

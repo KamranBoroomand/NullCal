@@ -199,6 +199,40 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [lockNow, state?.settings.autoLockOnBlur, state?.settings.autoLockGraceSeconds, locked]);
 
+  useEffect(() => {
+    if (!state) {
+      return;
+    }
+    if (!state.settings.switchToDecoyOnBlur || !state.settings.decoyProfileId) {
+      return;
+    }
+    const decoyId = state.settings.decoyProfileId;
+    const switchToDecoy = () => {
+      if (locked || state.settings.activeProfileId === decoyId) {
+        return;
+      }
+      updateSettings({ activeProfileId: decoyId });
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        switchToDecoy();
+      }
+    };
+    const handleBlur = () => switchToDecoy();
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [
+    locked,
+    state?.settings.activeProfileId,
+    state?.settings.decoyProfileId,
+    state?.settings.switchToDecoyOnBlur,
+    updateSettings
+  ]);
+
   const updateSettings = useCallback((updates: Partial<AppSettings>) => {
     setState((prev) => {
       if (!prev) {

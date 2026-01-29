@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 type Toast = {
@@ -12,13 +12,21 @@ type ToastContextValue = {
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
+let toastCounter = 0;
+const buildToastId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  toastCounter += 1;
+  return `toast-${toastCounter}`;
+};
 
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const reduceMotion = useReducedMotion();
 
   const notify = useCallback((message: string, tone: Toast['tone'] = 'info') => {
-    const toast: Toast = { id: crypto.randomUUID(), message, tone };
+    const toast: Toast = { id: buildToastId(), message, tone };
     setToasts((prev) => [...prev, toast]);
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((item) => item.id !== toast.id));
@@ -56,8 +64,13 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
 
 export const useToast = () => {
   const ctx = useContext(ToastContext);
-  if (!ctx) {
-    throw new Error('useToast must be used within ToastProvider');
-  }
-  return ctx;
+  const fallback = useMemo<ToastContextValue>(
+    () => ({
+      notify: () => {
+        // noop fallback
+      }
+    }),
+    []
+  );
+  return ctx ?? fallback;
 };
