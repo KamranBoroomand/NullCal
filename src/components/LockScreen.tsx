@@ -58,7 +58,7 @@ const LockScreen = ({ open, pinEnabled, onUnlock }: LockScreenProps) => {
             <button
               type="button"
               onClick={handleUnlock}
-              className="mt-4 w-full rounded-xl bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14]"
+              className="mt-4 w-full rounded-xl bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
             >
               Unlock
             </button>

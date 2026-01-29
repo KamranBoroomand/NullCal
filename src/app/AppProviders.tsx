@@ -11,10 +11,17 @@ const ThemeBridge = ({ children }: { children: ReactNode }) => {
     typeof window !== 'undefined'
       ? ((window.localStorage.getItem('nullcal:theme') as 'dark' | 'light') ?? 'dark')
       : 'dark';
+  const fallbackPalette =
+    typeof window !== 'undefined' ? window.localStorage.getItem('nullcal:palette') ?? 'nullcal-neon' : 'nullcal-neon';
   const theme = state?.settings.theme ?? fallbackTheme;
+  const palette = state?.settings.palette ?? fallbackPalette;
 
   return (
-    <ThemeProvider theme={theme} onThemeChange={(next) => updateSettings({ theme: next })}>
+    <ThemeProvider
+      theme={theme}
+      palette={palette}
+      onThemeChange={(next) => updateSettings({ theme: next })}
+    >
       <PrivacyScreenProvider>
         {children}
         <LockScreen

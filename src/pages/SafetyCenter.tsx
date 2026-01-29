@@ -18,6 +18,18 @@ const formatDate = (value?: string) => {
   return new Date(value).toLocaleString();
 };
 
+const paletteOptions = [
+  { id: 'nullcal-neon', name: 'NullCal Neon', preview: ['#f4ff00', '#9bff00', '#00f6ff'] },
+  { id: 'catppuccin-mocha', name: 'Catppuccin Mocha', preview: ['#f5c2e7', '#89b4fa', '#a6e3a1'] },
+  { id: 'catppuccin-latte', name: 'Catppuccin Latte', preview: ['#dc8a78', '#1e66f5', '#40a02b'] },
+  { id: 'nord', name: 'Nord', preview: ['#88c0d0', '#81a1c1', '#a3be8c'] },
+  { id: 'dracula', name: 'Dracula', preview: ['#bd93f9', '#ff79c6', '#8be9fd'] },
+  { id: 'tokyo-night', name: 'Tokyo Night', preview: ['#7aa2f7', '#bb9af7', '#9ece6a'] },
+  { id: 'gruvbox', name: 'Gruvbox', preview: ['#fabd2f', '#fe8019', '#b8bb26'] },
+  { id: 'solarized', name: 'Solarized', preview: ['#b58900', '#268bd2', '#2aa198'] },
+  { id: 'rose-pine', name: 'Rosé Pine', preview: ['#ebbcba', '#9ccfd8', '#c4a7e7'] }
+];
+
 const SafetyCenter = () => {
   const reduceMotion = useReducedMotion();
   const {
@@ -121,6 +133,10 @@ const SafetyCenter = () => {
     }
     return state.events.filter((event) => event.profileId === activeProfile.id);
   }, [activeProfile, state]);
+  const activePalette = useMemo(
+    () => paletteOptions.find((palette) => palette.id === state?.settings.palette) ?? paletteOptions[0],
+    [state?.settings.palette]
+  );
 
   if (wiped) {
     return (
@@ -155,7 +171,7 @@ const SafetyCenter = () => {
                 removeSessionValue('nullcal:wiped');
                 navigate('/');
               }}
-              className="rounded-full bg-accent px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14]"
+              className="rounded-full bg-accent px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
             >
               Start fresh
             </button>
@@ -579,7 +595,7 @@ const SafetyCenter = () => {
           </div>
         </motion.section>
 
-        <motion.section {...panelMotion} className="grid gap-6 lg:grid-cols-2">
+        <motion.section {...panelMotion} className="grid gap-6 lg:grid-cols-2 items-start">
           <div className="photon-panel rounded-3xl p-5 sm:p-6">
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
             <div className="mt-4 space-y-4 text-sm text-muted">
@@ -671,7 +687,7 @@ const SafetyCenter = () => {
                   <button
                     type="button"
                     onClick={handleSetPin}
-                    className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14]"
+                    className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
                   >
                     Save PIN
                   </button>
@@ -745,7 +761,7 @@ const SafetyCenter = () => {
             </div>
           </div>
 
-          <div className="photon-panel rounded-3xl p-5 sm:p-6">
+          <div className="photon-panel rounded-3xl p-5 sm:p-6 self-start h-fit">
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Appearance</p>
             <div className="mt-4 space-y-4 text-sm text-muted">
               <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -762,6 +778,38 @@ const SafetyCenter = () => {
                   className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
                 />
               </label>
+              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                  <span>Theme palette</span>
+                  <span className="text-[10px] tracking-[0.2em] text-muted">{activePalette.name}</span>
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  Pick a palette to recolor the UI accents. Saved locally on this device.
+                </p>
+                <select
+                  value={state.settings.palette}
+                  onChange={(event) => updateSettings({ palette: event.target.value })}
+                  className="mt-3 w-full rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                >
+                  {paletteOptions.map((palette) => (
+                    <option key={palette.id} value={palette.id} className="bg-panel2">
+                      {palette.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
+                  <span className="text-[10px] uppercase tracking-[0.3em] text-muted">Preview</span>
+                  <div className="flex items-center gap-2">
+                    {activePalette.preview.map((color) => (
+                      <span
+                        key={color}
+                        className="h-3 w-3 rounded-full border border-grid"
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -828,7 +876,7 @@ const SafetyCenter = () => {
                 <button
                   type="button"
                   onClick={handleExport}
-                  className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14]"
+                  className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
                 >
                   Export encrypted
                 </button>
@@ -955,7 +1003,7 @@ const SafetyCenter = () => {
                   <button
                     type="button"
                     onClick={handleSetDecoyPin}
-                    className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14]"
+                    className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
                   >
                     Save decoy PIN
                   </button>

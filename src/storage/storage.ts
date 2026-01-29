@@ -5,6 +5,7 @@ import type { AppSettings, AppState, Calendar, CalendarEvent, Profile, SecurityP
 
 const LEGACY_KEY = 'nullcal:v1';
 const COMMAND_STRIP_KEY = 'nullcal:commandStripMode';
+const PALETTE_KEY = 'nullcal:palette';
 
 const readCommandStripMode = () => {
   const value = window.localStorage.getItem(COMMAND_STRIP_KEY);
@@ -14,12 +15,22 @@ const readCommandStripMode = () => {
   return value === '1';
 };
 
+const readPalette = () => {
+  const value = window.localStorage.getItem(PALETTE_KEY);
+  if (!value) {
+    return 'nullcal-neon';
+  }
+  return value;
+};
+
 const buildDefaultSettings = (activeProfileId: string): AppSettings => {
   const savedTheme = window.localStorage.getItem('nullcal:theme');
   const theme = savedTheme === 'light' ? 'light' : 'dark';
+  const palette = readPalette();
   return {
     id: 'app',
     theme,
+    palette,
     activeProfileId,
     primaryProfileId: activeProfileId,
     decoyProfileId: undefined,
@@ -154,6 +165,7 @@ export const loadAppState = async (): Promise<AppState> => {
     const normalizedSettings = {
       ...resolvedSettings,
       networkLock: true,
+      palette: resolvedSettings.palette ?? readPalette(),
       primaryProfileId: resolvedSettings.primaryProfileId ?? resolvedSettings.activeProfileId,
       autoLockOnBlur: resolvedSettings.autoLockOnBlur ?? false,
       autoLockGraceSeconds: resolvedSettings.autoLockGraceSeconds ?? 0,

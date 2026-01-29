@@ -27,6 +27,7 @@ export type CalendarEvent = {
 export type AppSettings = {
   id: 'app';
   theme: 'dark' | 'light';
+  palette: string;
   activeProfileId: string;
   primaryProfileId: string;
   decoyProfileId?: string;

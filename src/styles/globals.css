@@ -15,6 +15,11 @@
   --grid: var(--border);
   --accent: #f4ff00;
   --accent2: #9bff00;
+  --accentText: #0b0f14;
+  --accentSoft: color-mix(in srgb, var(--accent) 18%, transparent);
+  --glow: #f4ff00;
+  --pillActiveBg: var(--accent);
+  --pillActiveText: var(--accentText);
   --danger: #ff3b3b;
 }
 
@@ -35,7 +40,111 @@
   --grid: var(--border);
   --accent: #9fb900;
   --accent2: #9bff00;
+  --accentText: #0b0f14;
+  --accentSoft: color-mix(in srgb, var(--accent) 18%, transparent);
+  --glow: #9fb900;
+  --pillActiveBg: var(--accent);
+  --pillActiveText: var(--accentText);
   --danger: #d11a2a;
+}
+
+body[data-palette='nullcal-neon'] {
+  --accent: #f4ff00;
+  --accent2: #9bff00;
+  --accentText: #0b0f14;
+  --accentSoft: color-mix(in srgb, #f4ff00 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #f4ff00 20%);
+  --glow: #f4ff00;
+  --pillActiveBg: #f4ff00;
+  --pillActiveText: #0b0f14;
+}
+
+body[data-palette='catppuccin-mocha'] {
+  --accent: #89b4fa;
+  --accent2: #f5c2e7;
+  --accentText: #0b0f14;
+  --accentSoft: color-mix(in srgb, #89b4fa 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #89b4fa 20%);
+  --glow: #89b4fa;
+  --pillActiveBg: #89b4fa;
+  --pillActiveText: #0b0f14;
+}
+
+body[data-palette='catppuccin-latte'] {
+  --accent: #1e66f5;
+  --accent2: #dc8a78;
+  --accentText: #f8fafc;
+  --accentSoft: color-mix(in srgb, #1e66f5 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 85%, #1e66f5 15%);
+  --glow: #1e66f5;
+  --pillActiveBg: #1e66f5;
+  --pillActiveText: #f8fafc;
+}
+
+body[data-palette='nord'] {
+  --accent: #88c0d0;
+  --accent2: #81a1c1;
+  --accentText: #0b0f14;
+  --accentSoft: color-mix(in srgb, #88c0d0 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #88c0d0 20%);
+  --glow: #88c0d0;
+  --pillActiveBg: #88c0d0;
+  --pillActiveText: #0b0f14;
+}
+
+body[data-palette='dracula'] {
+  --accent: #bd93f9;
+  --accent2: #ff79c6;
+  --accentText: #0b0f14;
+  --accentSoft: color-mix(in srgb, #bd93f9 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #bd93f9 20%);
+  --glow: #bd93f9;
+  --pillActiveBg: #bd93f9;
+  --pillActiveText: #0b0f14;
+}
+
+body[data-palette='tokyo-night'] {
+  --accent: #7aa2f7;
+  --accent2: #bb9af7;
+  --accentText: #0b0f14;
+  --accentSoft: color-mix(in srgb, #7aa2f7 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #7aa2f7 20%);
+  --glow: #7aa2f7;
+  --pillActiveBg: #7aa2f7;
+  --pillActiveText: #0b0f14;
+}
+
+body[data-palette='gruvbox'] {
+  --accent: #fabd2f;
+  --accent2: #fe8019;
+  --accentText: #0b0f14;
+  --accentSoft: color-mix(in srgb, #fabd2f 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #fabd2f 20%);
+  --glow: #fabd2f;
+  --pillActiveBg: #fabd2f;
+  --pillActiveText: #0b0f14;
+}
+
+body[data-palette='solarized'] {
+  --accent: #268bd2;
+  --accent2: #b58900;
+  --accentText: #f8fafc;
+  --accentSoft: color-mix(in srgb, #268bd2 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 85%, #268bd2 15%);
+  --glow: #268bd2;
+  --pillActiveBg: #268bd2;
+  --pillActiveText: #f8fafc;
+}
+
+body[data-palette='rose-pine'] {
+  --accent: #9ccfd8;
+  --accent2: #c4a7e7;
+  --accentText: #0b0f14;
+  --accentSoft: color-mix(in srgb, #9ccfd8 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #9ccfd8 20%);
+  --glow: #9ccfd8;
+  --pillActiveBg: #9ccfd8;
+  --pillActiveText: #0b0f14;
 }
 
 * {
@@ -129,6 +238,10 @@ body[data-theme='light'] .pill-base {
 
 .glow-pulse {
   animation: glowPulse 2.8s ease-in-out infinite;
+}
+
+.shadow-glow {
+  box-shadow: 0 0 20px color-mix(in srgb, var(--glow) 35%, transparent);
 }
 
 .fc {
@@ -320,10 +433,10 @@ body[data-theme='light'] .pill-base {
 @keyframes glowPulse {
   0%,
   100% {
-    box-shadow: 0 0 0 rgba(244, 255, 0, 0.15);
+    box-shadow: 0 0 0 color-mix(in srgb, var(--glow) 25%, transparent);
   }
   50% {
-    box-shadow: 0 0 18px rgba(244, 255, 0, 0.35);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--glow) 55%, transparent);
   }
 }
 
@@ -332,18 +445,18 @@ body[data-theme='light'] .pill-base {
   96%,
   100% {
     text-shadow:
-      0 0 6px rgba(244, 255, 0, 0.35),
-      0 0 12px rgba(155, 255, 0, 0.2);
+      0 0 6px color-mix(in srgb, var(--accent) 45%, transparent),
+      0 0 12px color-mix(in srgb, var(--accent2) 30%, transparent);
   }
   97% {
     text-shadow:
-      1px 0 6px rgba(244, 255, 0, 0.25),
-      -1px 0 10px rgba(155, 255, 0, 0.25);
+      1px 0 6px color-mix(in srgb, var(--accent) 35%, transparent),
+      -1px 0 10px color-mix(in srgb, var(--accent2) 35%, transparent);
   }
   98% {
     text-shadow:
-      -1px 0 6px rgba(244, 255, 0, 0.25),
-      1px 0 10px rgba(155, 255, 0, 0.25);
+      -1px 0 6px color-mix(in srgb, var(--accent) 35%, transparent),
+      1px 0 10px color-mix(in srgb, var(--accent2) 35%, transparent);
   }
 }
 
