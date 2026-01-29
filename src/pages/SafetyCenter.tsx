@@ -19,11 +19,16 @@ const formatDate = (value?: string) => {
   return new Date(value).toLocaleString();
 };
 
-const themeOptions = [
+const paletteOptions = [
   { id: 'nullcal-neon', name: 'NullCal Neon', preview: ['#f4ff00', '#9bff00', '#00f6ff'] },
   { id: 'catppuccin-mocha', name: 'Catppuccin Mocha', preview: ['#f5c2e7', '#89b4fa', '#a6e3a1'] },
-  { id: 'nord', name: 'Nord', preview: ['#88c0d0', '#81a1c1', '#5e81ac'] },
-  { id: 'dracula', name: 'Dracula', preview: ['#bd93f9', '#ff79c6', '#8be9fd'] }
+  { id: 'catppuccin-latte', name: 'Catppuccin Latte', preview: ['#dc8a78', '#1e66f5', '#40a02b'] },
+  { id: 'nord', name: 'Nord', preview: ['#88c0d0', '#81a1c1', '#a3be8c'] },
+  { id: 'dracula', name: 'Dracula', preview: ['#bd93f9', '#ff79c6', '#8be9fd'] },
+  { id: 'tokyo-night', name: 'Tokyo Night', preview: ['#7aa2f7', '#bb9af7', '#9ece6a'] },
+  { id: 'gruvbox', name: 'Gruvbox', preview: ['#fabd2f', '#fe8019', '#b8bb26'] },
+  { id: 'solarized', name: 'Solarized', preview: ['#b58900', '#268bd2', '#2aa198'] },
+  { id: 'rose-pine', name: 'Rosé Pine', preview: ['#ebbcba', '#9ccfd8', '#c4a7e7'] }
 ];
 
 const SafetyCenter = () => {
@@ -129,8 +134,8 @@ const SafetyCenter = () => {
     }
     return state.events.filter((event) => event.profileId === activeProfile.id);
   }, [activeProfile, state]);
-  const activeTheme = useMemo(
-    () => themeOptions.find((palette) => palette.id === state?.settings.palette) ?? themeOptions[0],
+  const activePalette = useMemo(
+    () => paletteOptions.find((palette) => palette.id === state?.settings.palette) ?? paletteOptions[0],
     [state?.settings.palette]
   );
 
