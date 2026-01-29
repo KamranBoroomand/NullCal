@@ -1,13 +1,13 @@
+@import './fonts.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   color-scheme: dark;
-  --font-ui: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
+  --font-ui: 'NullCal Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'NullCal Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
   --bg: #070a0f;
   --panel: #0d121b;
   --panel2: #101827;
@@ -101,21 +101,152 @@ body[data-palette='dracula'] {
   --danger: #ff5555;
 }
 
+body[data-palette='catppuccin-latte'] {
+  --bg: #eff1f5;
+  --panel: #f7f7fb;
+  --panel2: #e6e9ef;
+  --text: #4c4f69;
+  --muted: #6c6f85;
+  --border: rgba(76, 79, 105, 0.12);
+  --accent: #1e66f5;
+  --accent2: #dc8a78;
+  --accentText: #ffffff;
+  --accentSoft: color-mix(in srgb, #1e66f5 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #1e66f5 20%);
+  --glow: #1e66f5;
+  --pillActiveBg: #1e66f5;
+  --pillActiveText: #ffffff;
+  --danger: #d20f39;
+}
+
+body[data-palette='gruvbox-dark'] {
+  --bg: #1d2021;
+  --panel: #282828;
+  --panel2: #32302f;
+  --text: #ebdbb2;
+  --muted: #bdae93;
+  --border: rgba(235, 219, 178, 0.08);
+  --accent: #fabd2f;
+  --accent2: #fe8019;
+  --accentText: #1d2021;
+  --accentSoft: color-mix(in srgb, #fabd2f 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #fabd2f 20%);
+  --glow: #fabd2f;
+  --pillActiveBg: #fabd2f;
+  --pillActiveText: #1d2021;
+  --danger: #fb4934;
+}
+
+body[data-palette='gruvbox-light'] {
+  --bg: #fbf1c7;
+  --panel: #f2e5bc;
+  --panel2: #ebdbb2;
+  --text: #3c3836;
+  --muted: #665c54;
+  --border: rgba(60, 56, 54, 0.12);
+  --accent: #d79921;
+  --accent2: #b57614;
+  --accentText: #3c3836;
+  --accentSoft: color-mix(in srgb, #d79921 20%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #d79921 20%);
+  --glow: #d79921;
+  --pillActiveBg: #d79921;
+  --pillActiveText: #3c3836;
+  --danger: #cc241d;
+}
+
+body[data-palette='solarized-dark'] {
+  --bg: #002b36;
+  --panel: #073642;
+  --panel2: #0b3c47;
+  --text: #eee8d5;
+  --muted: #93a1a1;
+  --border: rgba(238, 232, 213, 0.1);
+  --accent: #268bd2;
+  --accent2: #b58900;
+  --accentText: #002b36;
+  --accentSoft: color-mix(in srgb, #268bd2 20%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #268bd2 20%);
+  --glow: #268bd2;
+  --pillActiveBg: #268bd2;
+  --pillActiveText: #002b36;
+  --danger: #dc322f;
+}
+
+body[data-palette='solarized-light'] {
+  --bg: #fdf6e3;
+  --panel: #f5efdc;
+  --panel2: #eee8d5;
+  --text: #073642;
+  --muted: #586e75;
+  --border: rgba(7, 54, 66, 0.12);
+  --accent: #268bd2;
+  --accent2: #b58900;
+  --accentText: #fdf6e3;
+  --accentSoft: color-mix(in srgb, #268bd2 20%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #268bd2 20%);
+  --glow: #268bd2;
+  --pillActiveBg: #268bd2;
+  --pillActiveText: #fdf6e3;
+  --danger: #dc322f;
+}
+
+body[data-palette='tokyo-night'] {
+  --bg: #1a1b26;
+  --panel: #1f2335;
+  --panel2: #24283b;
+  --text: #c0caf5;
+  --muted: #9aa5ce;
+  --border: rgba(192, 202, 245, 0.08);
+  --accent: #7aa2f7;
+  --accent2: #bb9af7;
+  --accentText: #1a1b26;
+  --accentSoft: color-mix(in srgb, #7aa2f7 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #7aa2f7 20%);
+  --glow: #7aa2f7;
+  --pillActiveBg: #7aa2f7;
+  --pillActiveText: #1a1b26;
+  --danger: #f7768e;
+}
+
+body[data-palette='one-dark'] {
+  --bg: #1e2127;
+  --panel: #282c34;
+  --panel2: #2c313c;
+  --text: #e6e6e6;
+  --muted: #9da5b4;
+  --border: rgba(230, 230, 230, 0.08);
+  --accent: #61afef;
+  --accent2: #c678dd;
+  --accentText: #1e2127;
+  --accentSoft: color-mix(in srgb, #61afef 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #61afef 20%);
+  --glow: #61afef;
+  --pillActiveBg: #61afef;
+  --pillActiveText: #1e2127;
+  --danger: #e06c75;
+}
+
+body[data-palette='rose-pine'] {
+  --bg: #191724;
+  --panel: #1f1d2e;
+  --panel2: #26233a;
+  --text: #e0def4;
+  --muted: #908caa;
+  --border: rgba(224, 222, 244, 0.08);
+  --accent: #c4a7e7;
+  --accent2: #ebbcba;
+  --accentText: #191724;
+  --accentSoft: color-mix(in srgb, #c4a7e7 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #c4a7e7 20%);
+  --glow: #c4a7e7;
+  --pillActiveBg: #c4a7e7;
+  --pillActiveText: #191724;
+  --danger: #eb6f92;
+}
+
 [data-theme='light'] {
   color-scheme: light;
-  --bg: #f6f8fc;
-  --panel: #ffffff;
-  --panel2: #eef2f8;
-  --border: rgba(15, 23, 42, 0.16);
-  --text: #0b0f14;
-  --muted: #374151;
-  --grid: color-mix(in srgb, var(--border) 80%, var(--accent) 20%);
-  --accentText: #0b0f14;
-  --accentSoft: color-mix(in srgb, var(--accent) 18%, transparent);
-  --glow: var(--accent);
-  --pillActiveBg: var(--accent);
-  --pillActiveText: var(--accentText);
-  --danger: #d11a2a;
 }
 
 * {
@@ -161,9 +292,8 @@ body[data-theme='light'] .photon-panel {
 /* Safety Center cards use auto layout to avoid 1fr stretching and keep content-height cards compact. */
 .safety-grid {
   display: grid;
-  grid-auto-rows: auto;
-  grid-auto-flow: row dense;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-auto-flow: dense;
+  grid-auto-rows: minmax(min-content, max-content);
   align-content: start;
   align-items: start;
 }
@@ -368,11 +498,18 @@ body[data-theme='light'] .pill-base {
   animation: cmdstripTick 1s steps(1, end) infinite;
 }
 
-.cmdstrip-hotkeys {
+.cmdstrip-hotkeys-wrapper {
   position: absolute;
-  right: 1.5rem;
-  top: 0.35rem;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 0.35rem;
   z-index: 5;
+  pointer-events: none;
+}
+
+.cmdstrip-hotkeys {
   border-radius: 14px;
   border: 1px solid var(--grid);
   background: color-mix(in srgb, var(--panel) 88%, transparent);
@@ -383,6 +520,9 @@ body[data-theme='light'] .pill-base {
   color: var(--muted);
   backdrop-filter: blur(12px);
   font-family: var(--font-mono);
+  width: min(520px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  pointer-events: auto;
 }
 
 .cmdstrip-hotkeys-title {
@@ -390,6 +530,13 @@ body[data-theme='light'] .pill-base {
   letter-spacing: 0.24em;
   margin-bottom: 0.35rem;
   color: var(--muted);
+}
+
+.cmdstrip-hotkeys-note {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  margin-bottom: 0.45rem;
+  color: var(--text);
 }
 
 .cmdstrip-hotkeys-grid {

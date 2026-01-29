@@ -47,3 +47,26 @@ The repository name is case-sensitive in the URL, and the workflow derives the b
 ## Data Storage
 
 Profile data is stored locally in the browser under the `nullcal:v1` key. Use the Import/Export controls in the sidebar to back up or move profiles between devices.
+
+## Fonts (Self-Hosted)
+
+1. Drop your `.woff2` files into `public/fonts/`.
+2. Update `src/styles/fonts.css` with the filenames and weights you want to use.
+3. Refresh the app to verify the font stack updates.
+
+## Useful Scripts
+
+```bash
+npm run lint
+npm run typecheck
+```
+
+## Release QA Checklist
+
+- [ ] `npm run build` completes without errors.
+- [ ] `npm run preview` boots and loads `/NullCal/` without the router error screen.
+- [ ] `/NullCal/safety` loads without console errors.
+- [ ] Resize from 320px → 1920px and confirm TopBar pills never overlap.
+- [ ] Command Strip Mode ON keeps the TopBar layout stable and hotkeys overlay stays onscreen.
+- [ ] Safety Center cards stay within borders and remain content-height.
+- [ ] Theme selector swaps full theme packs (including backgrounds, panels, borders, text, accents).

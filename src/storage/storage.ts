@@ -2,13 +2,15 @@ import { nanoid } from 'nanoid';
 import { DB_NAME, openNullCalDB } from './db';
 import { createSeedCalendars, createSeedProfile } from './seed';
 import type { AppSettings, AppState, Calendar, CalendarEvent, Profile, SecurityPrefs } from './types';
+import { safeLocalStorage } from './safeStorage';
+import { DEFAULT_THEME_BY_MODE, resolveThemeModeFromPalette } from '../theme/themePacks';
 
 const LEGACY_KEY = 'nullcal:v1';
 const COMMAND_STRIP_KEY = 'nullcal:commandStripMode';
 const PALETTE_KEY = 'nullcal:palette';
 
 const readCommandStripMode = () => {
-  const value = window.localStorage.getItem(COMMAND_STRIP_KEY);
+  const value = safeLocalStorage.getItem(COMMAND_STRIP_KEY);
   if (value === null) {
     return true;
   }
@@ -16,17 +18,17 @@ const readCommandStripMode = () => {
 };
 
 const readPalette = () => {
-  const value = window.localStorage.getItem(PALETTE_KEY);
+  const value = safeLocalStorage.getItem(PALETTE_KEY);
   if (!value) {
-    return 'nullcal-neon';
+    return DEFAULT_THEME_BY_MODE.dark;
   }
   return value;
 };
 
 const buildDefaultSettings = (activeProfileId: string): AppSettings => {
-  const savedTheme = window.localStorage.getItem('nullcal:theme');
-  const theme = savedTheme === 'light' ? 'light' : 'dark';
   const palette = readPalette();
+  const savedTheme = safeLocalStorage.getItem('nullcal:theme') as 'dark' | 'light' | null;
+  const theme = resolveThemeModeFromPalette(palette, savedTheme === 'light' ? 'light' : 'dark');
   return {
     id: 'app',
     theme,
@@ -105,7 +107,7 @@ export const deleteCalendar = (
 });
 
 const migrateLegacy = (): AppState | null => {
-  const raw = window.localStorage.getItem(LEGACY_KEY);
+  const raw = safeLocalStorage.getItem(LEGACY_KEY);
   if (!raw) {
     return null;
   }
@@ -241,7 +243,7 @@ export const wipeAllData = async () => {
     request.onerror = () => reject(request.error);
     request.onblocked = () => resolve();
   });
-  window.localStorage.clear();
+  safeLocalStorage.clear();
   if ('caches' in window) {
     const keys = await caches.keys();
     await Promise.all(keys.map((key) => caches.delete(key)));
