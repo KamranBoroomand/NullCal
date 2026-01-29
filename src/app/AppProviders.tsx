@@ -4,17 +4,17 @@ import { AppStoreProvider, useAppStore } from './AppStore';
 import { ToastProvider } from '../components/ToastProvider';
 import LockScreen from '../components/LockScreen';
 import { PrivacyScreenProvider } from '../state/privacy';
+import { safeLocalStorage } from '../storage/safeStorage';
+import { DEFAULT_THEME_BY_MODE, resolveThemeModeFromPalette } from '../theme/themePacks';
 
 const ThemeBridge = ({ children }: { children: ReactNode }) => {
   const { state, updateSettings, locked, unlock } = useAppStore();
+  const fallbackPalette = safeLocalStorage.getItem('nullcal:palette') ?? DEFAULT_THEME_BY_MODE.dark;
   const fallbackTheme =
-    typeof window !== 'undefined'
-      ? ((window.localStorage.getItem('nullcal:theme') as 'dark' | 'light') ?? 'dark')
-      : 'dark';
-  const fallbackPalette =
-    typeof window !== 'undefined' ? window.localStorage.getItem('nullcal:palette') ?? 'nullcal-neon' : 'nullcal-neon';
-  const theme = state?.settings.theme ?? fallbackTheme;
+    (safeLocalStorage.getItem('nullcal:theme') as 'dark' | 'light' | null) ??
+    resolveThemeModeFromPalette(fallbackPalette, 'dark');
   const palette = state?.settings.palette ?? fallbackPalette;
+  const theme = state?.settings.theme ?? resolveThemeModeFromPalette(palette, fallbackTheme);
 
   return (
     <ThemeProvider

@@ -417,7 +417,7 @@ type TopBarProps = {
   onCommandExport?: (mode: 'clean' | 'full') => void;
 };
 
-type HiddenAction = 'agent' | 'lock' | 'settings' | 'theme' | 'secure';
+type HiddenAction = 'lock' | 'settings' | 'theme' | 'secure';
 
 const TopBar = ({
   view,
@@ -581,20 +581,17 @@ const TopBar = ({
     const update = () => {
       const width = element.getBoundingClientRect().width;
       const nextHidden: HiddenAction[] = [];
-      if (width < 1340) {
-        nextHidden.push('agent');
-      }
       if (width < 1260) {
-        nextHidden.push('lock');
+        nextHidden.push('theme');
       }
       if (width < 1180) {
         nextHidden.push('settings');
       }
-      if (width < 1120) {
-        nextHidden.push('theme');
-      }
-      if (width < 1060) {
+      if (width < 1100) {
         nextHidden.push('secure');
+      }
+      if (width < 1020) {
+        nextHidden.push('lock');
       }
       setHiddenActions((prev) => {
         if (prev.length === nextHidden.length && prev.every((item, index) => item === nextHidden[index])) {
@@ -680,8 +677,8 @@ const TopBar = ({
   const allowCreateProfile = showCreateProfile && allowProfileSwitch;
   const hiddenSet = useMemo(() => new Set(hiddenActions), [hiddenActions]);
   const isActionHidden = (key: HiddenAction) => hiddenSet.has(key);
-  const showOverflowProfileList = allowProfileSwitch && isActionHidden('agent');
-  const showOverflowCreateProfile = allowCreateProfile && isActionHidden('agent');
+  const showOverflowProfileList = false;
+  const showOverflowCreateProfile = false;
   const desktopOverflowActions = useMemo<OverflowAction[]>(() => {
     const actions: OverflowAction[] = [];
     if (isActionHidden('lock')) {
@@ -768,10 +765,13 @@ const TopBar = ({
         <div className="py-2">
           <div
             ref={desktopGridRef}
-            className="hidden items-center gap-4 lg:grid"
-            style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)' }}
+            className="hidden items-start gap-x-4 gap-y-2 lg:grid"
+            style={{
+              gridTemplateColumns: 'minmax(0,1fr) minmax(240px,1fr) auto',
+              gridTemplateRows: 'auto auto'
+            }}
           >
-            <div className="min-w-0">
+            <div className="row-span-2 min-w-0">
               <div className="grid min-w-0 grid-cols-[auto_auto] grid-rows-[auto_auto] items-center gap-x-2 gap-y-1">
                 <div className="flex min-w-0 items-center gap-2">
                   <motion.button
@@ -838,7 +838,7 @@ const TopBar = ({
                   )}
                 </div>
 
-                <div className="col-start-2 row-start-2 flex justify-center">
+                <div className="col-start-2 row-start-2 flex min-w-0 justify-center">
                   {onPrev && onNext && (
                     <Segmented
                       ariaLabel="Navigate calendar"
@@ -862,37 +862,35 @@ const TopBar = ({
               </div>
             </div>
 
-            <div className="flex min-w-0 items-center justify-center">
-              {commandStripMode
-                ? renderCommandInput(desktopCommandInputRef)
-                : onSearchChange && (
-                    <div className="w-full min-w-0" style={{ width: 'min(520px, 100%)', minWidth: '240px' }}>
-                      {renderSearchInput(desktopSearchInputRef)}
-                    </div>
-                  )}
+            <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-center">
+              {(commandStripMode || onSearchChange) && (
+                <div className="w-full min-w-0" style={{ width: 'min(520px, 40vw)', minWidth: '220px' }}>
+                  {commandStripMode
+                    ? renderCommandInput(desktopCommandInputRef)
+                    : onSearchChange && renderSearchInput(desktopSearchInputRef)}
+                </div>
+              )}
             </div>
 
-            <div className="flex min-w-0 items-center justify-end gap-2">
+            <div className="col-start-3 row-start-1 flex min-w-0 items-center justify-end gap-2">
               {allowProfileSwitch ? (
-                !isActionHidden('agent') && (
-                  <div className="flex min-w-0 items-center gap-2">
-                    <AgentDropdown
-                      options={profiles}
-                      activeId={activeProfileId}
-                      onChange={onProfileChange}
-                      className="min-w-0 w-[clamp(140px,16vw,200px)]"
-                    />
-                    {allowCreateProfile && (
-                      <motion.button
-                        onClick={onCreateProfile}
-                        className={`${pillBase} px-4 text-muted hover:text-text`}
-                        {...pillMotion}
-                      >
-                        + Profile
-                      </motion.button>
-                    )}
-                  </div>
-                )
+                <div className="flex min-w-0 items-center gap-2">
+                  <AgentDropdown
+                    options={profiles}
+                    activeId={activeProfileId}
+                    onChange={onProfileChange}
+                    className="w-[clamp(140px,16vw,200px)] min-w-0"
+                  />
+                  {allowCreateProfile && (
+                    <motion.button
+                      onClick={onCreateProfile}
+                      className={`${pillBase} px-4 text-muted hover:text-text`}
+                      {...pillMotion}
+                    >
+                      + Profile
+                    </motion.button>
+                  )}
+                </div>
               ) : (
                 <div className={`${pillBase} px-3 text-muted`}>{activeProfileLabel}</div>
               )}
@@ -1080,30 +1078,33 @@ const TopBar = ({
         </div>
       </div>
       {commandStripMode && altHeld && (
-        <div className="cmdstrip-hotkeys" role="status" aria-live="polite">
-          <div className="cmdstrip-hotkeys-title">Command Strip Hotkeys</div>
-          <div className="cmdstrip-hotkeys-grid">
-            <span className="cmdstrip-hotkeys-item">
-              <kbd>/</kbd> Search
-            </span>
-            <span className="cmdstrip-hotkeys-item">
-              <kbd>N</kbd> New event
-            </span>
-            <span className="cmdstrip-hotkeys-item">
-              <kbd>L</kbd> Lock
-            </span>
-            <span className="cmdstrip-hotkeys-item">
-              <kbd>P</kbd> Privacy
-            </span>
-            <span className="cmdstrip-hotkeys-item">
-              <kbd>D</kbd> Decoy
-            </span>
-            <span className="cmdstrip-hotkeys-item">
-              <kbd>T</kbd> Theme
-            </span>
-            <span className="cmdstrip-hotkeys-item">
-              <kbd>S</kbd> Settings
-            </span>
+        <div className="cmdstrip-hotkeys-wrapper" role="status" aria-live="polite">
+          <div className="cmdstrip-hotkeys">
+            <div className="cmdstrip-hotkeys-title">Command Strip Hotkeys</div>
+            <div className="cmdstrip-hotkeys-note">Privacy screen cheat: Cmd/Ctrl+Shift+L</div>
+            <div className="cmdstrip-hotkeys-grid">
+              <span className="cmdstrip-hotkeys-item">
+                <kbd>/</kbd> Search
+              </span>
+              <span className="cmdstrip-hotkeys-item">
+                <kbd>N</kbd> New event
+              </span>
+              <span className="cmdstrip-hotkeys-item">
+                <kbd>L</kbd> Lock
+              </span>
+              <span className="cmdstrip-hotkeys-item">
+                <kbd>P</kbd> Privacy
+              </span>
+              <span className="cmdstrip-hotkeys-item">
+                <kbd>D</kbd> Decoy
+              </span>
+              <span className="cmdstrip-hotkeys-item">
+                <kbd>T</kbd> Theme
+              </span>
+              <span className="cmdstrip-hotkeys-item">
+                <kbd>S</kbd> Settings
+              </span>
+            </div>
           </div>
         </div>
       )}

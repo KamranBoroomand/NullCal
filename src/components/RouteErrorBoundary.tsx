@@ -16,6 +16,16 @@ class RouteErrorBoundary extends Component<RouteErrorBoundaryProps, RouteErrorBo
     return { hasError: true };
   }
 
+  componentDidCatch(error: Error, info: { componentStack: string }) {
+    if (import.meta.env.DEV) {
+      console.error('[NullCal] Route error', {
+        route: window.location.pathname,
+        error,
+        componentStack: info.componentStack
+      });
+    }
+  }
+
   render() {
     if (this.state.hasError) {
       return (

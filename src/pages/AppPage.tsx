@@ -16,6 +16,7 @@ import RouteErrorBoundary from '../components/RouteErrorBoundary';
 import { encryptPayload } from '../security/encryption';
 import { buildExportPayload, validateExportPayload } from '../security/exportUtils';
 import { usePrivacyScreen } from '../state/privacy';
+import { resolvePaletteForMode } from '../theme/themePacks';
 
 const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 const fromInputValue = (value: string) => new Date(value).toISOString();
@@ -354,7 +355,12 @@ const AppPage = () => {
             onLockNow={lockNow}
             onInstall={canInstall ? promptInstall : undefined}
             theme={state.settings.theme}
-            onThemeChange={(theme) => updateSettings({ theme })}
+            onThemeChange={(theme) =>
+              updateSettings({
+                theme,
+                palette: resolvePaletteForMode(state.settings.palette, theme)
+              })
+            }
             secureMode={state.settings.secureMode}
             onToggleSecureMode={() => updateSettings({ secureMode: !state.settings.secureMode })}
             onOpenNav={() => setNavOpen(true)}

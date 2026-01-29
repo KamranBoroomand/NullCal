@@ -1,9 +1,19 @@
-import { createBrowserRouter, Outlet, useLocation } from 'react-router-dom';
+import { createBrowserRouter, Outlet, useLocation, useRouteError } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useEffect } from 'react';
 import AppPage from './pages/AppPage';
 import SafetyCenter from './pages/SafetyCenter';
 
 const RouteErrorScreen = () => {
+  const error = useRouteError();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.error('[NullCal] Router error', { route: location.pathname, error });
+    }
+  }, [error, location.pathname]);
+
   return (
     <div className="flex min-h-screen items-center justify-center px-6">
       <div className="photon-panel w-full max-w-lg rounded-3xl p-8 text-center">

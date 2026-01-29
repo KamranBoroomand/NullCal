@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode
 } from 'react';
-import { createDecoyCalendars, createSeedCalendars, createSeedProfile } from '../storage/seed';
+import { createDecoyCalendars, createDecoyEvents, createSeedCalendars, createSeedProfile } from '../storage/seed';
 import {
   createCalendar as buildCalendar,
   deleteCalendar as deleteCalendarFromState,
@@ -22,6 +22,7 @@ import type { AppSettings, AppState, CalendarEvent, SecurityPrefs } from '../sto
 import { applyNetworkLock } from '../security/networkLock';
 import { hashPin, verifyPin } from '../security/pin';
 import { decryptPayload, encryptPayload, type EncryptedPayload } from '../security/encryption';
+import { safeLocalStorage } from '../storage/safeStorage';
 
 type AppStoreContextValue = {
   state: AppState | null;
@@ -137,7 +138,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     }
     const enabled = state.settings.commandStripMode;
     document.documentElement.classList.toggle('cmdstrip', enabled);
-    window.localStorage.setItem('nullcal:commandStripMode', enabled ? '1' : '0');
+    safeLocalStorage.setItem('nullcal:commandStripMode', enabled ? '1' : '0');
   }, [state?.settings.commandStripMode]);
 
   useEffect(() => {
@@ -299,10 +300,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       }
       const profile = createSeedProfile(name);
       const calendars = createDecoyCalendars(profile.id);
+      const events = createDecoyEvents(profile.id, calendars);
       return {
         ...prev,
         profiles: [...prev.profiles, profile],
         calendars: [...prev.calendars, ...calendars],
+        events: [...prev.events, ...events],
         settings: {
           ...prev.settings,
           decoyProfileId: profile.id,

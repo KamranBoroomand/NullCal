@@ -11,6 +11,7 @@ import SideBar from '../app/SideBar';
 import { encryptPayload } from '../security/encryption';
 import { buildExportPayload, type ExportMode, validateExportPayload } from '../security/exportUtils';
 import { usePrivacyScreen } from '../state/privacy';
+import { DEFAULT_THEME_BY_MODE, THEME_PACKS, resolvePaletteForMode } from '../theme/themePacks';
 
 const formatDate = (value?: string) => {
   if (!value) {
@@ -19,12 +20,7 @@ const formatDate = (value?: string) => {
   return new Date(value).toLocaleString();
 };
 
-const themeOptions = [
-  { id: 'nullcal-neon', name: 'NullCal Neon', preview: ['#f4ff00', '#9bff00', '#00f6ff'] },
-  { id: 'catppuccin-mocha', name: 'Catppuccin Mocha', preview: ['#f5c2e7', '#89b4fa', '#a6e3a1'] },
-  { id: 'nord', name: 'Nord', preview: ['#88c0d0', '#81a1c1', '#a3be8c'] },
-  { id: 'dracula', name: 'Dracula', preview: ['#bd93f9', '#ff79c6', '#8be9fd'] }
-];
+const themeOptions = THEME_PACKS;
 
 const SafetyCenter = () => {
   const reduceMotion = useReducedMotion();
@@ -123,16 +119,10 @@ const SafetyCenter = () => {
     }
     return state.calendars.filter((calendar) => calendar.profileId === activeProfile.id);
   }, [activeProfile, state]);
-  const events = useMemo(() => {
-    if (!state || !activeProfile) {
-      return [];
-    }
-    return state.events.filter((event) => event.profileId === activeProfile.id);
-  }, [activeProfile, state]);
-  const activeTheme = useMemo(
-    () => themeOptions.find((palette) => palette.id === state?.settings.palette) ?? themeOptions[0],
-    [state?.settings.palette]
-  );
+  const activeTheme = useMemo(() => {
+    const fallback = themeOptions.find((theme) => theme.id === DEFAULT_THEME_BY_MODE.dark) ?? themeOptions[0];
+    return themeOptions.find((palette) => palette.id === state?.settings.palette) ?? fallback;
+  }, [state?.settings.palette]);
 
   if (wiped) {
     return (
@@ -492,7 +482,12 @@ const SafetyCenter = () => {
           onLockNow={lockNow}
           onHome={() => navigate('/')}
           theme={state.settings.theme}
-          onThemeChange={(theme) => updateSettings({ theme })}
+          onThemeChange={(theme) =>
+            updateSettings({
+              theme,
+              palette: resolvePaletteForMode(state.settings.palette, theme)
+            })
+          }
           secureMode={state.settings.secureMode}
           onToggleSecureMode={() => updateSettings({ secureMode: !state.settings.secureMode })}
           onOpenNav={() => setNavOpen(true)}
@@ -592,8 +587,11 @@ const SafetyCenter = () => {
             </div>
           </motion.section>
 
-          <motion.section {...panelMotion} className="safety-grid gap-6">
-            <div className="photon-panel rounded-3xl p-5 sm:p-6">
+          <motion.section
+            {...panelMotion}
+            className="safety-grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-12"
+          >
+            <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-4">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
               <div className="mt-4 space-y-4 text-sm text-muted">
                 <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -646,7 +644,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel rounded-3xl p-5 sm:p-6">
+            <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-5">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Locking</p>
               <div className="mt-4 space-y-4 text-sm text-muted">
                 <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -669,7 +667,7 @@ const SafetyCenter = () => {
                       placeholder="New PIN"
                       value={pinDraft}
                       onChange={(event) => setPinDraft(event.target.value)}
-                      className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                     />
                     <input
                       type="password"
@@ -677,7 +675,7 @@ const SafetyCenter = () => {
                       placeholder="Confirm PIN"
                       value={pinConfirm}
                       onChange={(event) => setPinConfirm(event.target.value)}
-                      className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                     />
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -707,7 +705,7 @@ const SafetyCenter = () => {
                     onChange={(event) =>
                       updateSettings({ autoLockMinutes: Number(event.target.value || 0) })
                     }
-                    className="mt-2 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    className="mt-2 w-full min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                   />
                   <p className="mt-2 text-xs text-muted">Set to 0 to disable inactivity lock.</p>
                 </div>
@@ -728,7 +726,7 @@ const SafetyCenter = () => {
                       onChange={(event) =>
                         updateSettings({ autoLockGraceSeconds: Number(event.target.value || 0) })
                       }
-                      className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                      className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
                     >
                       <option value={0} className="bg-panel2">
                         0s
@@ -758,7 +756,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-          <div className="photon-panel rounded-3xl p-4 sm:p-5">
+          <div className="photon-panel rounded-3xl p-4 sm:p-5 lg:col-span-3">
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Appearance</p>
             <div className="mt-4 space-y-3 text-sm text-muted">
               <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-2.5">
@@ -785,8 +783,13 @@ const SafetyCenter = () => {
                 </p>
                 <select
                   value={state.settings.palette}
-                  onChange={(event) => updateSettings({ palette: event.target.value })}
-                  className="mt-3 w-full rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                  onChange={(event) => {
+                    const nextPalette = event.target.value;
+                    const nextTheme =
+                      themeOptions.find((theme) => theme.id === nextPalette)?.mode ?? state.settings.theme;
+                    updateSettings({ palette: nextPalette, theme: nextTheme });
+                  }}
+                  className="mt-3 w-full min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
                 >
                   {themeOptions.map((theme) => (
                     <option key={theme.id} value={theme.id} className="bg-panel2">
@@ -810,7 +813,7 @@ const SafetyCenter = () => {
             </div>
           </div>
 
-          <div className="photon-panel rounded-3xl p-5 sm:p-6">
+          <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-7">
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Export Hygiene</p>
             <div className="mt-4 space-y-4 text-sm text-muted">
               <div className="space-y-3">
@@ -861,14 +864,14 @@ const SafetyCenter = () => {
                   placeholder="Passphrase"
                   value={exportPassphrase}
                   onChange={(event) => setExportPassphrase(event.target.value)}
-                  className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                  className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                 />
                 <input
                   type="password"
                   placeholder="Confirm passphrase"
                   value={exportConfirm}
                   onChange={(event) => setExportConfirm(event.target.value)}
-                  className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                  className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                 />
                 <button
                   type="button"
@@ -896,18 +899,18 @@ const SafetyCenter = () => {
                     type="file"
                     accept="application/json"
                     onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
-                    className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                   />
                   <input
                     type="password"
                     placeholder="Passphrase"
                     value={importPassphrase}
                     onChange={(event) => setImportPassphrase(event.target.value)}
-                    className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                   />
                   <button
                     type="button"
-                    onClick={handleImport}
+                    onClick={() => handleImport()}
                     className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
                   >
                     Import
@@ -917,7 +920,7 @@ const SafetyCenter = () => {
             </div>
           </div>
 
-          <div className="photon-panel rounded-3xl p-5 sm:p-6">
+          <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-5">
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Decoy Profile</p>
             <div className="mt-4 space-y-4 text-sm text-muted">
               <p className="text-xs text-muted">
@@ -940,7 +943,7 @@ const SafetyCenter = () => {
                 <select
                   value={state.settings.decoyProfileId ?? ''}
                   onChange={(event) => handleDecoyProfileChange(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                  className="mt-2 w-full min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
                 >
                   <option value="">No decoy profile</option>
                   {state.profiles.map((profile) => (
@@ -985,7 +988,7 @@ const SafetyCenter = () => {
                     placeholder="Decoy PIN"
                     value={decoyPinDraft}
                     onChange={(event) => setDecoyPinDraft(event.target.value)}
-                    className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                   />
                   <input
                     type="password"
@@ -993,7 +996,7 @@ const SafetyCenter = () => {
                     placeholder="Confirm decoy PIN"
                     value={decoyPinConfirm}
                     onChange={(event) => setDecoyPinConfirm(event.target.value)}
-                    className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                   />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">

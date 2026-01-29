@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { safeLocalStorage } from '../storage/safeStorage';
 
 export type ThemeMode = 'dark' | 'light';
 
@@ -29,11 +30,11 @@ const ThemeProvider = ({ theme, palette, onThemeChange, children }: ThemeProvide
   }, [palette]);
 
   useEffect(() => {
-    window.localStorage.setItem('nullcal:theme', theme);
+    safeLocalStorage.setItem('nullcal:theme', theme);
   }, [theme]);
 
   useEffect(() => {
-    window.localStorage.setItem('nullcal:palette', palette);
+    safeLocalStorage.setItem('nullcal:palette', palette);
   }, [palette]);
 
   return (
