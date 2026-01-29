@@ -44,90 +44,6 @@ type ProfileOption = {
   name: string;
 };
 
-type AgentDropdownProps = {
-  options: ProfileOption[];
-  activeId: string;
-  onChange: (id: string) => void;
-  className?: string;
-};
-
-const AgentDropdown = ({ options, activeId, onChange, className }: AgentDropdownProps) => {
-  const reduceMotion = useReducedMotion();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-  const activeLabel = options.find((option) => option.id === activeId)?.name ?? 'Agent';
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const handleClick = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpen(false);
-      }
-    };
-    window.addEventListener('click', handleClick);
-    window.addEventListener('keydown', handleKey);
-    return () => {
-      window.removeEventListener('click', handleClick);
-      window.removeEventListener('keydown', handleKey);
-    };
-  }, [open]);
-
-  return (
-    <div className={`relative min-w-0 ${className ?? ''}`} ref={ref}>
-      <motion.button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        whileHover={reduceMotion ? undefined : { y: -1, boxShadow: '0 8px 16px rgba(244, 255, 0, 0.14)' }}
-        whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-        className={`${pillBase} w-full min-w-0 gap-2 px-4 text-muted hover:text-text`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-      >
-        <span className="flex w-full min-w-0 items-center justify-between gap-3">
-          <span className="truncate text-center">{activeLabel}</span>
-          <span className="flex items-center text-[10px]">▾</span>
-        </span>
-      </motion.button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            role="menu"
-            initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
-            transition={{ duration: 0.18 }}
-            className="absolute right-0 z-40 mt-2 w-52 rounded-2xl border border-grid bg-panel p-2 shadow-2xl"
-          >
-            {options.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  onChange(option.id);
-                  setOpen(false);
-                }}
-                className={`w-full rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.2em] transition hover:text-text ${
-                  option.id === activeId ? 'bg-panel2 text-text' : 'text-muted'
-                }`}
-              >
-                {option.name}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
 type ProfileMenuProps = {
   options: ProfileOption[];
   activeId: string;
@@ -513,7 +429,6 @@ const TopBar = ({
     return () => window.removeEventListener('keydown', handleKey);
   }, [focusInput, onCommandAdd, onCommandDecoy, onCommandExport, onLockNow, onPrev, onNext]);
 
-  const activeProfileLabel = profiles.find((profile) => profile.id === activeProfileId)?.name ?? 'Profile';
   const allowProfileSwitch = profileSwitchAllowed && profiles.length > 0;
   const allowCreateProfile = showCreateProfile && allowProfileSwitch;
   const themeOptions = THEME_PACKS;
@@ -526,22 +441,24 @@ const TopBar = ({
     if (allowCreateProfile) {
       actions.push({ key: 'profile', label: '+ Profile', onClick: onCreateProfile });
     }
+    actions.push({ key: 'lock', label: 'Lock now', onClick: onLockNow, tone: 'accent' });
     actions.push({ key: 'settings', label: 'Settings', onClick: onOpenSettings });
     actions.push({ key: 'theme', label: 'Theme', onClick: () => setThemeOpen(true) });
     actions.push({ key: 'hotkeys', label: 'Hotkeys', onClick: () => setHotkeysOpen(true) });
     return actions;
-  }, [allowCreateProfile, onCreateProfile, onOpenSettings]);
+  }, [allowCreateProfile, onCreateProfile, onLockNow, onOpenSettings]);
   const mobileOverflowActions = useMemo<OverflowAction[]>(() => {
     const actions: OverflowAction[] = [];
     if (allowCreateProfile) {
       actions.push({ key: 'profile', label: '+ Profile', onClick: onCreateProfile });
     }
+    actions.push({ key: 'lock', label: 'Lock now', onClick: onLockNow, tone: 'accent' });
     actions.push({ key: 'settings', label: 'Settings', onClick: onOpenSettings });
     actions.push({ key: 'theme', label: 'Theme', onClick: () => setThemeOpen(true) });
     actions.push({ key: 'hotkeys', label: 'Hotkeys', onClick: () => setHotkeysOpen(true) });
     return actions;
-  }, [allowCreateProfile, onCreateProfile, onOpenSettings]);
-  const showDesktopOverflow = desktopOverflowActions.length > 0;
+  }, [allowCreateProfile, onCreateProfile, onLockNow, onOpenSettings]);
+  const showDesktopOverflow = allowProfileSwitch || desktopOverflowActions.length > 0;
 
   const renderSearchInput = (inputRef: React.RefObject<HTMLInputElement>) => (
     <motion.div className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`} {...pillMotion}>
@@ -564,9 +481,7 @@ const TopBar = ({
     <header className="topbar relative w-full text-sm">
       <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6">
         <div className="py-2">
-          <div
-            className="hidden min-w-0 grid-cols-[auto_auto_auto_auto_auto_minmax(0,1fr)_auto] grid-rows-[auto_auto] items-center gap-x-3 gap-y-2 lg:grid"
-          >
+          <div className="hidden min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[auto_auto] items-center gap-x-4 gap-y-2 lg:grid">
             <div className="col-start-1 row-start-1 flex min-w-0 items-center">
               <motion.button
                 type="button"
@@ -589,7 +504,7 @@ const TopBar = ({
               </motion.button>
             </div>
 
-            <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-start">
+            <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-center gap-3">
               {onToday && (
                 <motion.button
                   onClick={onToday}
@@ -599,9 +514,6 @@ const TopBar = ({
                   Today
                 </motion.button>
               )}
-            </div>
-
-            <div className="col-start-3 row-start-1 flex min-w-0 items-center justify-center">
               {view && onViewChange && (
                 <Segmented
                   ariaLabel="Calendar view"
@@ -633,41 +545,15 @@ const TopBar = ({
               )}
             </div>
 
-            <div className="col-start-4 row-start-1 flex min-w-0 items-center justify-start">
-              {allowProfileSwitch ? (
-                <AgentDropdown
-                  options={profiles}
-                  activeId={activeProfileId}
-                  onChange={onProfileChange}
-                  className="w-[clamp(140px,18vw,220px)] min-w-0"
-                />
-              ) : (
-                <div className={`${pillBase} px-3 text-muted`}>{activeProfileLabel}</div>
-              )}
-            </div>
-
-            <div className="col-start-5 row-start-1 flex min-w-0 items-center justify-start">
-              <motion.button
-                onClick={onLockNow}
-                className={`${pillBase} gap-2 px-4 text-muted hover:text-text`}
-                {...pillMotion}
-              >
-                Lock now
-              </motion.button>
-            </div>
-
-            <div className="col-start-6 row-start-1 flex min-w-0 items-center">
-              <div className="w-full min-w-0" style={{ width: 'min(520px, 40vw)', minWidth: '200px' }}>
-                {renderSearchInput(desktopSearchInputRef)}
+            <div className="col-start-3 row-start-1 flex min-w-0 items-center justify-end gap-3">
+              <div className="min-w-0 max-w-[420px] flex-1">
+                <div className="w-[clamp(200px,32vw,420px)]">{renderSearchInput(desktopSearchInputRef)}</div>
               </div>
-            </div>
-
-            <div className="col-start-7 row-start-1 flex min-w-0 items-center justify-end">
               {showDesktopOverflow && (
                 <OverflowMenu
                   actions={desktopOverflowActions}
-                  showProfileList={false}
-                  showCreateProfileItem={false}
+                  showProfileList={allowProfileSwitch}
+                  showCreateProfileItem={allowCreateProfile}
                   profiles={profiles}
                   activeProfileId={activeProfileId}
                   onProfileChange={onProfileChange}
@@ -676,7 +562,7 @@ const TopBar = ({
               )}
             </div>
 
-            <div className="col-start-3 row-start-2 flex min-w-0 items-center justify-center">
+            <div className="col-start-2 row-start-2 flex min-w-0 items-center justify-center">
               {onPrev && onNext && (
                 <Segmented
                   ariaLabel="Navigate calendar"
@@ -698,7 +584,7 @@ const TopBar = ({
               )}
             </div>
 
-            <div className="col-start-7 row-start-2 flex min-w-0 items-center justify-end text-xs">
+            <div className="col-start-3 row-start-2 flex min-w-0 items-center justify-end text-xs">
               <Clock />
             </div>
           </div>

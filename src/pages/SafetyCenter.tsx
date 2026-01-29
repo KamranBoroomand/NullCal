@@ -532,7 +532,7 @@ const SafetyCenter = () => {
       onNavClose={() => setNavOpen(false)}
     >
       <RouteErrorBoundary>
-        <div className="space-y-6">
+        <div className="space-y-4">
           <motion.section {...panelMotion} className="photon-panel rounded-3xl p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -544,7 +544,7 @@ const SafetyCenter = () => {
                 <p className="text-2xl font-semibold text-accent">{score}/5</p>
               </div>
             </div>
-            <div className="mt-5 grid gap-4 text-sm text-muted lg:grid-cols-2">
+            <div className="mt-4 grid gap-3 text-sm text-muted lg:grid-cols-2">
               <div className="rounded-2xl border border-grid bg-panel2 p-4">
                 <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy Status</p>
                 <ul className="mt-3 space-y-2">
@@ -584,11 +584,11 @@ const SafetyCenter = () => {
 
           <motion.section
             {...panelMotion}
-            className="safety-grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12"
+            className="safety-grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-12"
           >
             <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-4">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
-              <div className="mt-4 space-y-4 text-sm text-muted">
+              <div className="mt-3 space-y-3 text-sm text-muted">
                 <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Secure mode</p>
@@ -641,7 +641,7 @@ const SafetyCenter = () => {
 
             <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-4">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Locking</p>
-              <div className="mt-4 space-y-4 text-sm text-muted">
+              <div className="mt-3 space-y-3 text-sm text-muted">
                 <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
                   <p className="text-xs uppercase tracking-[0.3em] text-muted">Lock now</p>
                   <p className="mt-1 text-xs text-muted">Immediately hides the calendar until you unlock.</p>
@@ -753,7 +753,7 @@ const SafetyCenter = () => {
 
           <div className="photon-panel rounded-3xl p-4 sm:p-5 lg:col-span-4">
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Appearance</p>
-            <div className="mt-4 space-y-4 text-sm text-muted">
+            <div className="mt-3 space-y-3 text-sm text-muted">
               <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
                   <span>Theme Packs</span>
@@ -762,7 +762,7 @@ const SafetyCenter = () => {
                 <p className="mt-2 text-xs text-muted">
                   Pick a theme to restyle the entire interface. Saved locally on this device.
                 </p>
-                <div className="mt-3">
+                <div className="mt-3 overflow-hidden">
                   <ThemePicker
                     themes={themeOptions}
                     activeId={state.settings.palette}
@@ -779,7 +779,7 @@ const SafetyCenter = () => {
 
           <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-7">
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Export Hygiene</p>
-            <div className="mt-4 space-y-4 text-sm text-muted">
+            <div className="mt-3 space-y-3 text-sm text-muted">
               <div className="space-y-3">
                 {(['full', 'clean', 'minimal'] as ExportMode[]).map((mode) => (
                   <label
