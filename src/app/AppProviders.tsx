@@ -15,24 +15,24 @@ const ThemeBridge = ({ children }: { children: ReactNode }) => {
 
   return (
     <ThemeProvider theme={theme} onThemeChange={(next) => updateSettings({ theme: next })}>
-      <ToastProvider>
-        <PrivacyScreenProvider>
-          {children}
-          <LockScreen
-            open={locked}
-            pinEnabled={Boolean(state?.securityPrefs.pinEnabled || state?.securityPrefs.decoyPinEnabled)}
-            onUnlock={unlock}
-          />
-        </PrivacyScreenProvider>
-      </ToastProvider>
+      <PrivacyScreenProvider>
+        {children}
+        <LockScreen
+          open={locked}
+          pinEnabled={Boolean(state?.securityPrefs.pinEnabled || state?.securityPrefs.decoyPinEnabled)}
+          onUnlock={unlock}
+        />
+      </PrivacyScreenProvider>
     </ThemeProvider>
   );
 };
 
 const AppProviders = ({ children }: { children: ReactNode }) => (
-  <AppStoreProvider>
-    <ThemeBridge>{children}</ThemeBridge>
-  </AppStoreProvider>
+  <ToastProvider>
+    <AppStoreProvider>
+      <ThemeBridge>{children}</ThemeBridge>
+    </AppStoreProvider>
+  </ToastProvider>
 );
 
 export default AppProviders;

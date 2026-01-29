@@ -65,7 +65,7 @@ const HotkeysModal = ({ open, onClose }: HotkeysModalProps) => {
             </div>
             <div className="mt-5 grid gap-3">
               <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-text">
-                Panic overlay: Cmd/Ctrl+Shift+L (works instantly)
+                Privacy screen (cheat): Cmd/Ctrl+Shift+L
               </div>
               <ul className="grid gap-3">
                 <li className="flex items-center justify-between rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -77,7 +77,7 @@ const HotkeysModal = ({ open, onClose }: HotkeysModalProps) => {
                   <span className="text-xs font-semibold text-text">Cmd/Ctrl+Shift+K</span>
                 </li>
                 <li className="flex items-center justify-between rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <span className="text-xs uppercase tracking-[0.2em] text-muted">Focus search</span>
+                  <span className="text-xs uppercase tracking-[0.2em] text-muted">Focus command/search</span>
                   <span className="text-xs font-semibold text-text">/</span>
                 </li>
                 <li className="flex items-center justify-between rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -89,6 +89,9 @@ const HotkeysModal = ({ open, onClose }: HotkeysModalProps) => {
                   <span className="text-xs font-semibold text-text">Cmd/Ctrl+Shift+T</span>
                 </li>
               </ul>
+              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
+                Command strip: /add, /lock, /privacy, /decoy, /export clean, /export full
+              </div>
             </div>
           </motion.div>
         </motion.div>

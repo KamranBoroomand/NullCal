@@ -38,6 +38,7 @@ export type AppSettings = {
   autoLockMinutes: number;
   autoLockOnBlur: boolean;
   autoLockGraceSeconds: number;
+  switchToDecoyOnBlur: boolean;
   privacyScreenHotkeyEnabled: boolean;
   lastExportAt?: string;
 };
