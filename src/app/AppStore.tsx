@@ -69,6 +69,36 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   const lockNow = useCallback(() => {
     setLocked(true);
   }, []);
+  const updateSettings = useCallback((updates: Partial<AppSettings>) => {
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          ...updates,
+          networkLock: true
+        }
+      };
+    });
+  }, []);
+
+  const updateSecurityPrefs = useCallback((updates: Partial<SecurityPrefs>) => {
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        securityPrefs: {
+          ...prev.securityPrefs,
+          ...updates
+        }
+      };
+    });
+  }, []);
 
   useEffect(() => {
     loadAppState()
@@ -199,36 +229,39 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [lockNow, state?.settings.autoLockOnBlur, state?.settings.autoLockGraceSeconds, locked]);
 
-  const updateSettings = useCallback((updates: Partial<AppSettings>) => {
-    setState((prev) => {
-      if (!prev) {
-        return prev;
+  useEffect(() => {
+    if (!state) {
+      return;
+    }
+    if (!state.settings.switchToDecoyOnBlur || !state.settings.decoyProfileId) {
+      return;
+    }
+    const decoyId = state.settings.decoyProfileId;
+    const switchToDecoy = () => {
+      if (locked || state.settings.activeProfileId === decoyId) {
+        return;
       }
-      return {
-        ...prev,
-        settings: {
-          ...prev.settings,
-          ...updates,
-          networkLock: true
-        }
-      };
-    });
-  }, []);
-
-  const updateSecurityPrefs = useCallback((updates: Partial<SecurityPrefs>) => {
-    setState((prev) => {
-      if (!prev) {
-        return prev;
+      updateSettings({ activeProfileId: decoyId });
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        switchToDecoy();
       }
-      return {
-        ...prev,
-        securityPrefs: {
-          ...prev.securityPrefs,
-          ...updates
-        }
-      };
-    });
-  }, []);
+    };
+    const handleBlur = () => switchToDecoy();
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [
+    locked,
+    state?.settings.activeProfileId,
+    state?.settings.decoyProfileId,
+    state?.settings.switchToDecoyOnBlur,
+    updateSettings
+  ]);
 
   const setActiveProfile = useCallback(
     (id: string) => updateSettings({ activeProfileId: id }),

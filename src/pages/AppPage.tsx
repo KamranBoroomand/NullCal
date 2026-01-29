@@ -15,6 +15,7 @@ import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import RouteErrorBoundary from '../components/RouteErrorBoundary';
 import { encryptPayload } from '../security/encryption';
 import { buildExportPayload, validateExportPayload } from '../security/exportUtils';
+import { usePrivacyScreen } from '../state/privacy';
 
 const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 const fromInputValue = (value: string) => new Date(value).toISOString();
@@ -42,6 +43,7 @@ const AppPage = () => {
   } =
     useAppStore();
   const { notify } = useToast();
+  const { togglePrivacyScreen } = usePrivacyScreen();
   const [view, setView] = useState<'timeGridWeek' | 'dayGridMonth'>('timeGridWeek');
   const [search, setSearch] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -191,6 +193,57 @@ const AppPage = () => {
     }
   };
 
+  const handleCommandExport = async (mode: 'clean' | 'full') => {
+    if (!activeProfile || !state) {
+      notify('No profile data available to export.', 'error');
+      return;
+    }
+    const passphrase = window.prompt(`Create a passphrase for the ${mode} export.`);
+    if (!passphrase) {
+      return;
+    }
+    try {
+      const payload = buildExportPayload(state, activeProfile.id, { mode, keepTitles: false });
+      const sanityCheck = JSON.parse(JSON.stringify(payload)) as typeof payload;
+      validateExportPayload(sanityCheck);
+      const encryptedPayload = await encryptPayload(sanityCheck, passphrase);
+      updateSettings({ lastExportAt: new Date().toISOString() });
+      const blob = new Blob([JSON.stringify(encryptedPayload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `nullcal-backup-${mode}-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      notify(`${mode === 'full' ? 'Full' : 'Clean'} export saved.`, 'success');
+    } catch {
+      notify('Export failed. Try again.', 'error');
+    }
+  };
+
+  const handleCommandAdd = () => {
+    const start = new Date();
+    handleCreateDraft(start, addHours(start, 1));
+  };
+
+  const handleCommandDecoy = () => {
+    if (!state) {
+      notify('No profile data available.', 'error');
+      return;
+    }
+    const decoyId = state.settings.decoyProfileId;
+    if (!decoyId) {
+      notify('Set a decoy profile in Safety Center.', 'error');
+      return;
+    }
+    if (state.securityPrefs.pinEnabled || state.securityPrefs.decoyPinEnabled) {
+      notify('Unlock to switch profiles.', 'error');
+      return;
+    }
+    setActiveProfile(decoyId);
+    notify('Switched to decoy profile.', 'success');
+  };
+
   const handleImport = async (file: File) => {
     try {
       const text = await file.text();
@@ -307,6 +360,10 @@ const AppPage = () => {
             onOpenNav={() => setNavOpen(true)}
             commandStripMode={state.settings.commandStripMode}
             locked={locked}
+            onCommandAdd={handleCommandAdd}
+            onCommandPrivacy={togglePrivacyScreen}
+            onCommandDecoy={handleCommandDecoy}
+            onCommandExport={handleCommandExport}
           />
         }
         sidebar={

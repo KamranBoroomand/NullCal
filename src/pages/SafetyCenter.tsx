@@ -60,6 +60,7 @@ const SafetyCenter = () => {
   const [exportMode, setExportMode] = useState<ExportMode>('clean');
   const [keepTitles, setKeepTitles] = useState(false);
   const holdTimer = useRef<number | null>(null);
+  const profileRecoveryRef = useRef(false);
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
@@ -90,6 +91,24 @@ const SafetyCenter = () => {
     }
     return state.profiles.find((profile) => profile.id === state.settings.activeProfileId) ?? state.profiles[0] ?? null;
   }, [state]);
+
+  useEffect(() => {
+    if (!state || profileRecoveryRef.current) {
+      return;
+    }
+    const hasActiveProfile = state.profiles.some((profile) => profile.id === state.settings.activeProfileId);
+    if (hasActiveProfile) {
+      return;
+    }
+    profileRecoveryRef.current = true;
+    if (state.profiles.length > 0) {
+      setActiveProfile(state.profiles[0].id);
+      notify('Active profile was missing. Switched to the first available profile.', 'error');
+      return;
+    }
+    createProfile('Primary');
+    notify('No profiles found. Created a default profile.', 'error');
+  }, [createProfile, notify, setActiveProfile, state]);
   const calendars = useMemo(() => {
     if (!state || !activeProfile) {
       return [];
@@ -210,11 +229,15 @@ const SafetyCenter = () => {
     resetProfile(activeProfile.id);
   };
 
-  const buildExportSnapshot = () => {
+  const buildExportSnapshot = (mode: ExportMode = exportMode, keepTitlesOverride = keepTitles) => {
     if (!state || !activeProfile) {
-      throw new Error('Missing profile');
+      notify('Unable to export: profile data is missing.', 'error');
+      return null;
     }
-    const payload = buildExportPayload(state, activeProfile.id, { mode: exportMode, keepTitles });
+    const payload = buildExportPayload(state, activeProfile.id, {
+      mode,
+      keepTitles: keepTitlesOverride
+    });
     const sanityCheck = JSON.parse(JSON.stringify(payload)) as typeof payload;
     validateExportPayload(sanityCheck);
     return sanityCheck;
@@ -227,6 +250,9 @@ const SafetyCenter = () => {
     }
     try {
       const payload = buildExportSnapshot();
+      if (!payload) {
+        return;
+      }
       const encryptedPayload = await encryptPayload(payload, passphrase);
       updateSettings({ lastExportAt: new Date().toISOString() });
       const blob = new Blob([JSON.stringify(encryptedPayload, null, 2)], { type: 'application/json' });
@@ -278,6 +304,9 @@ const SafetyCenter = () => {
     }
     try {
       const payload = buildExportSnapshot();
+      if (!payload) {
+        return;
+      }
       const encryptedPayload = await encryptPayload(payload, exportPassphrase);
       updateSettings({ lastExportAt: new Date().toISOString() });
       const blob = new Blob([JSON.stringify(encryptedPayload, null, 2)], { type: 'application/json' });
@@ -353,6 +382,58 @@ const SafetyCenter = () => {
     createDecoyProfile(name.trim() || 'Decoy');
   };
 
+  const handleDecoyProfileChange = (profileId: string) => {
+    if (!profileId) {
+      updateSettings({ decoyProfileId: undefined });
+      notify('Decoy profile cleared.', 'info');
+      return;
+    }
+    updateSettings({ decoyProfileId: profileId });
+    notify('Decoy profile updated.', 'success');
+  };
+
+  const handleSwitchToDecoy = () => {
+    if (!state.settings.decoyProfileId) {
+      notify('Set a decoy profile first.', 'error');
+      return;
+    }
+    if (state.securityPrefs.pinEnabled || state.securityPrefs.decoyPinEnabled) {
+      notify('Unlock to switch profiles.', 'error');
+      return;
+    }
+    setActiveProfile(state.settings.decoyProfileId);
+    notify('Switched to decoy profile.', 'success');
+  };
+
+  const handleCommandExport = async (mode: 'clean' | 'full') => {
+    const passphrase = window.prompt(`Create a passphrase for the ${mode} export.`);
+    if (!passphrase) {
+      return;
+    }
+    try {
+      const payload = buildExportSnapshot(mode, false);
+      if (!payload) {
+        return;
+      }
+      const encryptedPayload = await encryptPayload(payload, passphrase);
+      updateSettings({ lastExportAt: new Date().toISOString() });
+      const blob = new Blob([JSON.stringify(encryptedPayload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `nullcal-backup-${mode}-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      notify(`${mode === 'full' ? 'Full' : 'Clean'} export saved.`, 'success');
+    } catch {
+      notify('Export failed.', 'error');
+    }
+  };
+
+  const handleCommandAdd = () => {
+    navigate('/');
+  };
+
   const handleManualProfileSwitch = (id: string) => {
     if (!id) {
       return;
@@ -405,6 +486,10 @@ const SafetyCenter = () => {
           onOpenNav={() => setNavOpen(true)}
           commandStripMode={state.settings.commandStripMode}
           locked={locked}
+          onCommandAdd={handleCommandAdd}
+          onCommandPrivacy={togglePrivacyScreen}
+          onCommandDecoy={handleSwitchToDecoy}
+          onCommandExport={handleCommandExport}
         />
       }
       sidebar={
@@ -465,8 +550,8 @@ const SafetyCenter = () => {
                   <span className="text-text">Local-only</span>
                 </li>
                 <li className="flex items-center justify-between">
-                  <span>Network</span>
-                  <span className="text-text">LOCAL-ONLY</span>
+                  <span>Network access</span>
+                  <span className="text-text">Blocked (offline-only)</span>
                 </li>
                 <li className="flex items-center justify-between">
                   <span>Sync</span>
@@ -643,6 +728,19 @@ const SafetyCenter = () => {
                     </option>
                   </select>
                 </div>
+                <label className="mt-3 flex items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
+                  <span>Switch to decoy on blur</span>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.switchToDecoyOnBlur}
+                    onChange={(event) => updateSettings({ switchToDecoyOnBlur: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                    disabled={!state.settings.decoyProfileId}
+                  />
+                </label>
+                {!state.settings.decoyProfileId && (
+                  <p className="mt-2 text-xs text-muted">Select a decoy profile to enable this option.</p>
+                )}
               </div>
             </div>
           </div>
@@ -683,10 +781,10 @@ const SafetyCenter = () => {
                         {mode === 'minimal' && 'Minimal export'}
                       </p>
                       <p className="mt-1 text-xs text-muted">
-                        {mode === 'full' && 'Everything in the current profile.'}
+                        {mode === 'full' && 'Complete profile export (calendars, events, preferences).'}
                         {mode === 'clean' &&
-                          'Removes notes, location, attendees; titles become “Busy” unless kept.'}
-                        {mode === 'minimal' && 'Only start/end times and topic/category.'}
+                          'Removes notes, locations, attendees; titles become “Busy” unless kept.'}
+                        {mode === 'minimal' && 'Only time blocks and category labels (no notes/locations).'}
                       </p>
                     </div>
                     <input
@@ -792,6 +890,24 @@ const SafetyCenter = () => {
                   </span>
                 </p>
               </div>
+              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                <label className="text-xs uppercase tracking-[0.3em] text-muted">Choose decoy profile</label>
+                <select
+                  value={state.settings.decoyProfileId ?? ''}
+                  onChange={(event) => handleDecoyProfileChange(event.target.value)}
+                  className="mt-2 w-full rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                >
+                  <option value="">No decoy profile</option>
+                  {state.profiles.map((profile) => (
+                    <option key={profile.id} value={profile.id} className="bg-panel2">
+                      {profile.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-muted">
+                  Use a profile with minimal data for safe handoff.
+                </p>
+              </div>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -800,26 +916,20 @@ const SafetyCenter = () => {
                 >
                   Create decoy shell
                 </button>
-                {state.settings.decoyProfileId &&
-                  !state.securityPrefs.pinEnabled &&
-                  !state.securityPrefs.decoyPinEnabled && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleManualProfileSwitch(state.settings.decoyProfileId ?? '')}
-                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                      >
-                        Switch to decoy
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleManualProfileSwitch(state.settings.primaryProfileId)}
-                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                      >
-                        Switch to primary
-                      </button>
-                    </>
-                  )}
+                <button
+                  type="button"
+                  onClick={handleSwitchToDecoy}
+                  className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                >
+                  Switch to decoy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleManualProfileSwitch(state.settings.primaryProfileId)}
+                  className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                >
+                  Switch to primary
+                </button>
               </div>
               <div>
                 <label className="text-xs uppercase tracking-[0.3em] text-muted">Set decoy PIN</label>

@@ -31,6 +31,7 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     autoLockMinutes: 10,
     autoLockOnBlur: false,
     autoLockGraceSeconds: 0,
+    switchToDecoyOnBlur: false,
     privacyScreenHotkeyEnabled: true
   };
 };
@@ -156,6 +157,7 @@ export const loadAppState = async (): Promise<AppState> => {
       primaryProfileId: resolvedSettings.primaryProfileId ?? resolvedSettings.activeProfileId,
       autoLockOnBlur: resolvedSettings.autoLockOnBlur ?? false,
       autoLockGraceSeconds: resolvedSettings.autoLockGraceSeconds ?? 0,
+      switchToDecoyOnBlur: resolvedSettings.switchToDecoyOnBlur ?? false,
       privacyScreenHotkeyEnabled: resolvedSettings.privacyScreenHotkeyEnabled ?? true,
       commandStripMode: resolvedSettings.commandStripMode ?? readCommandStripMode()
     };
