@@ -28,7 +28,7 @@ const Segmented = ({ items, ariaLabel }: SegmentedProps) => (
           onClick={item.onClick}
           aria-pressed={item.active}
           className={`inline-flex h-9 items-center justify-center gap-2 px-4 text-xs uppercase tracking-[0.18em] transition ${
-            item.active ? 'bg-accent text-[#0b0f14]' : 'text-muted hover:bg-panel2 hover:text-text'
+            item.active ? 'bg-accent text-[var(--accentText)]' : 'text-muted hover:bg-panel2 hover:text-text'
           }`}
         >
           {item.icon && <span aria-hidden="true">{item.icon}</span>}

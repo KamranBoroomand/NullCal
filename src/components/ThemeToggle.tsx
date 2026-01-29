@@ -18,7 +18,7 @@ const ThemeToggle = ({ value, onChange, className }: ThemeToggleProps) => {
       className={`flex flex-none items-center gap-2 whitespace-nowrap ${className ?? ''}`}
     >
       <span className="text-accent">{value === 'dark' ? 'Dark' : 'Light'}</span>
-      <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-[#0b0f14]">
+      <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-[var(--accentText)]">
         Toggle
       </span>
     </motion.button>

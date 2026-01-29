@@ -52,7 +52,7 @@ const MiniMonth = ({ selectedDate, onSelect }: MiniMonthProps) => {
               onClick={() => onSelect(date)}
               className={`h-7 rounded-lg text-center transition ${
                 isSelected
-                  ? 'bg-accent text-[#0b0f14] shadow-glow'
+                  ? 'bg-accent text-[var(--accentText)] shadow-glow'
                   : isCurrentMonth
                     ? 'text-text hover:bg-panel2'
                     : 'text-muted hover:bg-panel2'

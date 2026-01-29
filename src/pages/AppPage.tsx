@@ -500,7 +500,7 @@ const AppPage = () => {
               </button>
               <button
                 onClick={handleSaveEvent}
-                className="rounded-full bg-accent px-6 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14] shadow-glow transition"
+                className="rounded-full bg-accent px-6 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow transition"
               >
                 Save
               </button>

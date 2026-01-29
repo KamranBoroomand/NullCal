@@ -158,7 +158,7 @@ const SideBar = ({
             onClick={onNavigate}
             className={({ isActive }) =>
               `rounded-xl px-3 py-2 uppercase tracking-[0.2em] transition ${
-                isActive ? 'bg-accent text-[#0b0f14]' : 'text-muted hover:text-text'
+                isActive ? 'bg-accent text-[var(--accentText)]' : 'text-muted hover:text-text'
               }`
             }
           >
@@ -169,7 +169,7 @@ const SideBar = ({
             onClick={onNavigate}
             className={({ isActive }) =>
               `rounded-xl px-3 py-2 uppercase tracking-[0.2em] transition ${
-                isActive ? 'bg-accent text-[#0b0f14]' : 'text-muted hover:text-text'
+                isActive ? 'bg-accent text-[var(--accentText)]' : 'text-muted hover:text-text'
               }`
             }
           >
@@ -253,7 +253,7 @@ const SideBar = ({
             onClick={onNewEvent}
             whileHover={reduceMotion ? undefined : { scale: 1.02 }}
             whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-            className="w-full rounded-xl bg-accent px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14] shadow-glow transition"
+            className="w-full rounded-xl bg-accent px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow transition"
           >
             New event
           </motion.button>
@@ -351,7 +351,7 @@ const SideBar = ({
             type="button"
             onClick={handleSaveCalendar}
             disabled={topicName.trim().length < 2 || topicName.trim().length > 30}
-            className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0f14] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {editTarget ? 'Save changes' : 'Create topic'}
           </button>
