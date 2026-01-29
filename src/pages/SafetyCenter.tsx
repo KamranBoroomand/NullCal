@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import Modal from '../components/Modal';
+import RouteErrorBoundary from '../components/RouteErrorBoundary';
 import { useAppStore } from '../app/AppStore';
 import { useToast } from '../components/ToastProvider';
 import AppShell from '../app/AppShell';
@@ -545,7 +546,8 @@ const SafetyCenter = () => {
       navOpen={navOpen}
       onNavClose={() => setNavOpen(false)}
     >
-      <div className="space-y-6">
+      <RouteErrorBoundary>
+        <div className="space-y-6">
         <motion.section {...panelMotion} className="photon-panel rounded-3xl p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -595,7 +597,7 @@ const SafetyCenter = () => {
           </div>
         </motion.section>
 
-        <motion.section {...panelMotion} className="grid gap-6 lg:grid-cols-2 items-start">
+        <motion.section {...panelMotion} className="safety-grid gap-6 lg:grid-cols-2">
           <div className="photon-panel rounded-3xl p-5 sm:p-6">
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
             <div className="mt-4 space-y-4 text-sm text-muted">
@@ -761,7 +763,7 @@ const SafetyCenter = () => {
             </div>
           </div>
 
-          <div className="photon-panel rounded-3xl p-5 sm:p-6 self-start h-fit">
+          <div className="photon-panel rounded-3xl p-4 sm:p-5">
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Appearance</p>
             <div className="mt-4 space-y-4 text-sm text-muted">
               <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -780,18 +782,18 @@ const SafetyCenter = () => {
               </label>
               <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
-                  <span>Theme palette</span>
-                  <span className="text-[10px] tracking-[0.2em] text-muted">{activePalette.name}</span>
+                  <span>Theme</span>
+                  <span className="text-[10px] tracking-[0.2em] text-muted">{activeTheme.name}</span>
                 </div>
                 <p className="mt-2 text-xs text-muted">
-                  Pick a palette to recolor the UI accents. Saved locally on this device.
+                  Pick a theme to recolor the UI accents. Saved locally on this device.
                 </p>
                 <select
                   value={state.settings.palette}
                   onChange={(event) => updateSettings({ palette: event.target.value })}
                   className="mt-3 w-full rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
                 >
-                  {paletteOptions.map((palette) => (
+                  {themeOptions.map((palette) => (
                     <option key={palette.id} value={palette.id} className="bg-panel2">
                       {palette.name}
                     </option>
@@ -800,7 +802,7 @@ const SafetyCenter = () => {
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
                   <span className="text-[10px] uppercase tracking-[0.3em] text-muted">Preview</span>
                   <div className="flex items-center gap-2">
-                    {activePalette.preview.map((color) => (
+                    {activeTheme.preview.map((color) => (
                       <span
                         key={color}
                         className="h-3 w-3 rounded-full border border-grid"
@@ -1033,7 +1035,7 @@ const SafetyCenter = () => {
             Open panic wipe
           </button>
         </motion.section>
-
+        </div>
         <Modal title="Confirm panic wipe" open={panicOpen} onClose={() => setPanicOpen(false)}>
           <p className="text-sm text-muted">
             Hold the button for 2 seconds to wipe all local NullCAL data. This cannot be undone.
@@ -1048,26 +1050,26 @@ const SafetyCenter = () => {
             Hold to wipe
           </button>
         </Modal>
-      </div>
-      <Modal title="Settings" open={settingsOpen} onClose={() => setSettingsOpen(false)}>
-        <div className="grid gap-3 text-sm text-muted">
-          <p>
-            Profile: <span className="text-text">{activeProfile?.name}</span>
-          </p>
-          <p>
-            Storage: <span className="text-text">Local IndexedDB</span>
-          </p>
-          <button
-            onClick={() => {
-              setSettingsOpen(false);
-              handleResetProfile();
-            }}
-            className="mt-2 rounded-full border border-grid px-4 py-2 text-xs text-muted transition hover:text-text"
-          >
-            Reset profile data
-          </button>
-        </div>
-      </Modal>
+        <Modal title="Settings" open={settingsOpen} onClose={() => setSettingsOpen(false)}>
+          <div className="grid gap-3 text-sm text-muted">
+            <p>
+              Profile: <span className="text-text">{activeProfile?.name}</span>
+            </p>
+            <p>
+              Storage: <span className="text-text">Local IndexedDB</span>
+            </p>
+            <button
+              onClick={() => {
+                setSettingsOpen(false);
+                handleResetProfile();
+              }}
+              className="mt-2 rounded-full border border-grid px-4 py-2 text-xs text-muted transition hover:text-text"
+            >
+              Reset profile data
+            </button>
+          </div>
+        </Modal>
+      </RouteErrorBoundary>
     </AppShell>
   );
 };

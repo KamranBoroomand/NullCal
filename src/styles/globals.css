@@ -4,6 +4,10 @@
 
 :root {
   color-scheme: dark;
+  --font-ui: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
   --bg: #070a0f;
   --surface: #0d121b;
   --surface-2: #101827;
@@ -153,8 +157,7 @@ body[data-palette='rose-pine'] {
 
 body {
   margin: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
+  font-family: var(--font-ui);
   background: radial-gradient(circle at top, rgba(32, 38, 52, 0.35), transparent 60%),
     var(--bg);
   color: var(--text);
@@ -175,8 +178,8 @@ h6 {
 
 .brand-glitch {
   text-shadow:
-    0 0 6px rgba(244, 255, 0, 0.35),
-    0 0 12px rgba(155, 255, 0, 0.2);
+    0 0 6px color-mix(in srgb, var(--accent) 45%, transparent),
+    0 0 12px color-mix(in srgb, var(--accent2) 30%, transparent);
   animation: brandGlitch 8s ease-in-out infinite;
 }
 
@@ -186,6 +189,18 @@ body[data-theme='light'] {
 
 body[data-theme='light'] .photon-panel {
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+/* Safety Center cards use auto rows to prevent tall empty panels and keep the grid compact. */
+.safety-grid {
+  display: grid;
+  grid-auto-rows: auto;
+  align-items: start;
+}
+
+.safety-grid > .photon-panel {
+  align-self: start;
+  height: auto;
 }
 
 body.scanlines-on::before {
@@ -335,6 +350,7 @@ body[data-theme='light'] .pill-base {
 
 .cmdstrip .topbar {
   position: relative;
+  font-family: var(--font-mono);
 }
 
 .cmdstrip .topbar::before {
@@ -396,6 +412,7 @@ body[data-theme='light'] .pill-base {
   letter-spacing: 0.2em;
   color: var(--muted);
   backdrop-filter: blur(12px);
+  font-family: var(--font-mono);
 }
 
 .cmdstrip-hotkeys-title {

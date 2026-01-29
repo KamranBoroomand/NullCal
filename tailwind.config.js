@@ -19,16 +19,8 @@ export default {
         card: '0 12px 30px rgba(0, 0, 0, 0.35)'
       },
       fontFamily: {
-        sans: [
-          'ui-monospace',
-          'SFMono-Regular',
-          'Menlo',
-          'Monaco',
-          'Consolas',
-          '"Liberation Mono"',
-          '"Courier New"',
-          'monospace'
-        ]
+        sans: ['var(--font-ui)'],
+        mono: ['var(--font-mono)']
       }
     }
   },
