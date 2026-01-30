@@ -1,7 +1,0 @@
-<svg width="220" height="48" viewBox="0 0 220 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="220" height="48" rx="12" fill="#0B0B0F" />
-  <rect x="2" y="2" width="216" height="44" rx="10" stroke="#E7FF4F" stroke-width="2" />
-  <text x="18" y="30" fill="#E7FF4F" font-family="var(--font-ui)" font-size="18" font-weight="600">
-    Kamran Boroomand
-  </text>
-</svg>

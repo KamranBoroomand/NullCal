@@ -24,12 +24,20 @@ const Clock = () => {
   }, []);
 
   const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
-  const platform = navigator.platform || 'Unknown';
+  const userAgentData = (
+    navigator as Navigator & { userAgentData?: { brands?: { brand: string; version: string }[]; platform?: string } }
+  ).userAgentData;
+  const platform = userAgentData?.platform ?? navigator.platform ?? 'Unknown';
   const userAgent = navigator.userAgent || 'Unknown';
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown';
   const locale = navigator.language || 'Unknown';
   const screenInfo = `${window.screen.width}×${window.screen.height}`;
   const deviceType = navigator.maxTouchPoints > 0 ? 'Touch device' : 'Desktop';
+  const cpuCores = navigator.hardwareConcurrency || 0;
+  const colorDepth = window.screen.colorDepth;
+  const connectionType = (
+    navigator as Navigator & { connection?: { effectiveType?: string } }
+  ).connection?.effectiveType;
   const secureModeStatus = state?.settings.secureMode ? 'Enabled' : 'Off';
   const maskedIp = useMemo(() => {
     const bytes = new Uint8Array(3);
@@ -61,6 +69,26 @@ const Clock = () => {
     }
     return 'Unknown';
   }, [userAgent]);
+
+  const browserLabel = useMemo(() => {
+    if (userAgentData?.brands?.length) {
+      return userAgentData.brands.map((brand) => `${brand.brand} ${brand.version}`).join(', ');
+    }
+    const ua = userAgent.toLowerCase();
+    if (ua.includes('edg/')) {
+      return 'Microsoft Edge';
+    }
+    if (ua.includes('chrome/')) {
+      return 'Chrome';
+    }
+    if (ua.includes('safari/') && !ua.includes('chrome/')) {
+      return 'Safari';
+    }
+    if (ua.includes('firefox/')) {
+      return 'Firefox';
+    }
+    return 'Unknown';
+  }, [userAgent, userAgentData]);
 
   const uptime = useMemo(() => {
     const totalSeconds = Math.floor(performance.now() / 1000);
@@ -111,20 +139,23 @@ const Clock = () => {
         </div>
         <div className="text-[10px] uppercase tracking-[0.3em] text-muted">{format(now, 'EEE, MMM d')}</div>
       </div>
-      <Modal title="Neofetch Terminal" open={neofetchOpen} onClose={() => setNeofetchOpen(false)}>
+      <Modal title="NullID Terminal" open={neofetchOpen} onClose={() => setNeofetchOpen(false)}>
         <div className="space-y-3 text-xs text-muted">
           <div className="rounded-2xl border border-grid bg-black/80 p-4 font-mono text-[11px] text-emerald-200">
             <div className="flex flex-wrap items-start gap-6">
               <div className="text-emerald-300">
                 <pre className="whitespace-pre">
-{`     _   _      _ _      
-    | \\ | | ___| | | ___ 
-    |  \\| |/ _ \\ | |/ _ \\
-    | |\\  |  __/ | |  __/
-    |_| \\_|\\___|_|_|\\___|`}
+{`      __
+  ___( o )__
+ / __/  __ \\
+ \\__ \\_/  /
+    \\__/`}
                 </pre>
               </div>
               <div className="min-w-[220px] space-y-1 text-emerald-200">
+                <div>
+                  <span className="text-emerald-400">NullID Terminal:</span> connected
+                </div>
                 <div>
                   <span className="text-emerald-400">IP (masked):</span> {maskedIp}
                 </div>
@@ -132,7 +163,10 @@ const Clock = () => {
                   <span className="text-emerald-400">Uptime:</span> {uptime}
                 </div>
                 <div>
-                  <span className="text-emerald-400">Browser:</span> {userAgent}
+                  <span className="text-emerald-400">Browser:</span> {browserLabel}
+                </div>
+                <div>
+                  <span className="text-emerald-400">User agent:</span> {userAgent}
                 </div>
                 <div>
                   <span className="text-emerald-400">Platform:</span> {platform}
@@ -149,6 +183,16 @@ const Clock = () => {
                 <div>
                   <span className="text-emerald-400">Memory:</span>{' '}
                   {deviceMemory ? `${deviceMemory} GB` : 'Unavailable'}
+                </div>
+                <div>
+                  <span className="text-emerald-400">CPU cores:</span> {cpuCores || 'Unavailable'}
+                </div>
+                <div>
+                  <span className="text-emerald-400">Color depth:</span> {colorDepth}-bit
+                </div>
+                <div>
+                  <span className="text-emerald-400">Connection:</span>{' '}
+                  {connectionType ? connectionType.toUpperCase() : 'Unknown'}
                 </div>
                 <div>
                   <span className="text-emerald-400">Secure mode:</span> {secureModeStatus}

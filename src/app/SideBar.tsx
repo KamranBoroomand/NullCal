@@ -251,7 +251,7 @@ const SideBar = ({
         </div>
       </div>
       {variant === 'full' && onNewEvent && onExport && onImport && onResetProfile && (
-        <>
+        <div className="flex flex-col gap-3">
           <div className="rounded-2xl border border-grid bg-panel p-4">
             <motion.button
               onClick={onNewEvent}
@@ -296,10 +296,10 @@ const SideBar = ({
             />
           </div>
           {showClipboardWarning && !clipboardDismissed && (
-            <div className="rounded-2xl border border-danger bg-[color-mix(in srgb,var(--danger) 12%, transparent)] px-3 py-3 text-xs text-muted">
-              <p className="text-xs uppercase tracking-[0.2em] text-danger">Clipboard warning</p>
-              <p className="mt-1 text-xs text-muted">Clipboard contains sensitive data. Clear now?</p>
-              <div className="mt-3 flex flex-wrap gap-2">
+            <div className="rounded-2xl border border-danger bg-[color-mix(in srgb,var(--danger) 8%, transparent)] px-3 py-2 text-[11px] text-muted">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-danger">Clipboard warning</p>
+              <p className="mt-1 text-[11px] text-muted">Clipboard contains sensitive data. Clear now?</p>
+              <div className="mt-2 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={async () => {
@@ -340,7 +340,7 @@ const SideBar = ({
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
       <Modal
         title={editTarget ? 'Edit topic' : 'New topic'}
