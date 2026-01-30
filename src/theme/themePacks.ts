@@ -225,6 +225,86 @@ export const THEME_PACKS: ThemePack[] = [
     preview: ['#7f9f7f', '#f0dfaf', '#cc9393'],
     mode: 'dark',
     family: 'zenburn'
+  },
+  {
+    id: 'synthwave-84',
+    name: 'Synthwave 84',
+    description: 'Electric magentas and neon blues with retro outrun glow.',
+    preview: ['#ff7edb', '#00d9ff', '#f9f871'],
+    mode: 'dark',
+    family: 'synthwave'
+  },
+  {
+    id: 'oceanic-next',
+    name: 'Oceanic Next',
+    description: 'Deep ocean blues with teal highlights and warm amber.',
+    preview: ['#6699cc', '#5fb3b3', '#fac863'],
+    mode: 'dark',
+    family: 'oceanic'
+  },
+  {
+    id: 'panda',
+    name: 'Panda',
+    description: 'High-contrast charcoal with minty greens and peach accents.',
+    preview: ['#19f9d8', '#ff75b5', '#ffb86c'],
+    mode: 'dark',
+    family: 'panda'
+  },
+  {
+    id: 'horizon',
+    name: 'Horizon',
+    description: 'Warm horizon hues with soft violets and coral accents.',
+    preview: ['#efaf8e', '#e58d7d', '#b877db'],
+    mode: 'dark',
+    family: 'horizon'
+  },
+  {
+    id: 'nightfox',
+    name: 'Nightfox',
+    description: 'Moody midnight palette with bright cyan and lime highlights.',
+    preview: ['#a1cd5e', '#63cdcf', '#82aaff'],
+    mode: 'dark',
+    family: 'nightfox'
+  },
+  {
+    id: 'dayfox',
+    name: 'Dayfox',
+    description: 'Light fox palette with crisp neutrals and warm highlights.',
+    preview: ['#d7827e', '#286983', '#56949f'],
+    mode: 'light',
+    family: 'nightfox'
+  },
+  {
+    id: 'papercolor-light',
+    name: 'PaperColor Light',
+    description: 'PaperColor light with soft warm neutrals and gentle accents.',
+    preview: ['#5f8700', '#d75f00', '#0087af'],
+    mode: 'light',
+    family: 'papercolor'
+  },
+  {
+    id: 'tomorrow-night',
+    name: 'Tomorrow Night',
+    description: 'Tomorrow Night palette with calm blues and bright accents.',
+    preview: ['#81a2be', '#b294bb', '#f0c674'],
+    mode: 'dark',
+    family: 'tomorrow'
+  },
+  {
+    id: 'iceberg',
+    name: 'Iceberg',
+    description: 'Icy blues with crisp highlights and deep navy panels.',
+    preview: ['#84a0c6', '#89b8c2', '#e2a478'],
+    mode: 'dark',
+    family: 'iceberg'
+  },
+  {
+    id: 'cyberpunk',
+    name: 'Cyberpunk',
+    description: 'Bold cyberpunk contrast with hot pink and neon green.',
+    preview: ['#ff2a6d', '#05d9e8', '#d1f7ff'],
+    mode: 'dark',
+    family: 'cyberpunk'
   }
 ];
 

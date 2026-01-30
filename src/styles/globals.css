@@ -1,13 +1,11 @@
-@import './fonts.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   color-scheme: dark;
-  --font-ui: 'NullCal Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'NullCal Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
-    'Courier New', monospace;
+  --font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   --bg: #070a0f;
   --bg2: #0b1018;
   --panel: #0d121b;
@@ -625,6 +623,226 @@ body[data-palette='zenburn'] {
   --danger: #cc9393;
   --success: #7f9f7f;
   --focus: #f0dfaf;
+}
+
+body[data-palette='synthwave-84'] {
+  --bg: #1b1035;
+  --bg2: #22143f;
+  --panel: #271848;
+  --panel2: #2f1f5a;
+  --text: #f8f7ff;
+  --muted: #b7a8ff;
+  --border: rgba(248, 247, 255, 0.12);
+  --accent: #00d9ff;
+  --accent2: #ff7edb;
+  --accentText: #0b0a14;
+  --accentSoft: color-mix(in srgb, #00d9ff 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #00d9ff 20%);
+  --glow: #ff7edb;
+  --shadow: rgba(10, 6, 30, 0.6);
+  --pillActiveBg: #00d9ff;
+  --pillActiveText: #0b0a14;
+  --danger: #ff4d6d;
+  --success: #f9f871;
+  --focus: #00d9ff;
+}
+
+body[data-palette='oceanic-next'] {
+  --bg: #1b2b34;
+  --bg2: #25323a;
+  --panel: #2a3740;
+  --panel2: #32424a;
+  --text: #d8dee9;
+  --muted: #a7adba;
+  --border: rgba(216, 222, 233, 0.1);
+  --accent: #6699cc;
+  --accent2: #5fb3b3;
+  --accentText: #121a1f;
+  --accentSoft: color-mix(in srgb, #6699cc 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #6699cc 20%);
+  --glow: #5fb3b3;
+  --shadow: rgba(8, 12, 16, 0.6);
+  --pillActiveBg: #6699cc;
+  --pillActiveText: #121a1f;
+  --danger: #ec5f67;
+  --success: #99c794;
+  --focus: #fac863;
+}
+
+body[data-palette='panda'] {
+  --bg: #1d1e20;
+  --bg2: #232526;
+  --panel: #282a2b;
+  --panel2: #303233;
+  --text: #e6e6e6;
+  --muted: #9ea0a8;
+  --border: rgba(230, 230, 230, 0.08);
+  --accent: #19f9d8;
+  --accent2: #ff75b5;
+  --accentText: #101112;
+  --accentSoft: color-mix(in srgb, #19f9d8 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #19f9d8 20%);
+  --glow: #19f9d8;
+  --shadow: rgba(5, 5, 5, 0.6);
+  --pillActiveBg: #19f9d8;
+  --pillActiveText: #101112;
+  --danger: #ff5555;
+  --success: #6fcf97;
+  --focus: #ffb86c;
+}
+
+body[data-palette='horizon'] {
+  --bg: #1c1e26;
+  --bg2: #232530;
+  --panel: #2b2d38;
+  --panel2: #343744;
+  --text: #fdf0ed;
+  --muted: #c8c0bc;
+  --border: rgba(253, 240, 237, 0.1);
+  --accent: #efaf8e;
+  --accent2: #e58d7d;
+  --accentText: #1c1e26;
+  --accentSoft: color-mix(in srgb, #efaf8e 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #efaf8e 20%);
+  --glow: #b877db;
+  --shadow: rgba(12, 10, 18, 0.6);
+  --pillActiveBg: #efaf8e;
+  --pillActiveText: #1c1e26;
+  --danger: #f43e5c;
+  --success: #21bfc2;
+  --focus: #b877db;
+}
+
+body[data-palette='nightfox'] {
+  --bg: #192330;
+  --bg2: #1f2a3a;
+  --panel: #222f40;
+  --panel2: #2a384b;
+  --text: #e5e9f0;
+  --muted: #9aa5b1;
+  --border: rgba(229, 233, 240, 0.1);
+  --accent: #a1cd5e;
+  --accent2: #63cdcf;
+  --accentText: #11161f;
+  --accentSoft: color-mix(in srgb, #a1cd5e 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #a1cd5e 20%);
+  --glow: #63cdcf;
+  --shadow: rgba(10, 14, 20, 0.6);
+  --pillActiveBg: #a1cd5e;
+  --pillActiveText: #11161f;
+  --danger: #ff7a90;
+  --success: #6fcf97;
+  --focus: #82aaff;
+}
+
+body[data-palette='dayfox'] {
+  --bg: #f6f2ee;
+  --bg2: #efe9e1;
+  --panel: #fbf6f0;
+  --panel2: #efe4d8;
+  --text: #3e3a33;
+  --muted: #6b6460;
+  --border: rgba(62, 58, 51, 0.12);
+  --accent: #286983;
+  --accent2: #d7827e;
+  --accentText: #ffffff;
+  --accentSoft: color-mix(in srgb, #286983 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #286983 20%);
+  --glow: #286983;
+  --shadow: rgba(90, 82, 74, 0.2);
+  --pillActiveBg: #286983;
+  --pillActiveText: #ffffff;
+  --danger: #b4637a;
+  --success: #56949f;
+  --focus: #d7827e;
+}
+
+body[data-palette='papercolor-light'] {
+  --bg: #f3f3f3;
+  --bg2: #ececec;
+  --panel: #f7f7f7;
+  --panel2: #e8e8e8;
+  --text: #2e2e2e;
+  --muted: #6b6b6b;
+  --border: rgba(46, 46, 46, 0.12);
+  --accent: #0087af;
+  --accent2: #d75f00;
+  --accentText: #ffffff;
+  --accentSoft: color-mix(in srgb, #0087af 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #0087af 20%);
+  --glow: #0087af;
+  --shadow: rgba(90, 90, 90, 0.18);
+  --pillActiveBg: #0087af;
+  --pillActiveText: #ffffff;
+  --danger: #d70000;
+  --success: #5f8700;
+  --focus: #d75f00;
+}
+
+body[data-palette='tomorrow-night'] {
+  --bg: #1d1f21;
+  --bg2: #232526;
+  --panel: #2b2d2e;
+  --panel2: #323436;
+  --text: #c5c8c6;
+  --muted: #969896;
+  --border: rgba(197, 200, 198, 0.1);
+  --accent: #81a2be;
+  --accent2: #b294bb;
+  --accentText: #0f1111;
+  --accentSoft: color-mix(in srgb, #81a2be 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #81a2be 20%);
+  --glow: #81a2be;
+  --shadow: rgba(10, 10, 10, 0.6);
+  --pillActiveBg: #81a2be;
+  --pillActiveText: #0f1111;
+  --danger: #cc6666;
+  --success: #b5bd68;
+  --focus: #f0c674;
+}
+
+body[data-palette='iceberg'] {
+  --bg: #161821;
+  --bg2: #1e2132;
+  --panel: #1f2435;
+  --panel2: #262b3b;
+  --text: #d2d4de;
+  --muted: #a1a6b2;
+  --border: rgba(210, 212, 222, 0.1);
+  --accent: #84a0c6;
+  --accent2: #89b8c2;
+  --accentText: #12141a;
+  --accentSoft: color-mix(in srgb, #84a0c6 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #84a0c6 20%);
+  --glow: #89b8c2;
+  --shadow: rgba(8, 10, 16, 0.6);
+  --pillActiveBg: #84a0c6;
+  --pillActiveText: #12141a;
+  --danger: #e27878;
+  --success: #b4be82;
+  --focus: #e2a478;
+}
+
+body[data-palette='cyberpunk'] {
+  --bg: #0b1020;
+  --bg2: #11162a;
+  --panel: #131a2f;
+  --panel2: #1a2240;
+  --text: #eaf6ff;
+  --muted: #9fb0c2;
+  --border: rgba(234, 246, 255, 0.1);
+  --accent: #05d9e8;
+  --accent2: #ff2a6d;
+  --accentText: #070b14;
+  --accentSoft: color-mix(in srgb, #05d9e8 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #05d9e8 20%);
+  --glow: #ff2a6d;
+  --shadow: rgba(4, 6, 12, 0.65);
+  --pillActiveBg: #05d9e8;
+  --pillActiveText: #070b14;
+  --danger: #ff5c57;
+  --success: #d1f7ff;
+  --focus: #ff2a6d;
 }
 
 [data-theme='light'] {

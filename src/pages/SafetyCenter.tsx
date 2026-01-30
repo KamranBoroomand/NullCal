@@ -58,6 +58,7 @@ const SafetyCenter = () => {
   const [decoyPinConfirm, setDecoyPinConfirm] = useState('');
   const [panicOpen, setPanicOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [themeBrowserOpen, setThemeBrowserOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [wipedImportOpen, setWipedImportOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
@@ -511,6 +512,7 @@ const SafetyCenter = () => {
           onExport={handleQuickExport}
           onImport={handleQuickImport}
           onResetProfile={handleResetProfile}
+          showClipboardWarning
         />
       }
       mobileNav={
@@ -568,22 +570,135 @@ const SafetyCenter = () => {
                 </li>
               </ul>
             </div>
-            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Checklist</p>
-              <ul className="mt-3 space-y-2">
-                {securityScoreChecklist.map((item) => (
-                  <li key={item.label} className="flex min-w-0 items-center justify-between gap-3">
-                    <span>{item.label}</span>
-                    <span className={item.value ? 'text-accent' : 'text-muted'}>
-                      {item.value ? 'Enabled' : 'Off'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+            <div className="grid gap-3">
+              <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Checklist</p>
+                <ul className="mt-3 space-y-2">
+                  {securityScoreChecklist.map((item) => (
+                    <li key={item.label} className="flex min-w-0 items-center justify-between gap-3">
+                      <span>{item.label}</span>
+                      <span className={item.value ? 'text-accent' : 'text-muted'}>
+                        {item.value ? 'Enabled' : 'Off'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="photon-panel min-w-0 rounded-3xl border-amber-400/40 bg-amber-500/10 p-5 sm:p-6">
+                <p className="text-xs uppercase tracking-[0.3em] text-amber-200">Locking</p>
+                <div className="mt-3 space-y-3 text-sm text-muted">
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Lock now</p>
+                    <p className="mt-1 text-xs text-muted">Immediately hides the calendar until you unlock.</p>
+                    <button
+                      type="button"
+                      onClick={lockNow}
+                      className="mt-3 rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                    >
+                      Lock now
+                    </button>
+                  </div>
+                  <div className="min-w-0">
+                    <label className="text-xs uppercase tracking-[0.3em] text-muted">Set PIN</label>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        placeholder="New PIN"
+                        value={pinDraft}
+                        onChange={(event) => setPinDraft(event.target.value)}
+                        className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                      />
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        placeholder="Confirm PIN"
+                        value={pinConfirm}
+                        onChange={(event) => setPinConfirm(event.target.value)}
+                        className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                      />
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSetPin}
+                        className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                      >
+                        Save PIN
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearPin}
+                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                      >
+                        Clear PIN
+                      </button>
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <label className="text-xs uppercase tracking-[0.3em] text-muted">Auto-lock (minutes)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={120}
+                      value={state.settings.autoLockMinutes}
+                      onChange={(event) =>
+                        updateSettings({ autoLockMinutes: Number(event.target.value || 0) })
+                      }
+                      className="mt-2 w-full min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    />
+                    <p className="mt-2 text-xs text-muted">Set to 0 to disable inactivity lock.</p>
+                  </div>
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <label className="flex min-w-0 items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
+                      <span>Auto-lock on tab blur</span>
+                      <input
+                        type="checkbox"
+                        checked={state.settings.autoLockOnBlur}
+                        onChange={(event) => updateSettings({ autoLockOnBlur: event.target.checked })}
+                        className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                      />
+                    </label>
+                    <div className="mt-3 flex min-w-0 items-center gap-3 text-xs text-muted">
+                      <span>Grace period</span>
+                      <select
+                        value={state.settings.autoLockGraceSeconds}
+                        onChange={(event) =>
+                          updateSettings({ autoLockGraceSeconds: Number(event.target.value || 0) })
+                        }
+                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                      >
+                        <option value={0} className="bg-panel2">
+                          0s
+                        </option>
+                        <option value={5} className="bg-panel2">
+                          5s
+                        </option>
+                        <option value={15} className="bg-panel2">
+                          15s
+                        </option>
+                      </select>
+                    </div>
+                    <label className="mt-3 flex min-w-0 items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
+                      <span>Switch to decoy on blur</span>
+                      <input
+                        type="checkbox"
+                        checked={state.settings.switchToDecoyOnBlur}
+                        onChange={(event) => updateSettings({ switchToDecoyOnBlur: event.target.checked })}
+                        className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                        disabled={!state.settings.decoyProfileId}
+                      />
+                    </label>
+                    {!state.settings.decoyProfileId && (
+                      <p className="mt-2 text-xs text-muted">Select a decoy profile to enable this option.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </motion.section>
 
-          <motion.section {...panelMotion} className="grid gap-3 md:grid-cols-2">
+          <motion.section {...panelMotion} className="grid gap-3">
             <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
@@ -637,140 +752,37 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Locking</p>
-              <div className="mt-3 space-y-3 text-sm text-muted">
-                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Lock now</p>
-                  <p className="mt-1 text-xs text-muted">Immediately hides the calendar until you unlock.</p>
+            <div className="photon-panel min-w-0 rounded-3xl border-yellow-400/40 bg-yellow-400/10 p-4 sm:p-5">
+              <p className="text-xs uppercase tracking-[0.3em] text-yellow-200">Appearance</p>
+              <div className="mt-3 flex flex-col gap-4 text-sm text-muted lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                    <span>Theme Packs</span>
+                    <span className="text-[10px] tracking-[0.2em] text-muted">{activeTheme.name}</span>
+                  </div>
+                  <p className="mt-2 text-xs text-muted">
+                    Pick a theme to restyle the entire interface. Saved locally on this device.
+                  </p>
+                  <div className="mt-3 min-w-0">
+                    <ThemePicker
+                      themes={themeOptions}
+                      activeId={state.settings.palette}
+                      onSelect={(nextPalette) => {
+                        const nextTheme =
+                          themeOptions.find((theme) => theme.id === nextPalette)?.mode ?? state.settings.theme;
+                        updateSettings({ palette: nextPalette, theme: nextTheme });
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={lockNow}
-                    className="mt-3 rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                    onClick={() => setThemeBrowserOpen(true)}
+                    className="rounded-full border border-yellow-300/60 px-4 py-2 text-xs uppercase tracking-[0.2em] text-yellow-100"
                   >
-                    Lock now
+                    Browse all
                   </button>
-                </div>
-                <div className="min-w-0">
-                  <label className="text-xs uppercase tracking-[0.3em] text-muted">Set PIN</label>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    <input
-                      type="password"
-                      inputMode="numeric"
-                      placeholder="New PIN"
-                      value={pinDraft}
-                      onChange={(event) => setPinDraft(event.target.value)}
-                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                    />
-                    <input
-                      type="password"
-                      inputMode="numeric"
-                      placeholder="Confirm PIN"
-                      value={pinConfirm}
-                      onChange={(event) => setPinConfirm(event.target.value)}
-                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                    />
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSetPin}
-                      className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
-                    >
-                      Save PIN
-                    </button>
-                    <button
-                      type="button"
-                      onClick={clearPin}
-                      className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                    >
-                      Clear PIN
-                    </button>
-                  </div>
-                </div>
-                <div className="min-w-0">
-                  <label className="text-xs uppercase tracking-[0.3em] text-muted">Auto-lock (minutes)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={120}
-                    value={state.settings.autoLockMinutes}
-                    onChange={(event) =>
-                      updateSettings({ autoLockMinutes: Number(event.target.value || 0) })
-                    }
-                    className="mt-2 w-full min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                  />
-                  <p className="mt-2 text-xs text-muted">Set to 0 to disable inactivity lock.</p>
-                </div>
-                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <label className="flex min-w-0 items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
-                    <span>Auto-lock on tab blur</span>
-                    <input
-                      type="checkbox"
-                      checked={state.settings.autoLockOnBlur}
-                      onChange={(event) => updateSettings({ autoLockOnBlur: event.target.checked })}
-                      className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
-                    />
-                  </label>
-                  <div className="mt-3 flex min-w-0 items-center gap-3 text-xs text-muted">
-                    <span>Grace period</span>
-                    <select
-                      value={state.settings.autoLockGraceSeconds}
-                      onChange={(event) =>
-                        updateSettings({ autoLockGraceSeconds: Number(event.target.value || 0) })
-                      }
-                      className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
-                    >
-                      <option value={0} className="bg-panel2">
-                        0s
-                      </option>
-                      <option value={5} className="bg-panel2">
-                        5s
-                      </option>
-                      <option value={15} className="bg-panel2">
-                        15s
-                      </option>
-                    </select>
-                  </div>
-                  <label className="mt-3 flex min-w-0 items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
-                    <span>Switch to decoy on blur</span>
-                    <input
-                      type="checkbox"
-                      checked={state.settings.switchToDecoyOnBlur}
-                      onChange={(event) => updateSettings({ switchToDecoyOnBlur: event.target.checked })}
-                      className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
-                      disabled={!state.settings.decoyProfileId}
-                    />
-                  </label>
-                  {!state.settings.decoyProfileId && (
-                    <p className="mt-2 text-xs text-muted">Select a decoy profile to enable this option.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </motion.section>
-
-          <motion.section {...panelMotion} className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
-            <p className="text-xs uppercase tracking-[0.3em] text-muted">Appearance</p>
-            <div className="mt-3 space-y-3 text-sm text-muted">
-              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
-                  <span>Theme Packs</span>
-                  <span className="text-[10px] tracking-[0.2em] text-muted">{activeTheme.name}</span>
-                </div>
-                <p className="mt-2 text-xs text-muted">
-                  Pick a theme to restyle the entire interface. Saved locally on this device.
-                </p>
-                <div className="mt-3 min-w-0">
-                  <ThemePicker
-                    themes={themeOptions}
-                    activeId={state.settings.palette}
-                    onSelect={(nextPalette) => {
-                      const nextTheme =
-                        themeOptions.find((theme) => theme.id === nextPalette)?.mode ?? state.settings.theme;
-                      updateSettings({ palette: nextPalette, theme: nextTheme });
-                    }}
-                  />
                 </div>
               </div>
             </div>
@@ -886,98 +898,105 @@ const SafetyCenter = () => {
 
             <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Decoy Profile</p>
-              <div className="mt-4 space-y-4 text-sm text-muted">
-                <p className="text-xs text-muted">
-                  Decoy profile is a separate local workspace. Use a decoy PIN to open it under pressure.
-                </p>
-                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
-                  <p>
-                    Active profile:{' '}
-                    <span className="text-text">{activeProfile?.name ?? 'Unknown'}</span>
+              <div className="mt-4 grid gap-4 text-sm text-muted md:grid-cols-2">
+                <div className="space-y-4">
+                  <p className="text-xs text-muted">
+                    Decoy profile is a separate local workspace. Use a decoy PIN to open it under pressure.
                   </p>
-                  <p className="mt-1">
-                    Decoy profile:{' '}
-                    <span className="text-text">
-                      {state.settings.decoyProfileId ? 'Configured' : 'Not created'}
-                    </span>
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <label className="text-xs uppercase tracking-[0.3em] text-muted">Choose decoy profile</label>
-                  <select
-                    value={state.settings.decoyProfileId ?? ''}
-                    onChange={(event) => handleDecoyProfileChange(event.target.value)}
-                    className="mt-2 w-full min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
-                  >
-                    <option value="">No decoy profile</option>
-                    {state.profiles.map((profile) => (
-                      <option key={profile.id} value={profile.id} className="bg-panel2">
-                        {profile.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-xs text-muted">
-                    Use a profile with minimal data for safe handoff.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={handleCreateDecoyProfile}
-                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                  >
-                    Create decoy shell
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSwitchToDecoy}
-                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                  >
-                    Switch to decoy
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleManualProfileSwitch(state.settings.primaryProfileId)}
-                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                  >
-                    Switch to primary
-                  </button>
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-[0.3em] text-muted">Set decoy PIN</label>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    <input
-                      type="password"
-                      inputMode="numeric"
-                      placeholder="Decoy PIN"
-                      value={decoyPinDraft}
-                      onChange={(event) => setDecoyPinDraft(event.target.value)}
-                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                    />
-                    <input
-                      type="password"
-                      inputMode="numeric"
-                      placeholder="Confirm decoy PIN"
-                      value={decoyPinConfirm}
-                      onChange={(event) => setDecoyPinConfirm(event.target.value)}
-                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                    />
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
+                    <p>
+                      Active profile:{' '}
+                      <span className="text-text">{activeProfile?.name ?? 'Unknown'}</span>
+                    </p>
+                    <p className="mt-1">
+                      Decoy profile:{' '}
+                      <span className="text-text">
+                        {state.settings.decoyProfileId ? 'Configured' : 'Not created'}
+                      </span>
+                    </p>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSetDecoyPin}
-                      className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <label className="text-xs uppercase tracking-[0.3em] text-muted">Choose decoy profile</label>
+                    <select
+                      value={state.settings.decoyProfileId ?? ''}
+                      onChange={(event) => handleDecoyProfileChange(event.target.value)}
+                      className="mt-2 w-full min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
                     >
-                      Save decoy PIN
-                    </button>
-                    <button
-                      type="button"
-                      onClick={clearDecoyPin}
-                      className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                    >
-                      Clear decoy PIN
-                    </button>
+                      <option value="">No decoy profile</option>
+                      {state.profiles.map((profile) => (
+                        <option key={profile.id} value={profile.id} className="bg-panel2">
+                          {profile.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs text-muted">
+                      Use a profile with minimal data for safe handoff.
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Profile actions</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={handleCreateDecoyProfile}
+                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                      >
+                        Create decoy shell
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSwitchToDecoy}
+                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                      >
+                        Switch to decoy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleManualProfileSwitch(state.settings.primaryProfileId)}
+                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                      >
+                        Switch to primary
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-[0.3em] text-muted">Set decoy PIN</label>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        placeholder="Decoy PIN"
+                        value={decoyPinDraft}
+                        onChange={(event) => setDecoyPinDraft(event.target.value)}
+                        className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                      />
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        placeholder="Confirm decoy PIN"
+                        value={decoyPinConfirm}
+                        onChange={(event) => setDecoyPinConfirm(event.target.value)}
+                        className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                      />
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSetDecoyPin}
+                        className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                      >
+                        Save decoy PIN
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearDecoyPin}
+                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                      >
+                        Clear decoy PIN
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1014,6 +1033,25 @@ const SafetyCenter = () => {
           >
             Hold to wipe
           </button>
+        </Modal>
+        <Modal title="Theme Packs" open={themeBrowserOpen} onClose={() => setThemeBrowserOpen(false)}>
+          <div className="space-y-3 text-sm text-muted">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs uppercase tracking-[0.3em] text-muted">Current</span>
+              <span className="text-[11px] uppercase tracking-[0.2em] text-text">{activeTheme.name}</span>
+            </div>
+            <p className="text-xs text-muted">Select a theme pack to restyle the entire interface.</p>
+            <ThemePicker
+              themes={themeOptions}
+              activeId={state.settings.palette}
+              onSelect={(nextPalette) => {
+                const nextTheme =
+                  themeOptions.find((theme) => theme.id === nextPalette)?.mode ?? state.settings.theme;
+                updateSettings({ palette: nextPalette, theme: nextTheme });
+                setThemeBrowserOpen(false);
+              }}
+            />
+          </div>
         </Modal>
         <Modal title="Settings" open={settingsOpen} onClose={() => setSettingsOpen(false)}>
           <div className="grid gap-3 text-sm text-muted">

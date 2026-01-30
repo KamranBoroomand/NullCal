@@ -480,114 +480,123 @@ const TopBar = ({
   return (
     <header className="topbar relative w-full text-sm">
       <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6">
-        <div className="py-2">
-          <div className="hidden min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[auto_auto] items-center gap-x-4 gap-y-2 lg:grid">
-            <div className="col-start-1 row-start-1 flex min-w-0 items-center">
-              <motion.button
-                type="button"
-                onClick={onHome}
-                className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
-                aria-label="Go to calendar"
-                {...pillMotion}
-              >
-                <span className="h-6 w-6">
-                  <img
-                    src={mark2x}
-                    srcSet={`${mark1x} 1x, ${mark2x} 2x`}
-                    alt=""
-                    aria-hidden="true"
-                    className="h-full w-full rounded-lg"
-                    draggable={false}
-                  />
-                </span>
-                <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
-              </motion.button>
-            </div>
-
-            <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-center gap-3">
-              {onToday && (
+          <div className="py-2">
+            <div className="hidden min-w-0 flex-col gap-2 lg:flex">
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
                 <motion.button
-                  onClick={onToday}
-                  className={`${pillBase} px-3 text-muted hover:text-text`}
+                  type="button"
+                  onClick={onHome}
+                  className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
+                  aria-label="Go to calendar"
                   {...pillMotion}
                 >
-                  Today
+                  <span className="h-6 w-6">
+                    <img
+                      src={mark2x}
+                      srcSet={`${mark1x} 1x, ${mark2x} 2x`}
+                      alt=""
+                      aria-hidden="true"
+                      className="h-full w-full rounded-lg"
+                      draggable={false}
+                    />
+                  </span>
+                  <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
                 </motion.button>
-              )}
-              {view && onViewChange && (
-                <Segmented
-                  ariaLabel="Calendar view"
-                  items={[
-                    {
-                      key: 'week',
-                      label: (
-                        <>
-                          <span className="hidden xl:inline">Week</span>
-                          <span className="xl:hidden">Wk</span>
-                        </>
-                      ),
-                      onClick: () => onViewChange('timeGridWeek'),
-                      active: view === 'timeGridWeek'
-                    },
-                    {
-                      key: 'month',
-                      label: (
-                        <>
-                          <span className="hidden xl:inline">Month</span>
-                          <span className="xl:hidden">Mo</span>
-                        </>
-                      ),
-                      onClick: () => onViewChange('dayGridMonth'),
-                      active: view === 'dayGridMonth'
-                    }
-                  ]}
+                {onToday && (
+                  <motion.button
+                    onClick={onToday}
+                    className={`${pillBase} px-3 text-muted hover:text-text`}
+                    {...pillMotion}
+                  >
+                    Today
+                  </motion.button>
+                )}
+                {view && onViewChange && (
+                  <Segmented
+                    ariaLabel="Calendar view"
+                    items={[
+                      {
+                        key: 'week',
+                        label: (
+                          <>
+                            <span className="hidden xl:inline">Week</span>
+                            <span className="xl:hidden">Wk</span>
+                          </>
+                        ),
+                        onClick: () => onViewChange('timeGridWeek'),
+                        active: view === 'timeGridWeek'
+                      },
+                      {
+                        key: 'month',
+                        label: (
+                          <>
+                            <span className="hidden xl:inline">Month</span>
+                            <span className="xl:hidden">Mo</span>
+                          </>
+                        ),
+                        onClick: () => onViewChange('dayGridMonth'),
+                        active: view === 'dayGridMonth'
+                      }
+                    ]}
+                  />
+                )}
+                <ProfileMenu
+                  options={profiles}
+                  activeId={activeProfileId}
+                  onChange={allowProfileSwitch ? onProfileChange : undefined}
+                  disabled={!allowProfileSwitch}
                 />
-              )}
-            </div>
-
-            <div className="col-start-3 row-start-1 flex min-w-0 items-center justify-end gap-3">
-              <div className="min-w-0 max-w-[420px] flex-1">
-                <div className="w-[clamp(200px,32vw,420px)]">{renderSearchInput(desktopSearchInputRef)}</div>
+                <motion.button
+                  onClick={onLockNow}
+                  className={`${pillBase} flex-none px-4 text-muted hover:text-text`}
+                  {...pillMotion}
+                >
+                  Lock now
+                </motion.button>
+                <div className="min-w-[220px] flex-1 max-w-[520px]">
+                  {renderSearchInput(desktopSearchInputRef)}
+                </div>
+                {showDesktopOverflow && (
+                  <OverflowMenu
+                    actions={desktopOverflowActions}
+                    showProfileList={allowProfileSwitch}
+                    showCreateProfileItem={allowCreateProfile}
+                    profiles={profiles}
+                    activeProfileId={activeProfileId}
+                    onProfileChange={onProfileChange}
+                    onCreateProfile={onCreateProfile}
+                  />
+                )}
               </div>
-              {showDesktopOverflow && (
-                <OverflowMenu
-                  actions={desktopOverflowActions}
-                  showProfileList={allowProfileSwitch}
-                  showCreateProfileItem={allowCreateProfile}
-                  profiles={profiles}
-                  activeProfileId={activeProfileId}
-                  onProfileChange={onProfileChange}
-                  onCreateProfile={onCreateProfile}
-                />
-              )}
-            </div>
 
-            <div className="col-start-2 row-start-2 flex min-w-0 items-center justify-center">
-              {onPrev && onNext && (
-                <Segmented
-                  ariaLabel="Navigate calendar"
-                  items={[
-                    {
-                      key: 'prev',
-                      label: 'Previous',
-                      onClick: onPrev,
-                      icon: <ChevronIcon direction="left" />
-                    },
-                    {
-                      key: 'next',
-                      label: 'Next',
-                      onClick: onNext,
-                      icon: <ChevronIcon direction="right" />
-                    }
-                  ]}
-                />
-              )}
+              <div className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-3">
+                <div />
+                <div className="flex min-w-0 items-center justify-center">
+                  {onPrev && onNext && (
+                    <Segmented
+                      ariaLabel="Navigate calendar"
+                      items={[
+                        {
+                          key: 'prev',
+                          label: 'Previous',
+                          onClick: onPrev,
+                          icon: <ChevronIcon direction="left" />
+                        },
+                        {
+                          key: 'next',
+                          label: 'Next',
+                          onClick: onNext,
+                          icon: <ChevronIcon direction="right" />
+                        }
+                      ]}
+                    />
+                  )}
+                </div>
+                <div className="flex min-w-0 items-center justify-end text-xs">
+                  <Clock />
+                </div>
+              </div>
             </div>
-
-            <div className="col-start-3 row-start-2 flex min-w-0 items-center justify-end text-xs">
-              <Clock />
-            </div>
-          </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 lg:hidden">
             <div className="flex flex-wrap items-center gap-2">
