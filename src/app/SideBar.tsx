@@ -53,6 +53,7 @@ type SideBarProps = {
   onImport?: (file: File) => void;
   onResetProfile?: () => void;
   onNavigate?: () => void;
+  showClipboardWarning?: boolean;
 };
 
 const SideBar = ({
@@ -70,7 +71,8 @@ const SideBar = ({
   onExport,
   onImport,
   onResetProfile,
-  onNavigate
+  onNavigate,
+  showClipboardWarning = false
 }: SideBarProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const reduceMotion = useReducedMotion();
@@ -80,6 +82,7 @@ const SideBar = ({
   const [topicName, setTopicName] = useState('');
   const [topicColor, setTopicColor] = useState(palette[0]);
   const [customColor, setCustomColor] = useState('');
+  const [clipboardDismissed, setClipboardDismissed] = useState(false);
 
   useEffect(() => {
     if (!menuOpenId) {
@@ -248,49 +251,96 @@ const SideBar = ({
         </div>
       </div>
       {variant === 'full' && onNewEvent && onExport && onImport && onResetProfile && (
-        <div className="rounded-2xl border border-grid bg-panel p-4">
-          <motion.button
-            onClick={onNewEvent}
-            whileHover={reduceMotion ? undefined : { scale: 1.02 }}
-            whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-            className="w-full rounded-xl bg-accent px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow transition"
-          >
-            New event
-          </motion.button>
-          <div className="mt-4 flex gap-2">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex-1 rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
+        <>
+          <div className="rounded-2xl border border-grid bg-panel p-4">
+            <motion.button
+              onClick={onNewEvent}
+              whileHover={reduceMotion ? undefined : { scale: 1.02 }}
+              whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+              className="w-full rounded-xl bg-accent px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow transition"
             >
-              Import
-            </button>
+              New event
+            </motion.button>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-1 rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
+              >
+                Import
+              </button>
+              <button
+                onClick={onExport}
+                className="flex-1 rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
+              >
+                Export
+              </button>
+            </div>
             <button
-              onClick={onExport}
-              className="flex-1 rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
+              onClick={onResetProfile}
+              className="mt-4 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
             >
-              Export
+              Reset profile data
             </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  onImport?.(file);
+                  event.target.value = '';
+                }
+              }}
+            />
           </div>
-          <button
-            onClick={onResetProfile}
-            className="mt-4 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
-          >
-            Reset profile data
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) {
-                onImport?.(file);
-                event.target.value = '';
-              }
-            }}
-          />
-        </div>
+          {showClipboardWarning && !clipboardDismissed && (
+            <div className="rounded-2xl border border-danger bg-[color-mix(in srgb,var(--danger) 12%, transparent)] px-3 py-3 text-xs text-muted">
+              <p className="text-xs uppercase tracking-[0.2em] text-danger">Clipboard warning</p>
+              <p className="mt-1 text-xs text-muted">Clipboard contains sensitive data. Clear now?</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard?.writeText('');
+                    } catch {
+                      // Ignore clipboard permission errors.
+                    } finally {
+                      setClipboardDismissed(true);
+                    }
+                  }}
+                  className="rounded-xl border border-danger px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-danger"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard?.writeText('[REDACTED]');
+                    } catch {
+                      // Ignore clipboard permission errors.
+                    } finally {
+                      setClipboardDismissed(true);
+                    }
+                  }}
+                  className="rounded-xl border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                >
+                  Copy sanitized
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setClipboardDismissed(true)}
+                  className="rounded-xl border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                >
+                  Ignore
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
       <Modal
         title={editTarget ? 'Edit topic' : 'New topic'}

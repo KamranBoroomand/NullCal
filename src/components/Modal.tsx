@@ -14,13 +14,18 @@ const Modal = ({ title, open, onClose, children }: ModalProps) => {
     if (!open) {
       return;
     }
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKey);
+    };
   }, [open, onClose]);
 
   const reduceMotion = useReducedMotion();
@@ -49,6 +54,7 @@ const Modal = ({ title, open, onClose, children }: ModalProps) => {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-text">{title}</h2>
               <button
+                type="button"
                 onClick={onClose}
                 className="rounded-full border border-grid px-2 py-1 text-xs text-muted transition hover:text-text"
               >
