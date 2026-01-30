@@ -345,6 +345,9 @@ const TopBar = ({
         whileTap: { scale: 0.98 },
         transition: { duration: 0.16 }
       };
+  
+// Declare the state or prop for showSearchInput properly before using it
+  const [showSearchInput, setShowSearchInput] = useState(false); // Example state if needed
 
   const focusInput = useCallback(() => {
     if (!showSearchInput) {
