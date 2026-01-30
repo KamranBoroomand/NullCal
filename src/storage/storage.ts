@@ -154,10 +154,8 @@ export const loadAppState = async (): Promise<AppState> => {
 
   if (profiles.length) {
     const resolvedSettings = settings ?? buildDefaultSettings(profiles[0].id);
-    const { commandStripMode: _ignored, ...resolvedWithoutCommandStrip } =
-      resolvedSettings as AppSettings & { commandStripMode?: boolean };
     const normalizedSettings = {
-      ...resolvedWithoutCommandStrip,
+      ...resolvedSettings,
       networkLock: true,
       palette: resolvedSettings.palette ?? readPalette(),
       primaryProfileId: resolvedSettings.primaryProfileId ?? resolvedSettings.activeProfileId,

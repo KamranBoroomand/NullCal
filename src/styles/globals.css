@@ -407,6 +407,226 @@ body[data-palette='material-palenight'] {
   --focus: #82aaff;
 }
 
+body[data-palette='github-dark'] {
+  --bg: #0d1117;
+  --bg2: #010409;
+  --panel: #161b22;
+  --panel2: #21262d;
+  --text: #c9d1d9;
+  --muted: #8b949e;
+  --border: rgba(201, 209, 217, 0.12);
+  --accent: #58a6ff;
+  --accent2: #56d364;
+  --accentText: #0d1117;
+  --accentSoft: color-mix(in srgb, #58a6ff 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #58a6ff 20%);
+  --glow: #58a6ff;
+  --shadow: rgba(1, 4, 9, 0.6);
+  --pillActiveBg: #58a6ff;
+  --pillActiveText: #0d1117;
+  --danger: #f85149;
+  --success: #3fb950;
+  --focus: #58a6ff;
+}
+
+body[data-palette='github-light'] {
+  --bg: #f6f8fa;
+  --bg2: #ffffff;
+  --panel: #ffffff;
+  --panel2: #f6f8fa;
+  --text: #24292f;
+  --muted: #57606a;
+  --border: rgba(36, 41, 47, 0.12);
+  --accent: #0969da;
+  --accent2: #1f883d;
+  --accentText: #ffffff;
+  --accentSoft: color-mix(in srgb, #0969da 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #0969da 20%);
+  --glow: #0969da;
+  --shadow: rgba(36, 41, 47, 0.16);
+  --pillActiveBg: #0969da;
+  --pillActiveText: #ffffff;
+  --danger: #cf222e;
+  --success: #1a7f37;
+  --focus: #0969da;
+}
+
+body[data-palette='ayu-dark'] {
+  --bg: #0f1419;
+  --bg2: #11161c;
+  --panel: #141a21;
+  --panel2: #1b232c;
+  --text: #bfbdb6;
+  --muted: #8a9199;
+  --border: rgba(191, 189, 182, 0.12);
+  --accent: #ffb454;
+  --accent2: #59c2ff;
+  --accentText: #0f1419;
+  --accentSoft: color-mix(in srgb, #ffb454 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #ffb454 20%);
+  --glow: #ffb454;
+  --shadow: rgba(7, 10, 14, 0.55);
+  --pillActiveBg: #ffb454;
+  --pillActiveText: #0f1419;
+  --danger: #f07178;
+  --success: #c2d94c;
+  --focus: #ffb454;
+}
+
+body[data-palette='ayu-light'] {
+  --bg: #fafafa;
+  --bg2: #f3f4f6;
+  --panel: #ffffff;
+  --panel2: #f3f4f6;
+  --text: #5c6166;
+  --muted: #828a92;
+  --border: rgba(92, 97, 102, 0.12);
+  --accent: #ff8f40;
+  --accent2: #399ee6;
+  --accentText: #ffffff;
+  --accentSoft: color-mix(in srgb, #ff8f40 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #ff8f40 20%);
+  --glow: #ff8f40;
+  --shadow: rgba(92, 97, 102, 0.16);
+  --pillActiveBg: #ff8f40;
+  --pillActiveText: #ffffff;
+  --danger: #e65050;
+  --success: #86b300;
+  --focus: #ff8f40;
+}
+
+body[data-palette='kanagawa-wave'] {
+  --bg: #1f1f28;
+  --bg2: #1a1a22;
+  --panel: #223249;
+  --panel2: #2a2a37;
+  --text: #dcd7ba;
+  --muted: #727169;
+  --border: rgba(220, 215, 186, 0.1);
+  --accent: #7e9cd8;
+  --accent2: #98bb6c;
+  --accentText: #1f1f28;
+  --accentSoft: color-mix(in srgb, #7e9cd8 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #7e9cd8 20%);
+  --glow: #7e9cd8;
+  --shadow: rgba(10, 10, 14, 0.55);
+  --pillActiveBg: #7e9cd8;
+  --pillActiveText: #1f1f28;
+  --danger: #e46876;
+  --success: #98bb6c;
+  --focus: #7e9cd8;
+}
+
+body[data-palette='night-owl'] {
+  --bg: #011627;
+  --bg2: #0b1b2b;
+  --panel: #0b1b2b;
+  --panel2: #12263a;
+  --text: #d6deeb;
+  --muted: #7e8ba6;
+  --border: rgba(214, 222, 235, 0.1);
+  --accent: #82aaff;
+  --accent2: #c792ea;
+  --accentText: #011627;
+  --accentSoft: color-mix(in srgb, #82aaff 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #82aaff 20%);
+  --glow: #82aaff;
+  --shadow: rgba(1, 12, 24, 0.6);
+  --pillActiveBg: #82aaff;
+  --pillActiveText: #011627;
+  --danger: #ff5874;
+  --success: #7fdbca;
+  --focus: #82aaff;
+}
+
+body[data-palette='cobalt2'] {
+  --bg: #193549;
+  --bg2: #122b3b;
+  --panel: #1b3b57;
+  --panel2: #204060;
+  --text: #ffffff;
+  --muted: #9dd6ff;
+  --border: rgba(255, 255, 255, 0.1);
+  --accent: #ffc600;
+  --accent2: #ff9d00;
+  --accentText: #102a43;
+  --accentSoft: color-mix(in srgb, #ffc600 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #ffc600 20%);
+  --glow: #ffc600;
+  --shadow: rgba(6, 18, 32, 0.6);
+  --pillActiveBg: #ffc600;
+  --pillActiveText: #102a43;
+  --danger: #ff5c57;
+  --success: #3ad900;
+  --focus: #ffc600;
+}
+
+body[data-palette='vscode-dark-plus'] {
+  --bg: #1e1e1e;
+  --bg2: #252526;
+  --panel: #252526;
+  --panel2: #2d2d2d;
+  --text: #d4d4d4;
+  --muted: #9da5b4;
+  --border: rgba(212, 212, 212, 0.08);
+  --accent: #569cd6;
+  --accent2: #c586c0;
+  --accentText: #1e1e1e;
+  --accentSoft: color-mix(in srgb, #569cd6 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #569cd6 20%);
+  --glow: #569cd6;
+  --shadow: rgba(10, 10, 10, 0.6);
+  --pillActiveBg: #569cd6;
+  --pillActiveText: #1e1e1e;
+  --danger: #f44747;
+  --success: #4ec9b0;
+  --focus: #569cd6;
+}
+
+body[data-palette='arc-dark'] {
+  --bg: #0f1117;
+  --bg2: #121826;
+  --panel: #151b2c;
+  --panel2: #1c2436;
+  --text: #e7eaf0;
+  --muted: #9aa4b2;
+  --border: rgba(231, 234, 240, 0.1);
+  --accent: #5cc8ff;
+  --accent2: #8b7bff;
+  --accentText: #0f1117;
+  --accentSoft: color-mix(in srgb, #5cc8ff 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #5cc8ff 20%);
+  --glow: #5cc8ff;
+  --shadow: rgba(6, 10, 18, 0.6);
+  --pillActiveBg: #5cc8ff;
+  --pillActiveText: #0f1117;
+  --danger: #ff6b6b;
+  --success: #36d399;
+  --focus: #5cc8ff;
+}
+
+body[data-palette='zenburn'] {
+  --bg: #3f3f3f;
+  --bg2: #333333;
+  --panel: #3f3f3f;
+  --panel2: #4f4f4f;
+  --text: #dcdccc;
+  --muted: #9f9f9f;
+  --border: rgba(220, 220, 204, 0.1);
+  --accent: #7f9f7f;
+  --accent2: #f0dfaf;
+  --accentText: #2b2b2b;
+  --accentSoft: color-mix(in srgb, #7f9f7f 18%, transparent);
+  --grid: color-mix(in srgb, var(--border) 80%, #7f9f7f 20%);
+  --glow: #7f9f7f;
+  --shadow: rgba(20, 20, 20, 0.5);
+  --pillActiveBg: #7f9f7f;
+  --pillActiveText: #2b2b2b;
+  --danger: #cc9393;
+  --success: #7f9f7f;
+  --focus: #f0dfaf;
+}
+
 [data-theme='light'] {
   color-scheme: light;
 }
@@ -457,20 +677,6 @@ body[data-theme='light'] {
 
 body[data-theme='light'] .photon-panel {
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
-}
-
-/* Safety Center cards use auto layout to avoid 1fr stretching and keep content-height cards compact. */
-.safety-grid {
-  display: grid;
-  grid-auto-flow: dense;
-  grid-auto-rows: minmax(min-content, max-content);
-  align-content: start;
-  align-items: start;
-}
-
-.safety-grid > .photon-panel {
-  align-self: start;
-  height: auto;
 }
 
 body.scanlines-on::before {

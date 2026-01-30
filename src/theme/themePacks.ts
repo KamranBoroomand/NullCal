@@ -145,6 +145,86 @@ export const THEME_PACKS: ThemePack[] = [
     preview: ['#c792ea', '#82aaff', '#c3e88d'],
     mode: 'dark',
     family: 'material'
+  },
+  {
+    id: 'github-dark',
+    name: 'GitHub Dark',
+    description: 'GitHub’s dark UI palette with crisp blues and moss accents.',
+    preview: ['#58a6ff', '#56d364', '#8b949e'],
+    mode: 'dark',
+    family: 'github'
+  },
+  {
+    id: 'github-light',
+    name: 'GitHub Light',
+    description: 'GitHub’s light UI palette with clean neutrals and bright accents.',
+    preview: ['#0969da', '#1f883d', '#57606a'],
+    mode: 'light',
+    family: 'github'
+  },
+  {
+    id: 'ayu-dark',
+    name: 'Ayu Dark',
+    description: 'Ayu dark palette with warm amber highlights.',
+    preview: ['#ffb454', '#59c2ff', '#ff8f40'],
+    mode: 'dark',
+    family: 'ayu'
+  },
+  {
+    id: 'ayu-light',
+    name: 'Ayu Light',
+    description: 'Ayu light palette with gentle warm accents.',
+    preview: ['#ff8f40', '#399ee6', '#86b300'],
+    mode: 'light',
+    family: 'ayu'
+  },
+  {
+    id: 'kanagawa-wave',
+    name: 'Kanagawa Wave',
+    description: 'Kanagawa Wave palette with deep ink blues. Dark-only.',
+    preview: ['#7e9cd8', '#98bb6c', '#ffa066'],
+    mode: 'dark',
+    family: 'kanagawa'
+  },
+  {
+    id: 'night-owl',
+    name: 'Night Owl',
+    description: 'Night Owl palette with luminous blues. Dark-only.',
+    preview: ['#82aaff', '#c792ea', '#7fdbca'],
+    mode: 'dark',
+    family: 'night-owl'
+  },
+  {
+    id: 'cobalt2',
+    name: 'Cobalt2',
+    description: 'Cobalt2 deep blues with sunny accents. Dark-only.',
+    preview: ['#ffc600', '#ff9d00', '#9dd6ff'],
+    mode: 'dark',
+    family: 'cobalt2'
+  },
+  {
+    id: 'vscode-dark-plus',
+    name: 'VSCode Dark+',
+    description: 'VS Code Dark+ palette with balanced contrast. Dark-only.',
+    preview: ['#569cd6', '#c586c0', '#4ec9b0'],
+    mode: 'dark',
+    family: 'vscode'
+  },
+  {
+    id: 'arc-dark',
+    name: 'Arc Dark',
+    description: 'Arc-inspired dark palette with cool neon accents. Dark-only.',
+    preview: ['#5cc8ff', '#8b7bff', '#36d399'],
+    mode: 'dark',
+    family: 'arc'
+  },
+  {
+    id: 'zenburn',
+    name: 'Zenburn',
+    description: 'Zenburn earth tones with muted contrast. Dark-only.',
+    preview: ['#7f9f7f', '#f0dfaf', '#cc9393'],
+    mode: 'dark',
+    family: 'zenburn'
   }
 ];
 
