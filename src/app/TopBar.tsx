@@ -349,14 +349,15 @@ const TopBar = ({
 // Declare the state or prop for showSearchInput properly before using it
   const [showSearchInput, setShowSearchInput] = useState(false); // Example state if needed
 
-  const focusInput = useCallback(() => {
-    if (!showSearchInput) {
-      return;
-    }
-    const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
-    const input = isDesktop ? desktopSearchInputRef.current : mobileSearchInputRef.current;
-    input?.focus();
-  }, [showSearchInput]);
+const focusInput = useCallback(() => {
+  if (!(showSearch && Boolean(onSearchChange))) {
+    return;
+  }
+  const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+  const input = isDesktop ? desktopSearchInputRef.current : mobileSearchInputRef.current;
+  input?.focus();
+}, [showSearch, onSearchChange]);
+
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -439,7 +440,7 @@ const TopBar = ({
 
   const allowProfileSwitch = profileSwitchAllowed && profiles.length > 0;
   const allowCreateProfile = showCreateProfile && allowProfileSwitch;
-  const showSearchInput = showSearch && Boolean(onSearchChange);
+  //const showSearchInput = showSearch && Boolean(onSearchChange);
   const showSearchPill = showSearch && (showSearchInput || Boolean(search));
   const showViewControls = Boolean(view && onViewChange);
   const showNavControls = Boolean(onPrev && onNext);
