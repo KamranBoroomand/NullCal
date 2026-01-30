@@ -544,53 +544,51 @@ const SafetyCenter = () => {
                 <p className="text-2xl font-semibold text-accent">{score}/5</p>
               </div>
             </div>
-            <div className="mt-4 grid gap-3 text-sm text-muted lg:grid-cols-2">
-              <div className="rounded-2xl border border-grid bg-panel2 p-4">
-                <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy Status</p>
-                <ul className="mt-3 space-y-2">
-                  <li className="flex items-center justify-between">
-                    <span>Storage</span>
-                    <span className="text-text">Local-only</span>
+          </motion.section>
+
+          <motion.section {...panelMotion} className="grid gap-3 text-sm text-muted md:grid-cols-2">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy Status</p>
+              <ul className="mt-3 space-y-2">
+                <li className="flex min-w-0 items-center justify-between gap-3">
+                  <span>Storage</span>
+                  <span className="text-text">Local-only</span>
+                </li>
+                <li className="flex min-w-0 items-center justify-between gap-3">
+                  <span>Network access</span>
+                  <span className="text-text">Blocked (offline-only)</span>
+                </li>
+                <li className="flex min-w-0 items-center justify-between gap-3">
+                  <span>Sync</span>
+                  <span className="text-text">Off</span>
+                </li>
+                <li className="flex min-w-0 items-center justify-between gap-3">
+                  <span>Last export</span>
+                  <span className="text-text">{formatDate(state.settings.lastExportAt)}</span>
+                </li>
+              </ul>
+            </div>
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Checklist</p>
+              <ul className="mt-3 space-y-2">
+                {securityScoreChecklist.map((item) => (
+                  <li key={item.label} className="flex min-w-0 items-center justify-between gap-3">
+                    <span>{item.label}</span>
+                    <span className={item.value ? 'text-accent' : 'text-muted'}>
+                      {item.value ? 'Enabled' : 'Off'}
+                    </span>
                   </li>
-                  <li className="flex items-center justify-between">
-                    <span>Network access</span>
-                    <span className="text-text">Blocked (offline-only)</span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span>Sync</span>
-                    <span className="text-text">Off</span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span>Last export</span>
-                    <span className="text-text">{formatDate(state.settings.lastExportAt)}</span>
-                  </li>
-                </ul>
-              </div>
-              <div className="rounded-2xl border border-grid bg-panel2 p-4">
-                <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Checklist</p>
-                <ul className="mt-3 space-y-2">
-                  {securityScoreChecklist.map((item) => (
-                    <li key={item.label} className="flex items-center justify-between">
-                      <span>{item.label}</span>
-                      <span className={item.value ? 'text-accent' : 'text-muted'}>
-                        {item.value ? 'Enabled' : 'Off'}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                ))}
+              </ul>
             </div>
           </motion.section>
 
-          <motion.section
-            {...panelMotion}
-            className="safety-grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-12"
-          >
-            <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-4">
+          <motion.section {...panelMotion} className="grid gap-3 md:grid-cols-2">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
-                <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <div>
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Secure mode</p>
                     <p className="mt-1 text-xs text-muted">
                       Hides event titles until hover or focus to deter shoulder-surfing. Not encryption.
@@ -603,8 +601,8 @@ const SafetyCenter = () => {
                     className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
                   />
                 </label>
-                <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <div>
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Blur sensitive</p>
                     <p className="mt-1 text-xs text-muted">Blurs titles until hover.</p>
                   </div>
@@ -615,8 +613,8 @@ const SafetyCenter = () => {
                     className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
                   />
                 </label>
-                <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <div>
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy screen hotkey</p>
                     <p className="mt-1 text-xs text-muted">Cmd/Ctrl+Shift+P toggles a decoy overlay.</p>
                   </div>
@@ -639,7 +637,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-4">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Locking</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -653,7 +651,7 @@ const SafetyCenter = () => {
                     Lock now
                   </button>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className="text-xs uppercase tracking-[0.3em] text-muted">Set PIN</label>
                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
                     <input
@@ -690,7 +688,7 @@ const SafetyCenter = () => {
                     </button>
                   </div>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className="text-xs uppercase tracking-[0.3em] text-muted">Auto-lock (minutes)</label>
                   <input
                     type="number"
@@ -705,7 +703,7 @@ const SafetyCenter = () => {
                   <p className="mt-2 text-xs text-muted">Set to 0 to disable inactivity lock.</p>
                 </div>
                 <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <label className="flex items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
+                  <label className="flex min-w-0 items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
                     <span>Auto-lock on tab blur</span>
                     <input
                       type="checkbox"
@@ -714,7 +712,7 @@ const SafetyCenter = () => {
                       className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
                     />
                   </label>
-                  <div className="mt-3 flex items-center gap-3 text-xs text-muted">
+                  <div className="mt-3 flex min-w-0 items-center gap-3 text-xs text-muted">
                     <span>Grace period</span>
                     <select
                       value={state.settings.autoLockGraceSeconds}
@@ -734,7 +732,7 @@ const SafetyCenter = () => {
                       </option>
                     </select>
                   </div>
-                  <label className="mt-3 flex items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
+                  <label className="mt-3 flex min-w-0 items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
                     <span>Switch to decoy on blur</span>
                     <input
                       type="checkbox"
@@ -750,8 +748,9 @@ const SafetyCenter = () => {
                 </div>
               </div>
             </div>
+          </motion.section>
 
-          <div className="photon-panel rounded-3xl p-4 sm:p-5 lg:col-span-4">
+          <motion.section {...panelMotion} className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Appearance</p>
             <div className="mt-3 space-y-3 text-sm text-muted">
               <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -762,7 +761,7 @@ const SafetyCenter = () => {
                 <p className="mt-2 text-xs text-muted">
                   Pick a theme to restyle the entire interface. Saved locally on this device.
                 </p>
-                <div className="mt-3 overflow-hidden">
+                <div className="mt-3 min-w-0">
                   <ThemePicker
                     themes={themeOptions}
                     activeId={state.settings.palette}
@@ -775,216 +774,220 @@ const SafetyCenter = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.section>
 
-          <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-7">
-            <p className="text-xs uppercase tracking-[0.3em] text-muted">Export Hygiene</p>
-            <div className="mt-3 space-y-3 text-sm text-muted">
-              <div className="space-y-3">
-                {(['full', 'clean', 'minimal'] as ExportMode[]).map((mode) => (
-                  <label
-                    key={mode}
-                    className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3"
-                  >
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.3em] text-muted">
-                        {mode === 'full' && 'Full export'}
-                        {mode === 'clean' && 'Clean export'}
-                        {mode === 'minimal' && 'Minimal export'}
-                      </p>
-                      <p className="mt-1 text-xs text-muted">
-                        {mode === 'full' && 'Complete profile export (calendars, events, preferences).'}
-                        {mode === 'clean' &&
-                          'Removes notes, locations, attendees; titles become “Busy” unless kept.'}
-                        {mode === 'minimal' && 'Only time blocks and category labels (no notes/locations).'}
-                      </p>
-                    </div>
-                    <input
-                      type="radio"
-                      name="export-mode"
-                      value={mode}
-                      checked={exportMode === mode}
-                      onChange={() => setExportMode(mode)}
-                      className="mt-1 h-4 w-4 rounded-full border border-grid bg-panel2"
-                    />
-                  </label>
-                ))}
-                {exportMode === 'clean' && (
-                  <label className="flex items-center gap-2 text-xs text-muted">
-                    <input
-                      type="checkbox"
-                      checked={keepTitles}
-                      onChange={(event) => setKeepTitles(event.target.checked)}
-                      className="h-4 w-4 rounded border border-grid bg-panel2"
-                    />
-                    Keep titles (still removes notes/location/attendees)
-                  </label>
-                )}
-                <p className="text-xs text-muted">Exports are files; handle them like secrets.</p>
-              </div>
-              <div className="grid gap-3 text-sm text-muted">
-                <input
-                  type="password"
-                  placeholder="Passphrase"
-                  value={exportPassphrase}
-                  onChange={(event) => setExportPassphrase(event.target.value)}
-                  className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                />
-                <input
-                  type="password"
-                  placeholder="Confirm passphrase"
-                  value={exportConfirm}
-                  onChange={(event) => setExportConfirm(event.target.value)}
-                  className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                />
-                <button
-                  type="button"
-                  onClick={handleExport}
-                  className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
-                >
-                  Export encrypted
-                </button>
-              </div>
-              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.3em] text-muted">Quick export</p>
-                <p className="mt-1 text-xs text-muted">Prompt for a passphrase and export immediately.</p>
-                <button
-                  type="button"
-                  onClick={handleQuickExport}
-                  className="mt-3 rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                >
-                  Quick export
-                </button>
-              </div>
-              <div className="border-t border-grid pt-4">
-                <p className="text-xs uppercase tracking-[0.3em] text-muted">Import Backup</p>
-                <div className="mt-3 grid gap-3 text-sm text-muted">
-                  <input
-                    type="file"
-                    accept="application/json"
-                    onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
-                    className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                  />
+          <motion.section {...panelMotion} className="grid gap-3 md:grid-cols-2">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Export Hygiene</p>
+              <div className="mt-3 space-y-3 text-sm text-muted">
+                <div className="space-y-3">
+                  {(['full', 'clean', 'minimal'] as ExportMode[]).map((mode) => (
+                    <label
+                      key={mode}
+                      className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs uppercase tracking-[0.3em] text-muted">
+                          {mode === 'full' && 'Full export'}
+                          {mode === 'clean' && 'Clean export'}
+                          {mode === 'minimal' && 'Minimal export'}
+                        </p>
+                        <p className="mt-1 text-xs text-muted">
+                          {mode === 'full' && 'Complete profile export (calendars, events, preferences).'}
+                          {mode === 'clean' &&
+                            'Removes notes, locations, attendees; titles become “Busy” unless kept.'}
+                          {mode === 'minimal' && 'Only time blocks and category labels (no notes/locations).'}
+                        </p>
+                      </div>
+                      <input
+                        type="radio"
+                        name="export-mode"
+                        value={mode}
+                        checked={exportMode === mode}
+                        onChange={() => setExportMode(mode)}
+                        className="mt-1 h-4 w-4 rounded-full border border-grid bg-panel2"
+                      />
+                    </label>
+                  ))}
+                  {exportMode === 'clean' && (
+                    <label className="flex min-w-0 items-center gap-2 text-xs text-muted">
+                      <input
+                        type="checkbox"
+                        checked={keepTitles}
+                        onChange={(event) => setKeepTitles(event.target.checked)}
+                        className="h-4 w-4 rounded border border-grid bg-panel2"
+                      />
+                      Keep titles (still removes notes/location/attendees)
+                    </label>
+                  )}
+                  <p className="text-xs text-muted">Exports are files; handle them like secrets.</p>
+                </div>
+                <div className="grid gap-3 text-sm text-muted">
                   <input
                     type="password"
                     placeholder="Passphrase"
-                    value={importPassphrase}
-                    onChange={(event) => setImportPassphrase(event.target.value)}
-                    className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleImport()}
-                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                  >
-                    Import
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="photon-panel rounded-3xl p-5 sm:p-6 lg:col-span-5">
-            <p className="text-xs uppercase tracking-[0.3em] text-muted">Decoy Profile</p>
-            <div className="mt-4 space-y-4 text-sm text-muted">
-              <p className="text-xs text-muted">
-                Decoy profile is a separate local workspace. Use a decoy PIN to open it under pressure.
-              </p>
-              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
-                <p>
-                  Active profile:{' '}
-                  <span className="text-text">{activeProfile?.name ?? 'Unknown'}</span>
-                </p>
-                <p className="mt-1">
-                  Decoy profile:{' '}
-                  <span className="text-text">
-                    {state.settings.decoyProfileId ? 'Configured' : 'Not created'}
-                  </span>
-                </p>
-              </div>
-              <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                <label className="text-xs uppercase tracking-[0.3em] text-muted">Choose decoy profile</label>
-                <select
-                  value={state.settings.decoyProfileId ?? ''}
-                  onChange={(event) => handleDecoyProfileChange(event.target.value)}
-                  className="mt-2 w-full min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
-                >
-                  <option value="">No decoy profile</option>
-                  {state.profiles.map((profile) => (
-                    <option key={profile.id} value={profile.id} className="bg-panel2">
-                      {profile.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-2 text-xs text-muted">
-                  Use a profile with minimal data for safe handoff.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleCreateDecoyProfile}
-                  className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                >
-                  Create decoy shell
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSwitchToDecoy}
-                  className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                >
-                  Switch to decoy
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleManualProfileSwitch(state.settings.primaryProfileId)}
-                  className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                >
-                  Switch to primary
-                </button>
-              </div>
-              <div>
-                <label className="text-xs uppercase tracking-[0.3em] text-muted">Set decoy PIN</label>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    placeholder="Decoy PIN"
-                    value={decoyPinDraft}
-                    onChange={(event) => setDecoyPinDraft(event.target.value)}
+                    value={exportPassphrase}
+                    onChange={(event) => setExportPassphrase(event.target.value)}
                     className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                   />
                   <input
                     type="password"
-                    inputMode="numeric"
-                    placeholder="Confirm decoy PIN"
-                    value={decoyPinConfirm}
-                    onChange={(event) => setDecoyPinConfirm(event.target.value)}
+                    placeholder="Confirm passphrase"
+                    value={exportConfirm}
+                    onChange={(event) => setExportConfirm(event.target.value)}
                     className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                   />
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={handleSetDecoyPin}
+                    onClick={handleExport}
                     className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
                   >
-                    Save decoy PIN
+                    Export encrypted
                   </button>
+                </div>
+                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Quick export</p>
+                  <p className="mt-1 text-xs text-muted">Prompt for a passphrase and export immediately.</p>
                   <button
                     type="button"
-                    onClick={clearDecoyPin}
-                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                    onClick={handleQuickExport}
+                    className="mt-3 rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
                   >
-                    Clear decoy PIN
+                    Quick export
                   </button>
+                </div>
+                <div className="border-t border-grid pt-4">
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Import Backup</p>
+                  <div className="mt-3 grid gap-3 text-sm text-muted">
+                    <input
+                      type="file"
+                      accept="application/json"
+                      onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Passphrase"
+                      value={importPassphrase}
+                      onChange={(event) => setImportPassphrase(event.target.value)}
+                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleImport()}
+                      className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                    >
+                      Import
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </motion.section>
 
-        <motion.section {...panelMotion} className="photon-panel rounded-3xl border border-danger p-5 sm:p-6">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Decoy Profile</p>
+              <div className="mt-4 space-y-4 text-sm text-muted">
+                <p className="text-xs text-muted">
+                  Decoy profile is a separate local workspace. Use a decoy PIN to open it under pressure.
+                </p>
+                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
+                  <p>
+                    Active profile:{' '}
+                    <span className="text-text">{activeProfile?.name ?? 'Unknown'}</span>
+                  </p>
+                  <p className="mt-1">
+                    Decoy profile:{' '}
+                    <span className="text-text">
+                      {state.settings.decoyProfileId ? 'Configured' : 'Not created'}
+                    </span>
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <label className="text-xs uppercase tracking-[0.3em] text-muted">Choose decoy profile</label>
+                  <select
+                    value={state.settings.decoyProfileId ?? ''}
+                    onChange={(event) => handleDecoyProfileChange(event.target.value)}
+                    className="mt-2 w-full min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                  >
+                    <option value="">No decoy profile</option>
+                    {state.profiles.map((profile) => (
+                      <option key={profile.id} value={profile.id} className="bg-panel2">
+                        {profile.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-xs text-muted">
+                    Use a profile with minimal data for safe handoff.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCreateDecoyProfile}
+                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                  >
+                    Create decoy shell
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSwitchToDecoy}
+                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                  >
+                    Switch to decoy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleManualProfileSwitch(state.settings.primaryProfileId)}
+                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                  >
+                    Switch to primary
+                  </button>
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.3em] text-muted">Set decoy PIN</label>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      placeholder="Decoy PIN"
+                      value={decoyPinDraft}
+                      onChange={(event) => setDecoyPinDraft(event.target.value)}
+                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    />
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      placeholder="Confirm decoy PIN"
+                      value={decoyPinConfirm}
+                      onChange={(event) => setDecoyPinConfirm(event.target.value)}
+                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    />
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSetDecoyPin}
+                      className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                    >
+                      Save decoy PIN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearDecoyPin}
+                      className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                    >
+                      Clear decoy PIN
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.section>
+
+        <motion.section
+          {...panelMotion}
+          className="photon-panel min-w-0 rounded-3xl border border-danger p-5 sm:p-6"
+        >
           <p className="text-xs uppercase tracking-[0.3em] text-danger">Panic Wipe</p>
           <p className="mt-2 text-sm text-muted">
             Wipes IndexedDB, localStorage, and cache data on this device. This action is irreversible.
