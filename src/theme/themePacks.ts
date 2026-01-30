@@ -259,6 +259,86 @@ export const THEME_PACKS: ThemePack[] = [
     family: 'horizon'
   },
   {
+    id: 'tokyo-night-storm',
+    name: 'Tokyo Night Storm',
+    description: 'Tokyo Night Storm palette with deep indigos and electric accents.',
+    preview: ['#7aa2f7', '#bb9af7', '#9ece6a'],
+    mode: 'dark',
+    family: 'tokyo-night'
+  },
+  {
+    id: 'tokyo-night-day',
+    name: 'Tokyo Night Day',
+    description: 'Tokyo Night Day palette with crisp light neutrals and cool accents.',
+    preview: ['#3760bf', '#9854f1', '#587539'],
+    mode: 'light',
+    family: 'tokyo-night'
+  },
+  {
+    id: 'rose-pine-moon',
+    name: 'Rose Pine Moon',
+    description: 'Rose Pine Moon palette with lavender glow and soft contrast.',
+    preview: ['#c4a7e7', '#ea9a97', '#9ccfd8'],
+    mode: 'dark',
+    family: 'rose-pine'
+  },
+  {
+    id: 'rose-pine-dawn',
+    name: 'Rose Pine Dawn',
+    description: 'Rose Pine Dawn palette with warm dawn neutrals and dusty accents.',
+    preview: ['#907aa9', '#d7827e', '#56949f'],
+    mode: 'light',
+    family: 'rose-pine'
+  },
+  {
+    id: 'gruvbox-material',
+    name: 'Gruvbox Material',
+    description: 'Gruvbox Material palette with textured warmth and balanced contrast.',
+    preview: ['#a9b665', '#d3869b', '#e78a4e'],
+    mode: 'dark',
+    family: 'gruvbox-material'
+  },
+  {
+    id: 'one-light',
+    name: 'One Light',
+    description: 'One Light palette with crisp neutrals and bright accents.',
+    preview: ['#4078f2', '#a626a4', '#50a14f'],
+    mode: 'light',
+    family: 'one-dark'
+  },
+  {
+    id: 'material-ocean',
+    name: 'Material Ocean',
+    description: 'Material Ocean palette with deep blues and vivid aqua highlights.',
+    preview: ['#84ffff', '#82aaff', '#c3e88d'],
+    mode: 'dark',
+    family: 'material'
+  },
+  {
+    id: 'github-dark-dimmed',
+    name: 'GitHub Dark Dimmed',
+    description: 'GitHub Dark Dimmed palette with softer contrast and clean blues.',
+    preview: ['#539bf5', '#57ab5a', '#8b949e'],
+    mode: 'dark',
+    family: 'github'
+  },
+  {
+    id: 'nord-light',
+    name: 'Nord Light',
+    description: 'Nord Light palette with icy pastels and cool neutral contrast.',
+    preview: ['#5e81ac', '#88c0d0', '#a3be8c'],
+    mode: 'light',
+    family: 'nord'
+  },
+  {
+    id: 'night-owl-light',
+    name: 'Night Owl Light',
+    description: 'Night Owl Light palette with bright whites and bold accents.',
+    preview: ['#4876d6', '#e85d7a', '#2aa298'],
+    mode: 'light',
+    family: 'night-owl'
+  },
+  {
     id: 'nightfox',
     name: 'Nightfox',
     description: 'Moody midnight palette with bright cyan and lime highlights.',

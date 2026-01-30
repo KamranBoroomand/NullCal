@@ -83,7 +83,7 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
   if (disabled) {
     return (
       <div className={`${pillBase} min-w-0 px-3 text-muted`}>
-        <span className="truncate">Profile: {activeLabel}</span>
+        <span className="truncate">Agent: {activeLabel}</span>
       </div>
     );
   }
@@ -99,7 +99,7 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        Profile
+        Agent
         <span className="text-[10px]">▾</span>
       </motion.button>
       <AnimatePresence>
@@ -113,7 +113,7 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
             className="absolute right-0 z-40 mt-2 w-56 rounded-2xl border border-grid bg-panel p-2 shadow-2xl"
           >
             <div className="px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-muted">
-              Active: <span className="text-text">{activeLabel}</span>
+              Active agent: <span className="text-text">{activeLabel}</span>
             </div>
             {options.map((option) => (
               <button
@@ -291,6 +291,7 @@ type TopBarProps = {
   onNext?: () => void;
   search?: string;
   onSearchChange?: (value: string) => void;
+  showSearch?: boolean;
   profiles: ProfileOption[];
   activeProfileId: string;
   onProfileChange: (id: string) => void;
@@ -316,6 +317,7 @@ const TopBar = ({
   onNext,
   search,
   onSearchChange,
+  showSearch = true,
   profiles,
   activeProfileId,
   onProfileChange,
@@ -345,10 +347,13 @@ const TopBar = ({
       };
 
   const focusInput = useCallback(() => {
+    if (!showSearchInput) {
+      return;
+    }
     const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
     const input = isDesktop ? desktopSearchInputRef.current : mobileSearchInputRef.current;
     input?.focus();
-  }, []);
+  }, [showSearchInput]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -431,6 +436,13 @@ const TopBar = ({
 
   const allowProfileSwitch = profileSwitchAllowed && profiles.length > 0;
   const allowCreateProfile = showCreateProfile && allowProfileSwitch;
+  const showSearchInput = showSearch && Boolean(onSearchChange);
+  const showSearchPill = showSearch && (showSearchInput || Boolean(search));
+  const showViewControls = Boolean(view && onViewChange);
+  const showNavControls = Boolean(onPrev && onNext);
+  const topbarColumns = showSearchPill
+    ? 'grid-cols-[auto_auto_auto_auto_auto_minmax(0,1fr)_auto]'
+    : 'grid-cols-[auto_auto_auto_auto_auto_auto]';
   const themeOptions = THEME_PACKS;
   const activeTheme = useMemo(
     () => themeOptions.find((pack) => pack.id === palette) ?? themeOptions[0],
@@ -441,37 +453,43 @@ const TopBar = ({
     if (allowCreateProfile) {
       actions.push({ key: 'profile', label: '+ Profile', onClick: onCreateProfile });
     }
-    actions.push({ key: 'lock', label: 'Lock now', onClick: onLockNow, tone: 'accent' });
     actions.push({ key: 'settings', label: 'Settings', onClick: onOpenSettings });
-    actions.push({ key: 'theme', label: 'Theme', onClick: () => setThemeOpen(true) });
-    actions.push({ key: 'hotkeys', label: 'Hotkeys', onClick: () => setHotkeysOpen(true) });
+    actions.push({ key: 'theme', label: 'Theme toggle', onClick: () => setThemeOpen(true) });
+    actions.push({ key: 'hotkeys', label: 'Hotkey', onClick: () => setHotkeysOpen(true) });
     return actions;
-  }, [allowCreateProfile, onCreateProfile, onLockNow, onOpenSettings]);
+  }, [allowCreateProfile, onCreateProfile, onOpenSettings]);
   const mobileOverflowActions = useMemo<OverflowAction[]>(() => {
     const actions: OverflowAction[] = [];
     if (allowCreateProfile) {
       actions.push({ key: 'profile', label: '+ Profile', onClick: onCreateProfile });
     }
-    actions.push({ key: 'lock', label: 'Lock now', onClick: onLockNow, tone: 'accent' });
     actions.push({ key: 'settings', label: 'Settings', onClick: onOpenSettings });
-    actions.push({ key: 'theme', label: 'Theme', onClick: () => setThemeOpen(true) });
-    actions.push({ key: 'hotkeys', label: 'Hotkeys', onClick: () => setHotkeysOpen(true) });
+    actions.push({ key: 'theme', label: 'Theme toggle', onClick: () => setThemeOpen(true) });
+    actions.push({ key: 'hotkeys', label: 'Hotkey', onClick: () => setHotkeysOpen(true) });
     return actions;
-  }, [allowCreateProfile, onCreateProfile, onLockNow, onOpenSettings]);
+  }, [allowCreateProfile, onCreateProfile, onOpenSettings]);
   const showDesktopOverflow = allowProfileSwitch || desktopOverflowActions.length > 0;
 
   const renderSearchInput = (inputRef: React.RefObject<HTMLInputElement>) => (
-    <motion.div className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`} {...pillMotion}>
+    <motion.div
+      className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`}
+      {...pillMotion}
+    >
       <span className="flex-none text-muted">
         <SearchIcon />
       </span>
       <input
         ref={inputRef}
         value={search ?? ''}
-        onChange={(event) => onSearchChange?.(event.target.value)}
+        onChange={(event) => {
+          if (!showSearchInput) {
+            return;
+          }
+          onSearchChange?.(event.target.value);
+        }}
         placeholder="Search events"
-        readOnly={!onSearchChange}
-        aria-disabled={!onSearchChange}
+        readOnly={!showSearchInput}
+        aria-disabled={!showSearchInput}
         className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
       />
     </motion.div>
@@ -482,7 +500,7 @@ const TopBar = ({
       <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6">
           <div className="py-2">
             <div className="hidden min-w-0 flex-col gap-2 lg:flex">
-              <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <div className={`grid min-w-0 items-center gap-3 ${topbarColumns}`}>
                 <motion.button
                   type="button"
                   onClick={onHome}
@@ -502,7 +520,7 @@ const TopBar = ({
                   </span>
                   <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
                 </motion.button>
-                {onToday && (
+                {onToday ? (
                   <motion.button
                     onClick={onToday}
                     className={`${pillBase} px-3 text-muted hover:text-text`}
@@ -510,8 +528,10 @@ const TopBar = ({
                   >
                     Today
                   </motion.button>
+                ) : (
+                  <div />
                 )}
-                {view && onViewChange && (
+                {showViewControls ? (
                   <Segmented
                     ariaLabel="Calendar view"
                     items={[
@@ -539,6 +559,8 @@ const TopBar = ({
                       }
                     ]}
                   />
+                ) : (
+                  <div />
                 )}
                 <ProfileMenu
                   options={profiles}
@@ -553,14 +575,16 @@ const TopBar = ({
                 >
                   Lock now
                 </motion.button>
-                <div className="min-w-[220px] flex-1 max-w-[520px]">
-                  {renderSearchInput(desktopSearchInputRef)}
-                </div>
+                {showSearchPill && (
+                  <div className="min-w-[220px] flex-1 max-w-[520px]">
+                    {renderSearchInput(desktopSearchInputRef)}
+                  </div>
+                )}
                 {showDesktopOverflow && (
                   <OverflowMenu
                     actions={desktopOverflowActions}
-                    showProfileList={allowProfileSwitch}
-                    showCreateProfileItem={allowCreateProfile}
+                    showProfileList={false}
+                    showCreateProfileItem={false}
                     profiles={profiles}
                     activeProfileId={activeProfileId}
                     onProfileChange={onProfileChange}
@@ -569,10 +593,11 @@ const TopBar = ({
                 )}
               </div>
 
-              <div className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-3">
+              <div className={`grid min-w-0 items-center gap-3 ${topbarColumns}`}>
+                <div />
                 <div />
                 <div className="flex min-w-0 items-center justify-center">
-                  {onPrev && onNext && (
+                  {showNavControls && (
                     <Segmented
                       ariaLabel="Navigate calendar"
                       items={[
@@ -592,6 +617,9 @@ const TopBar = ({
                     />
                   )}
                 </div>
+                <div />
+                <div />
+                {showSearchPill && <div />}
                 <div className="flex min-w-0 items-center justify-end text-xs">
                   <Clock />
                 </div>
@@ -661,7 +689,7 @@ const TopBar = ({
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-3 lg:hidden">
-            {view && onViewChange && (
+            {showViewControls && (
               <Segmented
                 ariaLabel="Calendar view"
                 items={[
@@ -680,7 +708,7 @@ const TopBar = ({
                 ]}
               />
             )}
-            {onPrev && onNext && (
+            {showNavControls && (
               <Segmented
                 ariaLabel="Navigate calendar"
                 items={[
@@ -706,9 +734,11 @@ const TopBar = ({
             >
               Lock now
             </motion.button>
-            <div className="w-full min-w-0">
-              {renderSearchInput(mobileSearchInputRef)}
-            </div>
+            {showSearchPill && (
+              <div className="w-full min-w-0">
+                {renderSearchInput(mobileSearchInputRef)}
+              </div>
+            )}
           </div>
         </div>
       </div>

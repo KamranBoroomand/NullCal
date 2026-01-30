@@ -489,6 +489,7 @@ const SafetyCenter = () => {
               theme: resolveThemeModeFromPalette(paletteId, themeMode)
             })
           }
+          showSearch={false}
           onOpenNav={() => setNavOpen(true)}
           onCommandAdd={handleCommandAdd}
           onCommandDecoy={handleSwitchToDecoy}
@@ -534,7 +535,7 @@ const SafetyCenter = () => {
       onNavClose={() => setNavOpen(false)}
     >
       <RouteErrorBoundary>
-        <div className="space-y-4">
+        <div className="space-y-3">
           <motion.section {...panelMotion} className="photon-panel rounded-3xl p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -548,10 +549,10 @@ const SafetyCenter = () => {
             </div>
           </motion.section>
 
-          <motion.section {...panelMotion} className="grid gap-3 text-sm text-muted md:grid-cols-2">
-            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+          <motion.section {...panelMotion} className="grid gap-2 text-sm text-muted md:grid-cols-2">
+            <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy Status</p>
-              <ul className="mt-3 space-y-2">
+              <ul className="mt-2 space-y-1.5">
                 <li className="flex min-w-0 items-center justify-between gap-3">
                   <span>Storage</span>
                   <span className="text-text">Local-only</span>
@@ -571,9 +572,9 @@ const SafetyCenter = () => {
               </ul>
             </div>
             <div className="grid gap-3">
-              <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
                 <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Checklist</p>
-                <ul className="mt-3 space-y-2">
+                <ul className="mt-2 space-y-1.5">
                   {securityScoreChecklist.map((item) => (
                     <li key={item.label} className="flex min-w-0 items-center justify-between gap-3">
                       <span>{item.label}</span>
@@ -584,10 +585,10 @@ const SafetyCenter = () => {
                   ))}
                 </ul>
               </div>
-              <div className="photon-panel min-w-0 rounded-3xl border-amber-400/40 bg-amber-500/10 p-5 sm:p-6">
-                <p className="text-xs uppercase tracking-[0.3em] text-amber-200">Locking</p>
-                <div className="mt-3 space-y-3 text-sm text-muted">
-                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+              <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Locking</p>
+                <div className="mt-2 space-y-3 text-sm text-muted">
+                  <div className="rounded-2xl border border-grid bg-panel2 px-3 py-2">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Lock now</p>
                     <p className="mt-1 text-xs text-muted">Immediately hides the calendar until you unlock.</p>
                     <button
@@ -649,7 +650,7 @@ const SafetyCenter = () => {
                     />
                     <p className="mt-2 text-xs text-muted">Set to 0 to disable inactivity lock.</p>
                   </div>
-                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="rounded-2xl border border-grid bg-panel2 px-3 py-2">
                     <label className="flex min-w-0 items-start justify-between gap-4 text-xs uppercase tracking-[0.3em] text-muted">
                       <span>Auto-lock on tab blur</span>
                       <input
@@ -698,7 +699,7 @@ const SafetyCenter = () => {
             </div>
           </motion.section>
 
-          <motion.section {...panelMotion} className="grid gap-3">
+          <motion.section {...panelMotion} className="grid gap-2">
             <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
@@ -752,9 +753,9 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel min-w-0 rounded-3xl border-yellow-400/40 bg-yellow-400/10 p-4 sm:p-5">
-              <p className="text-xs uppercase tracking-[0.3em] text-yellow-200">Appearance</p>
-              <div className="mt-3 flex flex-col gap-4 text-sm text-muted lg:flex-row lg:items-start lg:justify-between">
+            <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Appearance</p>
+              <div className="mt-2 flex flex-col gap-3 text-sm text-muted lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
                     <span>Theme Packs</span>
@@ -779,7 +780,7 @@ const SafetyCenter = () => {
                   <button
                     type="button"
                     onClick={() => setThemeBrowserOpen(true)}
-                    className="rounded-full border border-yellow-300/60 px-4 py-2 text-xs uppercase tracking-[0.2em] text-yellow-100"
+                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
                   >
                     Browse all
                   </button>
@@ -788,7 +789,7 @@ const SafetyCenter = () => {
             </div>
           </motion.section>
 
-          <motion.section {...panelMotion} className="grid gap-3 md:grid-cols-2">
+          <motion.section {...panelMotion} className="grid gap-2 md:grid-cols-2">
             <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Export Hygiene</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
@@ -896,14 +897,14 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+            <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Decoy Profile</p>
-              <div className="mt-4 grid gap-4 text-sm text-muted md:grid-cols-2">
-                <div className="space-y-4">
+              <div className="mt-3 grid gap-3 text-sm text-muted md:grid-cols-2">
+                <div className="space-y-3">
                   <p className="text-xs text-muted">
                     Decoy profile is a separate local workspace. Use a decoy PIN to open it under pressure.
                   </p>
-                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
+                  <div className="rounded-2xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted">
                     <p>
                       Active profile:{' '}
                       <span className="text-text">{activeProfile?.name ?? 'Unknown'}</span>
@@ -915,7 +916,7 @@ const SafetyCenter = () => {
                       </span>
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="rounded-2xl border border-grid bg-panel2 px-3 py-2">
                     <label className="text-xs uppercase tracking-[0.3em] text-muted">Choose decoy profile</label>
                     <select
                       value={state.settings.decoyProfileId ?? ''}
@@ -934,8 +935,8 @@ const SafetyCenter = () => {
                     </p>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-grid bg-panel2 px-3 py-2">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Profile actions</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
