@@ -10,8 +10,11 @@ import TopBar from '../app/TopBar';
 import SideBar from '../app/SideBar';
 import ThemePicker from '../components/ThemePicker';
 import { encryptPayload } from '../security/encryption';
+import { hashLocalSecret } from '../security/localAuth';
+import { isWebAuthnSupported, registerPasskey } from '../security/webauthn';
 import { buildExportPayload, type ExportMode, validateExportPayload } from '../security/exportUtils';
 import { usePrivacyScreen } from '../state/privacy';
+import type { AppSettings } from '../storage/types';
 import { DEFAULT_THEME_BY_MODE, THEME_PACKS, resolveThemeModeFromPalette } from '../theme/themePacks';
 
 const formatDate = (value?: string) => {
@@ -56,6 +59,8 @@ const SafetyCenter = () => {
   const [pinConfirm, setPinConfirm] = useState('');
   const [decoyPinDraft, setDecoyPinDraft] = useState('');
   const [decoyPinConfirm, setDecoyPinConfirm] = useState('');
+  const [localAuthDraft, setLocalAuthDraft] = useState('');
+  const [localAuthConfirm, setLocalAuthConfirm] = useState('');
   const [panicOpen, setPanicOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themeBrowserOpen, setThemeBrowserOpen] = useState(false);
@@ -291,6 +296,8 @@ const SafetyCenter = () => {
     { label: 'Auto-lock enabled', value: state.settings.autoLockMinutes > 0 || state.settings.autoLockOnBlur },
     { label: 'Offline mode enforced', value: state.settings.networkLock },
     { label: 'Secure mode enabled', value: state.settings.secureMode },
+    { label: 'Two-factor ready', value: state.settings.twoFactorEnabled },
+    { label: 'Encrypted notes', value: state.settings.encryptedNotes },
     {
       label: 'Recent encrypted backup (14 days)',
       value: state.settings.lastExportAt
@@ -371,6 +378,94 @@ const SafetyCenter = () => {
     setDecoyPinDraft('');
     setDecoyPinConfirm('');
     notify('Decoy PIN set.', 'success');
+  };
+
+  const handleSetLocalAuth = async () => {
+    if (!localAuthDraft || localAuthDraft !== localAuthConfirm) {
+      notify('Passphrases do not match.', 'error');
+      return;
+    }
+    const hashed = await hashLocalSecret(localAuthDraft);
+    updateSecurityPrefs({
+      localAuthEnabled: true,
+      localAuthHash: hashed.hash,
+      localAuthSalt: hashed.salt,
+      localAuthIterations: hashed.iterations
+    });
+    lockNow();
+    setLocalAuthDraft('');
+    setLocalAuthConfirm('');
+    notify('Local passphrase enabled.', 'success');
+  };
+
+  const handleClearLocalAuth = () => {
+    updateSecurityPrefs({
+      localAuthEnabled: false,
+      localAuthHash: undefined,
+      localAuthSalt: undefined,
+      localAuthIterations: undefined
+    });
+    notify('Local passphrase cleared.', 'info');
+  };
+
+  const handleRegisterPasskey = async () => {
+    try {
+      if (!isWebAuthnSupported()) {
+        notify('WebAuthn is not supported on this device.', 'error');
+        return;
+      }
+      const credentialId = await registerPasskey();
+      updateSecurityPrefs({ webAuthnEnabled: true, webAuthnCredentialId: credentialId });
+      lockNow();
+      notify('Passkey registered.', 'success');
+    } catch {
+      notify('Passkey registration failed.', 'error');
+    }
+  };
+
+  const handleClearPasskey = () => {
+    updateSecurityPrefs({ webAuthnEnabled: false, webAuthnCredentialId: undefined });
+    notify('Passkey removed.', 'info');
+  };
+
+  const createShareToken = () =>
+    Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('');
+
+  const handleToggleSyncEnabled = (enabled: boolean) => {
+    updateSettings({ syncStrategy: enabled ? 'p2p' : 'offline' });
+    notify(enabled ? 'Decentralized sync enabled.' : 'Decentralized sync disabled.', 'success');
+  };
+
+  const handleToggleReminders = (enabled: boolean) => {
+    updateSettings({ remindersEnabled: enabled });
+    notify(enabled ? 'Reminders enabled.' : 'Reminders disabled.', 'success');
+  };
+
+  const handleToggleCollaboration = (enabled: boolean) => {
+    updateSettings({ collaborationEnabled: enabled });
+    notify(enabled ? 'Collaboration enabled.' : 'Collaboration disabled.', 'success');
+  };
+
+  const handleToggleSharing = (enabled: boolean) => {
+    updateSettings({
+      encryptedSharingEnabled: enabled,
+      notesShareToken: enabled ? state.settings.notesShareToken ?? createShareToken() : undefined
+    });
+    notify(enabled ? 'Secure sharing enabled.' : 'Secure sharing disabled.', 'success');
+  };
+
+  const handleCopyShareToken = async () => {
+    if (!state.settings.notesShareToken) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(state.settings.notesShareToken);
+      notify('Share token copied.', 'success');
+    } catch {
+      notify('Unable to copy token.', 'error');
+    }
   };
 
   const handleCreateDecoyProfile = () => {
@@ -494,6 +589,13 @@ const SafetyCenter = () => {
           onCommandAdd={handleCommandAdd}
           onCommandDecoy={handleSwitchToDecoy}
           onCommandExport={handleCommandExport}
+          secureMode={state.settings.secureMode}
+          eventObfuscation={state.settings.eventObfuscation}
+          encryptedNotes={state.settings.encryptedNotes}
+          twoFactorEnabled={state.settings.twoFactorEnabled}
+          syncStrategy={state.settings.syncStrategy}
+          syncTrustedDevices={state.settings.syncTrustedDevices}
+          notificationsCount={0}
         />
       }
       sidebar={
@@ -545,6 +647,347 @@ const SafetyCenter = () => {
               <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-center">
                 <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Score</p>
                 <p className="text-2xl font-semibold text-accent">{score}/5</p>
+              </div>
+            </div>
+          </motion.section>
+
+          <motion.section {...panelMotion} className="grid gap-2 lg:grid-cols-2">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Decentralized Sync</p>
+              <div className="mt-3 space-y-3 text-sm text-muted">
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Enable decentralized sync</p>
+                    <p className="mt-1 text-xs text-muted">Uses peer channels to sync profiles across devices.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.syncStrategy !== 'offline'}
+                    onChange={(event) => handleToggleSyncEnabled(event.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                  Sync strategy
+                  <select
+                    value={state.settings.syncStrategy}
+                    onChange={(event) =>
+                      updateSettings({ syncStrategy: event.target.value as AppSettings['syncStrategy'] })
+                    }
+                    className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                    disabled={state.settings.syncStrategy === 'offline'}
+                  >
+                    <option value="offline" className="bg-panel2">
+                      Offline only
+                    </option>
+                    <option value="ipfs" className="bg-panel2">
+                      IPFS secure sync
+                    </option>
+                    <option value="p2p" className="bg-panel2">
+                      Peer-to-peer mesh
+                    </option>
+                  </select>
+                </label>
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Trusted device sharing</p>
+                    <p className="mt-1 text-xs text-muted">
+                      Pair devices with end-to-end keys before sharing calendars.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.syncTrustedDevices}
+                    onChange={(event) => updateSettings({ syncTrustedDevices: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Tamper-proof event log</p>
+                    <p className="mt-1 text-xs text-muted">Anchor event hashes for integrity checks.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.tamperProofLog}
+                    onChange={(event) => updateSettings({ tamperProofLog: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Authentication</p>
+              <div className="mt-3 space-y-3 text-sm text-muted">
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Two-factor authentication</p>
+                    <p className="mt-1 text-xs text-muted">Use an authenticator app or SMS backup.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.twoFactorEnabled}
+                    onChange={(event) => updateSettings({ twoFactorEnabled: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Biometric unlock</p>
+                    <p className="mt-1 text-xs text-muted">Enable fingerprint or Face ID on supported devices.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.biometricEnabled}
+                    onChange={(event) => updateSettings({ biometricEnabled: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <label className="flex min-w-0 items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted">Local passphrase</p>
+                      <p className="mt-1 text-xs text-muted">Protect the app with a local-only passphrase.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={state.securityPrefs.localAuthEnabled}
+                      onChange={(event) => {
+                        if (!event.target.checked) {
+                          handleClearLocalAuth();
+                          return;
+                        }
+                        handleSetLocalAuth();
+                      }}
+                      className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                    />
+                  </label>
+                  {!state.securityPrefs.localAuthEnabled && (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <input
+                        type="password"
+                        placeholder="Passphrase"
+                        value={localAuthDraft}
+                        onChange={(event) => setLocalAuthDraft(event.target.value)}
+                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                      />
+                      <input
+                        type="password"
+                        placeholder="Confirm passphrase"
+                        value={localAuthConfirm}
+                        onChange={(event) => setLocalAuthConfirm(event.target.value)}
+                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                      />
+                    </div>
+                  )}
+                  {state.securityPrefs.localAuthEnabled && (
+                    <button
+                      type="button"
+                      onClick={handleClearLocalAuth}
+                      className="mt-3 rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                    >
+                      Disable passphrase
+                    </button>
+                  )}
+                </div>
+                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <label className="flex min-w-0 items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted">Passkey authentication</p>
+                      <p className="mt-1 text-xs text-muted">Use WebAuthn for device-bound login.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={state.securityPrefs.webAuthnEnabled}
+                      disabled={!isWebAuthnSupported()}
+                      onChange={(event) => {
+                        if (!event.target.checked) {
+                          handleClearPasskey();
+                          return;
+                        }
+                        handleRegisterPasskey();
+                      }}
+                      className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                    />
+                  </label>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
+                    <button
+                      type="button"
+                      onClick={handleRegisterPasskey}
+                      disabled={!isWebAuthnSupported()}
+                      className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                    >
+                      Register passkey
+                    </button>
+                    {state.securityPrefs.webAuthnEnabled && (
+                      <button
+                        type="button"
+                        onClick={handleClearPasskey}
+                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                      >
+                        Remove passkey
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Private Notes & Sharing</p>
+              <div className="mt-3 space-y-3 text-sm text-muted">
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Encrypted notes by default</p>
+                    <p className="mt-1 text-xs text-muted">Encrypt notes locally with AES-GCM.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.encryptedNotes}
+                    onChange={(event) => updateSettings({ encryptedNotes: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Encrypted attachments</p>
+                    <p className="mt-1 text-xs text-muted">Wrap event files with local encryption.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.encryptedAttachments}
+                    onChange={(event) => updateSettings({ encryptedAttachments: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Encrypted event sharing</p>
+                    <p className="mt-1 text-xs text-muted">Share calendars with recipient-only keys.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.encryptedSharingEnabled}
+                    onChange={(event) => handleToggleSharing(event.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                {state.settings.encryptedSharingEnabled && (
+                  <div className="rounded-2xl border border-grid bg-panel px-4 py-3 text-xs text-muted">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Share token</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-grid px-3 py-1 text-[11px] text-text">
+                        {state.settings.notesShareToken}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleCopyShareToken}
+                        className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                      >
+                        Copy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateSettings({ notesShareToken: createShareToken(), encryptedSharingEnabled: true })
+                        }
+                        className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                      >
+                        Regenerate
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Obfuscate event details</p>
+                    <p className="mt-1 text-xs text-muted">Show time blocks instead of titles in the grid.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.eventObfuscation}
+                    onChange={(event) => updateSettings({ eventObfuscation: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Reminders & Collaboration</p>
+              <div className="mt-3 space-y-3 text-sm text-muted">
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Reminders</p>
+                    <p className="mt-1 text-xs text-muted">Trigger notifications on this device.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.remindersEnabled}
+                    onChange={(event) => handleToggleReminders(event.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                  Reminder channel
+                  <select
+                    value={state.settings.reminderChannel}
+                    onChange={(event) =>
+                      updateSettings({ reminderChannel: event.target.value as AppSettings['reminderChannel'] })
+                    }
+                    className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                    disabled={!state.settings.remindersEnabled}
+                  >
+                    <option value="local" className="bg-panel2">
+                      Local notifications
+                    </option>
+                    <option value="signal" className="bg-panel2">
+                      Signal secure ping
+                    </option>
+                    <option value="telegram" className="bg-panel2">
+                      Telegram secure ping
+                    </option>
+                  </select>
+                </label>
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Collaboration</p>
+                    <p className="mt-1 text-xs text-muted">Enable real-time updates via peer channels.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.collaborationEnabled}
+                    onChange={(event) => handleToggleCollaboration(event.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                  Collaboration mode
+                  <select
+                    value={state.settings.collaborationMode}
+                    onChange={(event) =>
+                      updateSettings({
+                        collaborationMode: event.target.value as AppSettings['collaborationMode']
+                      })
+                    }
+                    className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                    disabled={!state.settings.collaborationEnabled}
+                  >
+                    <option value="private" className="bg-panel2">
+                      Private only
+                    </option>
+                    <option value="shared" className="bg-panel2">
+                      Shared with trusted group
+                    </option>
+                    <option value="team" className="bg-panel2">
+                      Collaborative workspace
+                    </option>
+                  </select>
+                </label>
+                <p className="text-xs text-muted">
+                  Shared calendars remain encrypted; only approved collaborators can decrypt events.
+                </p>
               </div>
             </div>
           </motion.section>
