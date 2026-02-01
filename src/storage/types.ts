@@ -22,6 +22,9 @@ export type CalendarEvent = {
   end: string;
   location?: string;
   notes?: string;
+  label?: string;
+  icon?: string;
+  reminderRule?: string;
 };
 
 export type AppSettings = {
@@ -40,6 +43,17 @@ export type AppSettings = {
   autoLockGraceSeconds: number;
   switchToDecoyOnBlur: boolean;
   privacyScreenHotkeyEnabled: boolean;
+  syncStrategy: 'offline' | 'ipfs' | 'p2p';
+  syncTrustedDevices: boolean;
+  tamperProofLog: boolean;
+  twoFactorEnabled: boolean;
+  biometricEnabled: boolean;
+  encryptedNotes: boolean;
+  encryptedAttachments: boolean;
+  encryptedSharingEnabled: boolean;
+  eventObfuscation: boolean;
+  reminderChannel: 'local' | 'signal' | 'telegram';
+  collaborationMode: 'private' | 'shared' | 'team';
   lastExportAt?: string;
 };
 

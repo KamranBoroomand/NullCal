@@ -18,6 +18,7 @@ type CalendarViewProps = {
   date: Date;
   secureMode: boolean;
   blurSensitive: boolean;
+  obfuscateDetails: boolean;
   onDateChange: (date: Date) => void;
   onSelectRange: (start: Date, end: Date, allDay: boolean) => void;
   onDateClick: (date: Date) => void;
@@ -31,6 +32,7 @@ const CalendarView = ({
   date,
   secureMode,
   blurSensitive,
+  obfuscateDetails,
   onDateChange,
   onSelectRange,
   onDateClick,
@@ -97,6 +99,12 @@ const CalendarView = ({
         }}
         eventContent={(arg) => {
           const accentColor = arg.event.extendedProps.accentColor as string | undefined;
+          const label = arg.event.extendedProps.label as string | undefined;
+          const icon = arg.event.extendedProps.icon as string | undefined;
+          const displayTitle = obfuscateDetails
+            ? 'Busy'
+            : `${icon ? `${icon} ` : ''}${arg.event.title}`.trim();
+          const displayTime = obfuscateDetails ? arg.timeText : null;
           return (
             <div
               className="rounded-lg px-2 py-1"
@@ -107,8 +115,18 @@ const CalendarView = ({
                 accentColor
               })}
             >
+              {displayTime && (
+                <div className="text-[10px] uppercase tracking-[0.2em]" style={{ color: arg.event.textColor }}>
+                  {displayTime}
+                </div>
+              )}
+              {!obfuscateDetails && label && (
+                <div className="text-[10px] uppercase tracking-[0.2em]" style={{ color: arg.event.textColor }}>
+                  {label}
+                </div>
+              )}
               <div className="text-[11px] font-semibold leading-snug" style={{ color: arg.event.textColor }}>
-                {arg.event.title}
+                {displayTitle}
               </div>
             </div>
           );
