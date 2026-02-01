@@ -35,7 +35,18 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     autoLockOnBlur: false,
     autoLockGraceSeconds: 0,
     switchToDecoyOnBlur: false,
-    privacyScreenHotkeyEnabled: true
+    privacyScreenHotkeyEnabled: true,
+    syncStrategy: 'offline',
+    syncTrustedDevices: false,
+    tamperProofLog: false,
+    twoFactorEnabled: false,
+    biometricEnabled: false,
+    encryptedNotes: false,
+    encryptedAttachments: false,
+    encryptedSharingEnabled: false,
+    eventObfuscation: false,
+    reminderChannel: 'local',
+    collaborationMode: 'private'
   };
 };
 
@@ -162,7 +173,18 @@ export const loadAppState = async (): Promise<AppState> => {
       autoLockOnBlur: resolvedSettings.autoLockOnBlur ?? false,
       autoLockGraceSeconds: resolvedSettings.autoLockGraceSeconds ?? 0,
       switchToDecoyOnBlur: resolvedSettings.switchToDecoyOnBlur ?? false,
-      privacyScreenHotkeyEnabled: resolvedSettings.privacyScreenHotkeyEnabled ?? true
+      privacyScreenHotkeyEnabled: resolvedSettings.privacyScreenHotkeyEnabled ?? true,
+      syncStrategy: resolvedSettings.syncStrategy ?? 'offline',
+      syncTrustedDevices: resolvedSettings.syncTrustedDevices ?? false,
+      tamperProofLog: resolvedSettings.tamperProofLog ?? false,
+      twoFactorEnabled: resolvedSettings.twoFactorEnabled ?? false,
+      biometricEnabled: resolvedSettings.biometricEnabled ?? false,
+      encryptedNotes: resolvedSettings.encryptedNotes ?? false,
+      encryptedAttachments: resolvedSettings.encryptedAttachments ?? false,
+      encryptedSharingEnabled: resolvedSettings.encryptedSharingEnabled ?? false,
+      eventObfuscation: resolvedSettings.eventObfuscation ?? false,
+      reminderChannel: resolvedSettings.reminderChannel ?? 'local',
+      collaborationMode: resolvedSettings.collaborationMode ?? 'private'
     };
     const activeProfileExists = profiles.some((profile) => profile.id === resolvedSettings.activeProfileId);
     const decoyProfileExists = profiles.some((profile) => profile.id === resolvedSettings.decoyProfileId);

@@ -13,7 +13,7 @@ import type { CalendarEvent } from '../storage/types';
 import { useToast } from '../components/ToastProvider';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import RouteErrorBoundary from '../components/RouteErrorBoundary';
-import { encryptPayload } from '../security/encryption';
+import { decryptNote, encryptNote, encryptPayload, isEncryptedNote } from '../security/encryption';
 import { buildExportPayload, validateExportPayload } from '../security/exportUtils';
 import { resolveThemeModeFromPalette } from '../theme/themePacks';
 
@@ -48,12 +48,34 @@ const AppPage = () => {
   const [draft, setDraft] = useState<EventDraft | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  const [noteEncryptionArmed, setNoteEncryptionArmed] = useState(false);
+  const [notePassphrase, setNotePassphrase] = useState('');
+  const [noteConfirm, setNoteConfirm] = useState('');
+  const [noteDecryptPassphrase, setNoteDecryptPassphrase] = useState('');
+  const [noteError, setNoteError] = useState('');
   const reduceMotion = useReducedMotion();
   const { canInstall, promptInstall } = useInstallPrompt();
+  const noteEncrypted = isEncryptedNote(draft?.notes);
 
   useEffect(() => {
     document.title = 'NullCal — Calendar';
   }, []);
+
+  useEffect(() => {
+    if (!draft) {
+      setNoteEncryptionArmed(false);
+      setNotePassphrase('');
+      setNoteConfirm('');
+      setNoteDecryptPassphrase('');
+      setNoteError('');
+      return;
+    }
+    setNoteEncryptionArmed(noteEncrypted || Boolean(state?.settings.encryptedNotes));
+    setNotePassphrase('');
+    setNoteConfirm('');
+    setNoteDecryptPassphrase('');
+    setNoteError('');
+  }, [draft?.id, noteEncrypted, state?.settings.encryptedNotes]);
 
   const handleCalendarDateChange = (next: Date) => {
     setCurrentDate((prev) => (prev.getTime() === next.getTime() ? prev : next));
@@ -88,18 +110,33 @@ const AppPage = () => {
     toggleCalendarVisibility(id);
   };
 
-  const handleSaveEvent = () => {
+  const handleSaveEvent = async () => {
     if (!draft || !activeProfile) {
       return;
     }
 
     const title = draft.title.trim() || 'Untitled event';
     const eventId = draft.id ?? nanoid();
+    const notesEncrypted = isEncryptedNote(draft.notes);
+    let nextNotes = draft.notes ?? '';
+    if (noteEncryptionArmed && nextNotes && !notesEncrypted) {
+      if (!notePassphrase || notePassphrase !== noteConfirm) {
+        setNoteError('Passphrases do not match.');
+        return;
+      }
+      try {
+        nextNotes = await encryptNote(nextNotes, notePassphrase);
+      } catch {
+        setNoteError('Failed to encrypt note.');
+        return;
+      }
+    }
     const nextEvent: CalendarEvent = {
       ...draft,
       id: eventId,
       profileId: activeProfile.id,
-      title
+      title,
+      notes: nextNotes
     };
 
     upsertEvent(nextEvent);
@@ -132,7 +169,10 @@ const AppPage = () => {
       profileId: activeProfile.id,
       calendarId: calendar,
       location: '',
-      notes: ''
+      notes: '',
+      label: '',
+      icon: '',
+      reminderRule: ''
     });
   };
 
@@ -149,6 +189,20 @@ const AppPage = () => {
     const event = events.find((item) => item.id === id);
     if (event) {
       setDraft({ ...event });
+    }
+  };
+
+  const handleDecryptNote = async () => {
+    if (!draft?.notes || !isEncryptedNote(draft.notes)) {
+      return;
+    }
+    try {
+      const decrypted = await decryptNote(draft.notes, noteDecryptPassphrase);
+      setDraft({ ...draft, notes: decrypted });
+      setNoteDecryptPassphrase('');
+      setNoteError('');
+    } catch {
+      setNoteError('Failed to decrypt note.');
     }
   };
 
@@ -319,7 +373,9 @@ const AppPage = () => {
         borderColor: calendar?.color ?? 'var(--accent)',
         textColor: 'var(--text)',
         extendedProps: {
-          accentColor: calendar?.color ?? 'var(--accent)'
+          accentColor: calendar?.color ?? 'var(--accent)',
+          label: event.label,
+          icon: event.icon
         }
       };
     });
@@ -361,6 +417,13 @@ const AppPage = () => {
             onCommandAdd={handleCommandAdd}
             onCommandDecoy={handleCommandDecoy}
             onCommandExport={handleCommandExport}
+            secureMode={state.settings.secureMode}
+            eventObfuscation={state.settings.eventObfuscation}
+            encryptedNotes={state.settings.encryptedNotes}
+            twoFactorEnabled={state.settings.twoFactorEnabled}
+            syncStrategy={state.settings.syncStrategy}
+            syncTrustedDevices={state.settings.syncTrustedDevices}
+            notificationsCount={0}
           />
         }
         sidebar={
@@ -416,6 +479,7 @@ const AppPage = () => {
                   date={currentDate}
                   secureMode={state.settings.secureMode}
                   blurSensitive={state.settings.blurSensitive}
+                  obfuscateDetails={state.settings.eventObfuscation}
                   onDateChange={handleCalendarDateChange}
                   onSelectRange={handleSelectRange}
                   onDateClick={handleDateClick}
@@ -480,14 +544,108 @@ const AppPage = () => {
                 className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
               />
             </label>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <label className="text-xs text-muted">
+                Label
+                <input
+                  value={draft.label ?? ''}
+                  onChange={(event) => setDraft({ ...draft, label: event.target.value })}
+                  placeholder="Focus, Travel, Deep work"
+                  className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                />
+              </label>
+              <label className="text-xs text-muted">
+                Icon
+                <input
+                  value={draft.icon ?? ''}
+                  onChange={(event) => setDraft({ ...draft, icon: event.target.value })}
+                  placeholder="🗂️"
+                  className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                />
+              </label>
+              <label className="text-xs text-muted">
+                Reminder rule
+                <input
+                  value={draft.reminderRule ?? ''}
+                  onChange={(event) => setDraft({ ...draft, reminderRule: event.target.value })}
+                  placeholder="Every Friday"
+                  className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                />
+              </label>
+            </div>
             <label className="text-xs text-muted">
               Notes
               <textarea
-                value={draft.notes ?? ''}
+                value={noteEncrypted ? '' : draft.notes ?? ''}
                 onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
+                placeholder={noteEncrypted ? 'Encrypted note (unlock to view)' : 'Add notes'}
+                readOnly={noteEncrypted}
                 className="mt-1 min-h-[90px] w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
               />
             </label>
+            <div className="grid gap-3 rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
+              <label className="flex items-center justify-between gap-3">
+                <span className="uppercase tracking-[0.3em]">Encrypt notes</span>
+                <input
+                  type="checkbox"
+                  checked={noteEncryptionArmed}
+                  onChange={(event) => {
+                    setNoteEncryptionArmed(event.target.checked);
+                    setNoteError('');
+                  }}
+                  disabled={noteEncrypted}
+                  className="h-4 w-4 rounded border border-grid bg-panel2"
+                />
+              </label>
+              {noteEncrypted ? (
+                <div className="grid gap-2">
+                  <input
+                    type="password"
+                    placeholder="Passphrase to decrypt"
+                    value={noteDecryptPassphrase}
+                    onChange={(event) => {
+                      setNoteDecryptPassphrase(event.target.value);
+                      setNoteError('');
+                    }}
+                    className="w-full rounded-lg border border-grid bg-panel px-3 py-2 text-sm text-text"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleDecryptNote}
+                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
+                  >
+                    Unlock note
+                  </button>
+                </div>
+              ) : noteEncryptionArmed ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    type="password"
+                    placeholder="Passphrase"
+                    value={notePassphrase}
+                    onChange={(event) => {
+                      setNotePassphrase(event.target.value);
+                      setNoteError('');
+                    }}
+                    className="w-full rounded-lg border border-grid bg-panel px-3 py-2 text-sm text-text"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirm passphrase"
+                    value={noteConfirm}
+                    onChange={(event) => {
+                      setNoteConfirm(event.target.value);
+                      setNoteError('');
+                    }}
+                    className="w-full rounded-lg border border-grid bg-panel px-3 py-2 text-sm text-text"
+                  />
+                </div>
+              ) : null}
+              {noteError && <p className="text-xs text-accent">{noteError}</p>}
+              <p className="text-[11px] text-muted">
+                Notes are encrypted locally with AES-GCM before being stored when this toggle is on.
+              </p>
+            </div>
             <div className="flex items-center justify-between">
               <button
                 onClick={handleDeleteEvent}
