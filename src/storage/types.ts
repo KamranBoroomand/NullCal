@@ -53,7 +53,10 @@ export type AppSettings = {
   encryptedSharingEnabled: boolean;
   eventObfuscation: boolean;
   reminderChannel: 'local' | 'signal' | 'telegram';
+  remindersEnabled: boolean;
   collaborationMode: 'private' | 'shared' | 'team';
+  collaborationEnabled: boolean;
+  notesShareToken?: string;
   lastExportAt?: string;
 };
 
@@ -67,6 +70,12 @@ export type SecurityPrefs = {
   decoyPinHash?: string;
   decoyPinSalt?: string;
   decoyPinIterations?: number;
+  localAuthEnabled: boolean;
+  localAuthHash?: string;
+  localAuthSalt?: string;
+  localAuthIterations?: number;
+  webAuthnEnabled: boolean;
+  webAuthnCredentialId?: string;
 };
 
 export type AppState = {

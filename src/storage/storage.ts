@@ -46,14 +46,19 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     encryptedSharingEnabled: false,
     eventObfuscation: false,
     reminderChannel: 'local',
-    collaborationMode: 'private'
+    remindersEnabled: false,
+    collaborationMode: 'private',
+    collaborationEnabled: false,
+    notesShareToken: undefined
   };
 };
 
 const defaultSecurityPrefs: SecurityPrefs = {
   id: 'security',
   pinEnabled: false,
-  decoyPinEnabled: false
+  decoyPinEnabled: false,
+  localAuthEnabled: false,
+  webAuthnEnabled: false
 };
 
 const normalizeCalendars = (calendars: Calendar[]): Calendar[] =>
@@ -184,7 +189,10 @@ export const loadAppState = async (): Promise<AppState> => {
       encryptedSharingEnabled: resolvedSettings.encryptedSharingEnabled ?? false,
       eventObfuscation: resolvedSettings.eventObfuscation ?? false,
       reminderChannel: resolvedSettings.reminderChannel ?? 'local',
-      collaborationMode: resolvedSettings.collaborationMode ?? 'private'
+      remindersEnabled: resolvedSettings.remindersEnabled ?? false,
+      collaborationMode: resolvedSettings.collaborationMode ?? 'private',
+      collaborationEnabled: resolvedSettings.collaborationEnabled ?? false,
+      notesShareToken: resolvedSettings.notesShareToken ?? undefined
     };
     const activeProfileExists = profiles.some((profile) => profile.id === resolvedSettings.activeProfileId);
     const decoyProfileExists = profiles.some((profile) => profile.id === resolvedSettings.decoyProfileId);
