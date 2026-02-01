@@ -35,14 +35,30 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     autoLockOnBlur: false,
     autoLockGraceSeconds: 0,
     switchToDecoyOnBlur: false,
-    privacyScreenHotkeyEnabled: true
+    privacyScreenHotkeyEnabled: true,
+    syncStrategy: 'offline',
+    syncTrustedDevices: false,
+    tamperProofLog: false,
+    twoFactorEnabled: false,
+    biometricEnabled: false,
+    encryptedNotes: false,
+    encryptedAttachments: false,
+    encryptedSharingEnabled: false,
+    eventObfuscation: false,
+    reminderChannel: 'local',
+    remindersEnabled: false,
+    collaborationMode: 'private',
+    collaborationEnabled: false,
+    notesShareToken: undefined
   };
 };
 
 const defaultSecurityPrefs: SecurityPrefs = {
   id: 'security',
   pinEnabled: false,
-  decoyPinEnabled: false
+  decoyPinEnabled: false,
+  localAuthEnabled: false,
+  webAuthnEnabled: false
 };
 
 const normalizeCalendars = (calendars: Calendar[]): Calendar[] =>
@@ -162,7 +178,21 @@ export const loadAppState = async (): Promise<AppState> => {
       autoLockOnBlur: resolvedSettings.autoLockOnBlur ?? false,
       autoLockGraceSeconds: resolvedSettings.autoLockGraceSeconds ?? 0,
       switchToDecoyOnBlur: resolvedSettings.switchToDecoyOnBlur ?? false,
-      privacyScreenHotkeyEnabled: resolvedSettings.privacyScreenHotkeyEnabled ?? true
+      privacyScreenHotkeyEnabled: resolvedSettings.privacyScreenHotkeyEnabled ?? true,
+      syncStrategy: resolvedSettings.syncStrategy ?? 'offline',
+      syncTrustedDevices: resolvedSettings.syncTrustedDevices ?? false,
+      tamperProofLog: resolvedSettings.tamperProofLog ?? false,
+      twoFactorEnabled: resolvedSettings.twoFactorEnabled ?? false,
+      biometricEnabled: resolvedSettings.biometricEnabled ?? false,
+      encryptedNotes: resolvedSettings.encryptedNotes ?? false,
+      encryptedAttachments: resolvedSettings.encryptedAttachments ?? false,
+      encryptedSharingEnabled: resolvedSettings.encryptedSharingEnabled ?? false,
+      eventObfuscation: resolvedSettings.eventObfuscation ?? false,
+      reminderChannel: resolvedSettings.reminderChannel ?? 'local',
+      remindersEnabled: resolvedSettings.remindersEnabled ?? false,
+      collaborationMode: resolvedSettings.collaborationMode ?? 'private',
+      collaborationEnabled: resolvedSettings.collaborationEnabled ?? false,
+      notesShareToken: resolvedSettings.notesShareToken ?? undefined
     };
     const activeProfileExists = profiles.some((profile) => profile.id === resolvedSettings.activeProfileId);
     const decoyProfileExists = profiles.some((profile) => profile.id === resolvedSettings.decoyProfileId);

@@ -4,10 +4,20 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 type LockScreenProps = {
   open: boolean;
   pinEnabled: boolean;
+  passwordEnabled: boolean;
+  webAuthnEnabled: boolean;
   onUnlock: (pin?: string) => Promise<boolean>;
+  onUnlockWithWebAuthn: () => Promise<boolean>;
 };
 
-const LockScreen = ({ open, pinEnabled, onUnlock }: LockScreenProps) => {
+const LockScreen = ({
+  open,
+  pinEnabled,
+  passwordEnabled,
+  webAuthnEnabled,
+  onUnlock,
+  onUnlockWithWebAuthn
+}: LockScreenProps) => {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const reduceMotion = useReducedMotion();
@@ -15,12 +25,25 @@ const LockScreen = ({ open, pinEnabled, onUnlock }: LockScreenProps) => {
   const handleUnlock = async () => {
     const ok = await onUnlock(pin);
     if (!ok) {
-      setError('Invalid PIN');
+      setError('Invalid credentials');
     } else {
       setError('');
       setPin('');
     }
   };
+
+  const handleWebAuthn = async () => {
+    const ok = await onUnlockWithWebAuthn();
+    if (!ok) {
+      setError('Passkey authentication failed.');
+    } else {
+      setError('');
+      setPin('');
+    }
+  };
+
+  const showSecretInput = pinEnabled || passwordEnabled;
+  const secretLabel = pinEnabled ? 'PIN' : 'Passphrase';
 
   return (
     <AnimatePresence>
@@ -42,16 +65,20 @@ const LockScreen = ({ open, pinEnabled, onUnlock }: LockScreenProps) => {
             <p className="text-xs uppercase tracking-[0.4em] text-muted">Secure Lock</p>
             <h2 className="mt-2 text-lg font-semibold text-text">NullCAL Locked</h2>
             <p className="mt-2 text-sm text-muted">
-              {pinEnabled ? 'Enter your PIN to continue.' : 'Tap unlock to resume.'}
+              {pinEnabled
+                ? 'Enter your PIN to continue.'
+                : passwordEnabled
+                  ? 'Enter your passphrase to continue.'
+                  : 'Tap unlock to resume.'}
             </p>
-            {pinEnabled && (
+            {showSecretInput && (
               <input
                 type="password"
-                inputMode="numeric"
+                inputMode={pinEnabled ? 'numeric' : 'text'}
                 value={pin}
                 onChange={(event) => setPin(event.target.value)}
                 className="mt-4 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                placeholder="PIN"
+                placeholder={secretLabel}
               />
             )}
             {error && <p className="mt-2 text-xs text-danger">{error}</p>}
@@ -62,6 +89,15 @@ const LockScreen = ({ open, pinEnabled, onUnlock }: LockScreenProps) => {
             >
               Unlock
             </button>
+            {webAuthnEnabled && (
+              <button
+                type="button"
+                onClick={handleWebAuthn}
+                className="mt-2 w-full rounded-xl border border-grid px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted"
+              >
+                Use passkey
+              </button>
+            )}
           </motion.div>
         </motion.div>
       )}

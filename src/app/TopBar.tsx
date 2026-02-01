@@ -13,6 +13,8 @@ const mark1x = `${base}mark-128.png?v=3`;
 const mark2x = `${base}mark-256.png?v=3`;
 const pillBase =
   'pill-base h-9 rounded-full border border-grid bg-panel px-4 text-[11px] tracking-[0.18em] uppercase inline-flex items-center justify-center whitespace-nowrap transition hover:bg-panel2';
+const iconButtonBase =
+  'flex h-9 w-9 items-center justify-center rounded-full border border-grid bg-panel text-muted transition hover:border-accent/60 hover:text-text';
 
 const ChevronIcon = ({ direction }: { direction: 'left' | 'right' }) => (
   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -36,6 +38,67 @@ const SearchIcon = () => (
   <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
     <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.6" />
     <path d="m13.5 13.5 3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);
+
+const BellIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path
+      d="M10 3.2c2.2 0 4 1.8 4 4v2.2l1.4 2.6H4.6L6 9.4V7.2c0-2.2 1.8-4 4-4Z"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+    <path d="M8.2 15c.4 1 1.3 1.6 1.8 1.6s1.4-.6 1.8-1.6" stroke="currentColor" strokeWidth="1.4" />
+  </svg>
+);
+
+const InfoIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M10 9v5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    <circle cx="10" cy="6.5" r="1" fill="currentColor" />
+  </svg>
+);
+
+const ShieldIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path
+      d="M10 3.2 15.2 5v4.4c0 3.6-2.4 6.3-5.2 7.4-2.8-1.1-5.2-3.8-5.2-7.4V5L10 3.2Z"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const LockIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <rect x="4.5" y="8" width="11" height="8" rx="2" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M7 8V6.2a3 3 0 0 1 6 0V8" stroke="currentColor" strokeWidth="1.4" />
+  </svg>
+);
+
+const ThemeIcon = ({ mode }: { mode: ThemeMode }) => (
+  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    {mode === 'dark' ? (
+      <path
+        d="M12.8 3.5a6.5 6.5 0 1 0 3.7 8.7A6 6 0 0 1 12.8 3.5Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    ) : (
+      <>
+        <circle cx="10" cy="10" r="3.5" stroke="currentColor" strokeWidth="1.4" />
+        <path
+          d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.4 4.4l1.4 1.4M14.2 14.2l1.4 1.4M4.4 15.6l1.4-1.4M14.2 5.8l1.4-1.4"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+      </>
+    )}
   </svg>
 );
 
@@ -306,6 +369,13 @@ type TopBarProps = {
   onCommandAdd?: () => void;
   onCommandDecoy?: () => void;
   onCommandExport?: (mode: 'clean' | 'full') => void;
+  secureMode: boolean;
+  eventObfuscation: boolean;
+  encryptedNotes: boolean;
+  twoFactorEnabled: boolean;
+  syncStrategy: 'offline' | 'ipfs' | 'p2p';
+  syncTrustedDevices: boolean;
+  notificationsCount?: number;
 };
 
 const TopBar = ({
@@ -331,7 +401,14 @@ const TopBar = ({
   onPaletteChange,
   onCommandAdd,
   onCommandDecoy,
-  onCommandExport
+  onCommandExport,
+  secureMode,
+  eventObfuscation,
+  encryptedNotes,
+  twoFactorEnabled,
+  syncStrategy,
+  syncTrustedDevices,
+  notificationsCount = 0
 }: TopBarProps) => {
   const reduceMotion = useReducedMotion();
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
@@ -345,18 +422,17 @@ const TopBar = ({
         whileTap: { scale: 0.98 },
         transition: { duration: 0.16 }
       };
-  
-// Declare the state or prop for showSearchInput properly before using it
-  const [showSearchInput, setShowSearchInput] = useState(false); // Example state if needed
 
-const focusInput = useCallback(() => {
-  if (!(showSearch && Boolean(onSearchChange))) {
-    return;
-  }
-  const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
-  const input = isDesktop ? desktopSearchInputRef.current : mobileSearchInputRef.current;
-  input?.focus();
-}, [showSearch, onSearchChange]);
+  const [showSearchInput, setShowSearchInput] = useState(false);
+
+  const focusInput = useCallback(() => {
+    if (!(showSearch && Boolean(onSearchChange))) {
+      return;
+    }
+    const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+    const input = isDesktop ? desktopSearchInputRef.current : mobileSearchInputRef.current;
+    input?.focus();
+  }, [showSearch, onSearchChange]);
 
 
   useEffect(() => {
@@ -438,20 +514,42 @@ const focusInput = useCallback(() => {
     return () => window.removeEventListener('keydown', handleKey);
   }, [focusInput, onCommandAdd, onCommandDecoy, onCommandExport, onLockNow, onPrev, onNext]);
 
+  useEffect(() => {
+    if (search) {
+      setShowSearchInput(true);
+    }
+  }, [search]);
+
   const allowProfileSwitch = profileSwitchAllowed && profiles.length > 0;
   const allowCreateProfile = showCreateProfile && allowProfileSwitch;
-  //const showSearchInput = showSearch && Boolean(onSearchChange);
   const showSearchPill = showSearch && (showSearchInput || Boolean(search));
   const showViewControls = Boolean(view && onViewChange);
   const showNavControls = Boolean(onPrev && onNext);
-  const topbarColumns = showSearchPill
-    ? 'grid-cols-[auto_auto_auto_auto_auto_minmax(0,1fr)_auto]'
-    : 'grid-cols-[auto_auto_auto_auto_auto_auto]';
   const themeOptions = THEME_PACKS;
   const activeTheme = useMemo(
     () => themeOptions.find((pack) => pack.id === palette) ?? themeOptions[0],
     [palette, themeOptions]
   );
+  const securityLabel = secureMode
+    ? 'Secure mode'
+    : eventObfuscation
+      ? 'Obfuscated'
+      : encryptedNotes
+        ? 'Encrypted notes'
+        : twoFactorEnabled
+          ? '2FA ready'
+          : 'Standard';
+  const syncLabel = syncStrategy === 'offline' ? 'Offline' : syncStrategy === 'ipfs' ? 'IPFS sync' : 'P2P sync';
+  const syncDetail =
+    syncStrategy === 'offline' ? 'Local only' : syncTrustedDevices ? 'Trusted devices' : 'Manual pairing';
+  const handleThemeToggle = () => {
+    const nextMode: ThemeMode = activeTheme.mode === 'dark' ? 'light' : 'dark';
+    const nextTheme =
+      themeOptions.find((pack) => pack.family === activeTheme.family && pack.mode === nextMode) ??
+      themeOptions.find((pack) => pack.mode === nextMode) ??
+      activeTheme;
+    onPaletteChange(nextTheme.id, nextTheme.mode);
+  };
   const desktopOverflowActions = useMemo<OverflowAction[]>(() => {
     const actions: OverflowAction[] = [];
     if (allowCreateProfile) {
@@ -461,7 +559,7 @@ const focusInput = useCallback(() => {
     actions.push({ key: 'theme', label: 'Theme toggle', onClick: () => setThemeOpen(true) });
     actions.push({ key: 'hotkeys', label: 'Hotkey', onClick: () => setHotkeysOpen(true) });
     return actions;
-  }, [allowCreateProfile, onCreateProfile, onOpenSettings]);
+  }, [allowCreateProfile, onCreateProfile, onOpenSettings, setHotkeysOpen, setThemeOpen]);
   const mobileOverflowActions = useMemo<OverflowAction[]>(() => {
     const actions: OverflowAction[] = [];
     if (allowCreateProfile) {
@@ -471,7 +569,7 @@ const focusInput = useCallback(() => {
     actions.push({ key: 'theme', label: 'Theme toggle', onClick: () => setThemeOpen(true) });
     actions.push({ key: 'hotkeys', label: 'Hotkey', onClick: () => setHotkeysOpen(true) });
     return actions;
-  }, [allowCreateProfile, onCreateProfile, onOpenSettings]);
+  }, [allowCreateProfile, onCreateProfile, onOpenSettings, setHotkeysOpen, setThemeOpen]);
   const showDesktopOverflow = allowProfileSwitch || desktopOverflowActions.length > 0;
 
   const renderSearchInput = (inputRef: React.RefObject<HTMLInputElement>) => (
@@ -485,12 +583,7 @@ const focusInput = useCallback(() => {
       <input
         ref={inputRef}
         value={search ?? ''}
-        onChange={(event) => {
-          if (!showSearchInput) {
-            return;
-          }
-          onSearchChange?.(event.target.value);
-        }}
+        onChange={(event) => onSearchChange?.(event.target.value)}
         placeholder="Search events"
         readOnly={!showSearchInput}
         aria-disabled={!showSearchInput}
@@ -502,104 +595,173 @@ const focusInput = useCallback(() => {
   return (
     <header className="topbar relative w-full text-sm">
       <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6">
-          <div className="py-2">
+          <div className="py-3">
             <div className="hidden min-w-0 flex-col gap-2 lg:flex">
-              <div className={`grid min-w-0 items-center gap-3 ${topbarColumns}`}>
-                <motion.button
-                  type="button"
-                  onClick={onHome}
-                  className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
-                  aria-label="Go to calendar"
-                  {...pillMotion}
-                >
-                  <span className="h-6 w-6">
-                    <img
-                      src={mark2x}
-                      srcSet={`${mark1x} 1x, ${mark2x} 2x`}
-                      alt=""
-                      aria-hidden="true"
-                      className="h-full w-full rounded-lg"
-                      draggable={false}
-                    />
-                  </span>
-                  <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
-                </motion.button>
-                {onToday ? (
+              <div className="grid min-w-0 items-center gap-4 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
+                <div className="flex min-w-0 items-center gap-2">
                   <motion.button
-                    onClick={onToday}
-                    className={`${pillBase} px-3 text-muted hover:text-text`}
+                    type="button"
+                    onClick={onHome}
+                    className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
+                    aria-label="Go to calendar"
                     {...pillMotion}
                   >
-                    Today
+                    <span className="h-6 w-6">
+                      <img
+                        src={mark2x}
+                        srcSet={`${mark1x} 1x, ${mark2x} 2x`}
+                        alt=""
+                        aria-hidden="true"
+                        className="h-full w-full rounded-lg"
+                        draggable={false}
+                      />
+                    </span>
+                    <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">
+                      NullCal
+                    </span>
                   </motion.button>
-                ) : (
-                  <div />
-                )}
-                {showViewControls ? (
-                  <Segmented
-                    ariaLabel="Calendar view"
-                    items={[
-                      {
-                        key: 'week',
-                        label: (
-                          <>
-                            <span className="hidden xl:inline">Week</span>
-                            <span className="xl:hidden">Wk</span>
-                          </>
-                        ),
-                        onClick: () => onViewChange('timeGridWeek'),
-                        active: view === 'timeGridWeek'
-                      },
-                      {
-                        key: 'month',
-                        label: (
-                          <>
-                            <span className="hidden xl:inline">Month</span>
-                            <span className="xl:hidden">Mo</span>
-                          </>
-                        ),
-                        onClick: () => onViewChange('dayGridMonth'),
-                        active: view === 'dayGridMonth'
-                      }
-                    ]}
+                  <motion.div className={`${pillBase} gap-2 px-3 text-muted`} {...pillMotion}>
+                    <span className="text-[10px] tracking-[0.3em]">SYNC</span>
+                    <span className="text-text">{syncLabel}</span>
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-muted">{syncDetail}</span>
+                  </motion.div>
+                </div>
+                <div className="flex min-w-0 items-center justify-center">
+                  {showViewControls && (
+                    <Segmented
+                      ariaLabel="Calendar view"
+                      items={[
+                        {
+                          key: 'week',
+                          label: (
+                            <>
+                              <span className="hidden xl:inline">Week</span>
+                              <span className="xl:hidden">Wk</span>
+                            </>
+                          ),
+                          onClick: () => onViewChange('timeGridWeek'),
+                          active: view === 'timeGridWeek'
+                        },
+                        {
+                          key: 'month',
+                          label: (
+                            <>
+                              <span className="hidden xl:inline">Month</span>
+                              <span className="xl:hidden">Mo</span>
+                            </>
+                          ),
+                          onClick: () => onViewChange('dayGridMonth'),
+                          active: view === 'dayGridMonth'
+                        }
+                      ]}
+                    />
+                  )}
+                </div>
+                <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+                  {showSearchPill && (
+                    <div className="min-w-[200px] max-w-[360px] flex-1">{renderSearchInput(desktopSearchInputRef)}</div>
+                  )}
+                  {showSearch && (
+                    <motion.button
+                      type="button"
+                      onClick={() => {
+                        if (showSearchInput) {
+                          setShowSearchInput(false);
+                          onSearchChange?.('');
+                          return;
+                        }
+                        setShowSearchInput(true);
+                        focusInput();
+                      }}
+                      className={iconButtonBase}
+                      aria-label={showSearchInput ? 'Close search' : 'Open search'}
+                      {...pillMotion}
+                    >
+                      <SearchIcon />
+                    </motion.button>
+                  )}
+                  {onCommandAdd && (
+                    <motion.button
+                      type="button"
+                      onClick={onCommandAdd}
+                      className="flex h-9 items-center gap-2 rounded-full bg-accent px-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow"
+                      {...pillMotion}
+                    >
+                      + New event
+                    </motion.button>
+                  )}
+                  <motion.button
+                    type="button"
+                    className={iconButtonBase}
+                    aria-label="Notifications"
+                    {...pillMotion}
+                  >
+                    <span className="relative">
+                      <BellIcon />
+                      {notificationsCount > 0 && (
+                        <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-accent" />
+                      )}
+                    </span>
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    onClick={() => setHotkeysOpen(true)}
+                    className={iconButtonBase}
+                    aria-label="Help & shortcuts"
+                    {...pillMotion}
+                  >
+                    <InfoIcon />
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    onClick={handleThemeToggle}
+                    className={iconButtonBase}
+                    aria-label="Toggle theme"
+                    {...pillMotion}
+                  >
+                    <ThemeIcon mode={activeTheme.mode} />
+                  </motion.button>
+                  <motion.div className={`${pillBase} gap-2 px-3 text-muted`} {...pillMotion}>
+                    <ShieldIcon />
+                    <span className="text-text">{securityLabel}</span>
+                  </motion.div>
+                  <motion.button
+                    type="button"
+                    onClick={onLockNow}
+                    className={iconButtonBase}
+                    aria-label="Lock now"
+                    {...pillMotion}
+                  >
+                    <LockIcon />
+                  </motion.button>
+                  <ProfileMenu
+                    options={profiles}
+                    activeId={activeProfileId}
+                    onChange={allowProfileSwitch ? onProfileChange : undefined}
+                    disabled={!allowProfileSwitch}
                   />
-                ) : (
-                  <div />
-                )}
-                <ProfileMenu
-                  options={profiles}
-                  activeId={activeProfileId}
-                  onChange={allowProfileSwitch ? onProfileChange : undefined}
-                  disabled={!allowProfileSwitch}
-                />
-                <motion.button
-                  onClick={onLockNow}
-                  className={`${pillBase} flex-none px-4 text-muted hover:text-text`}
-                  {...pillMotion}
-                >
-                  Lock now
-                </motion.button>
-                {showSearchPill && (
-                  <div className="min-w-[220px] flex-1 max-w-[520px]">
-                    {renderSearchInput(desktopSearchInputRef)}
-                  </div>
-                )}
-                {showDesktopOverflow && (
-                  <OverflowMenu
-                    actions={desktopOverflowActions}
-                    showProfileList={false}
-                    showCreateProfileItem={false}
-                    profiles={profiles}
-                    activeProfileId={activeProfileId}
-                    onProfileChange={onProfileChange}
-                    onCreateProfile={onCreateProfile}
-                  />
-                )}
+                  {showDesktopOverflow && (
+                    <OverflowMenu
+                      actions={desktopOverflowActions}
+                      showProfileList={false}
+                      showCreateProfileItem={false}
+                      profiles={profiles}
+                      activeProfileId={activeProfileId}
+                      onProfileChange={onProfileChange}
+                      onCreateProfile={onCreateProfile}
+                    />
+                  )}
+                </div>
               </div>
 
-              <div className={`grid min-w-0 items-center gap-3 ${topbarColumns}`}>
-                <div />
-                <div />
+              <div className="grid min-w-0 items-center gap-4 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
+                <div className="flex min-w-0 items-center gap-2">
+                  {onToday && (
+                    <motion.button onClick={onToday} className={`${pillBase} px-3 text-muted`} {...pillMotion}>
+                      Today
+                    </motion.button>
+                  )}
+                </div>
                 <div className="flex min-w-0 items-center justify-center">
                   {showNavControls && (
                     <Segmented
@@ -621,9 +783,6 @@ const focusInput = useCallback(() => {
                     />
                   )}
                 </div>
-                <div />
-                <div />
-                {showSearchPill && <div />}
                 <div className="flex min-w-0 items-center justify-end text-xs">
                   <Clock />
                 </div>
@@ -662,18 +821,38 @@ const focusInput = useCallback(() => {
                 </span>
                 <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">NullCal</span>
               </motion.button>
-              {onToday && (
-                <motion.button
-                  onClick={onToday}
-                  className={`${pillBase} px-3 text-muted hover:text-text`}
-                  {...pillMotion}
-                >
-                  Today
-                </motion.button>
-              )}
             </div>
 
             <div className="flex flex-wrap items-center justify-end gap-2">
+              {showSearch && (
+                <motion.button
+                  type="button"
+                  onClick={() => {
+                    if (showSearchInput) {
+                      setShowSearchInput(false);
+                      onSearchChange?.('');
+                      return;
+                    }
+                    setShowSearchInput(true);
+                    focusInput();
+                  }}
+                  className={iconButtonBase}
+                  aria-label={showSearchInput ? 'Close search' : 'Open search'}
+                  {...pillMotion}
+                >
+                  <SearchIcon />
+                </motion.button>
+              )}
+              {onCommandAdd && (
+                <motion.button
+                  type="button"
+                  onClick={onCommandAdd}
+                  className="flex h-9 items-center gap-2 rounded-full bg-accent px-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow"
+                  {...pillMotion}
+                >
+                  + New
+                </motion.button>
+              )}
               <ProfileMenu
                 options={profiles}
                 activeId={activeProfileId}
@@ -693,6 +872,11 @@ const focusInput = useCallback(() => {
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-3 lg:hidden">
+            {onToday && (
+              <motion.button onClick={onToday} className={`${pillBase} px-3 text-muted`} {...pillMotion}>
+                Today
+              </motion.button>
+            )}
             {showViewControls && (
               <Segmented
                 ariaLabel="Calendar view"
@@ -731,12 +915,35 @@ const focusInput = useCallback(() => {
                 ]}
               />
             )}
+            <motion.div className={`${pillBase} gap-2 px-3 text-muted`} {...pillMotion}>
+              <ShieldIcon />
+              <span className="text-text">{securityLabel}</span>
+            </motion.div>
             <motion.button
               onClick={onLockNow}
-              className={`${pillBase} flex-none px-4 text-muted hover:text-text`}
+              className={iconButtonBase}
+              aria-label="Lock now"
               {...pillMotion}
             >
-              Lock now
+              <LockIcon />
+            </motion.button>
+            <motion.button
+              type="button"
+              onClick={handleThemeToggle}
+              className={iconButtonBase}
+              aria-label="Toggle theme"
+              {...pillMotion}
+            >
+              <ThemeIcon mode={activeTheme.mode} />
+            </motion.button>
+            <motion.button
+              type="button"
+              onClick={() => setHotkeysOpen(true)}
+              className={iconButtonBase}
+              aria-label="Help & shortcuts"
+              {...pillMotion}
+            >
+              <InfoIcon />
             </motion.button>
             {showSearchPill && (
               <div className="w-full min-w-0">

@@ -22,6 +22,10 @@ import type { AppSettings, AppState, CalendarEvent, SecurityPrefs } from '../sto
 import { applyNetworkLock } from '../security/networkLock';
 import { hashPin, verifyPin } from '../security/pin';
 import { decryptPayload, encryptPayload, type EncryptedPayload } from '../security/encryption';
+import { verifyLocalSecret } from '../security/localAuth';
+import { authenticatePasskey } from '../security/webauthn';
+import { createP2PSync } from '../sync/p2pSync';
+import { scheduleReminders } from '../reminders/reminderScheduler';
 
 type AppStoreContextValue = {
   state: AppState | null;
@@ -29,6 +33,7 @@ type AppStoreContextValue = {
   locked: boolean;
   lockNow: () => void;
   unlock: (pin?: string) => Promise<boolean>;
+  unlockWithWebAuthn: () => Promise<boolean>;
   updateSettings: (updates: Partial<AppSettings>) => void;
   updateSecurityPrefs: (updates: Partial<SecurityPrefs>) => void;
   setActiveProfile: (id: string) => void;
@@ -57,13 +62,18 @@ const AppStoreContext = createContext<AppStoreContextValue | null>(null);
 const baseSecurityPrefs: SecurityPrefs = {
   id: 'security',
   pinEnabled: false,
-  decoyPinEnabled: false
+  decoyPinEnabled: false,
+  localAuthEnabled: false,
+  webAuthnEnabled: false
 };
 
 export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<AppState | null>(null);
   const [loading, setLoading] = useState(true);
   const [locked, setLocked] = useState(false);
+  const syncHandleRef = useRef<ReturnType<typeof createP2PSync> | null>(null);
+  const syncSenderId = useRef(crypto.randomUUID());
+  const reminderHandleRef = useRef<ReturnType<typeof scheduleReminders> | null>(null);
   const autoLockTimer = useRef<number | null>(null);
   const blurLockTimer = useRef<number | null>(null);
   const lockNow = useCallback(() => {
@@ -104,7 +114,14 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     loadAppState()
       .then((data) => {
         setState(data);
-        setLocked(Boolean(data.securityPrefs.pinEnabled || data.securityPrefs.decoyPinEnabled));
+        setLocked(
+          Boolean(
+            data.securityPrefs.pinEnabled ||
+              data.securityPrefs.decoyPinEnabled ||
+              data.securityPrefs.localAuthEnabled ||
+              data.securityPrefs.webAuthnEnabled
+          )
+        );
       })
       .finally(() => setLoading(false));
   }, []);
@@ -135,10 +152,74 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     if (!state) {
       return;
     }
-    if (!state.securityPrefs.pinEnabled && !state.securityPrefs.decoyPinEnabled) {
+    if (
+      !state.securityPrefs.pinEnabled &&
+      !state.securityPrefs.decoyPinEnabled &&
+      !state.securityPrefs.localAuthEnabled &&
+      !state.securityPrefs.webAuthnEnabled
+    ) {
       setLocked(false);
     }
-  }, [state?.securityPrefs.pinEnabled, state?.securityPrefs.decoyPinEnabled]);
+  }, [
+    state?.securityPrefs.pinEnabled,
+    state?.securityPrefs.decoyPinEnabled,
+    state?.securityPrefs.localAuthEnabled,
+    state?.securityPrefs.webAuthnEnabled
+  ]);
+
+  useEffect(() => {
+    if (!state) {
+      return;
+    }
+    if (state.settings.syncStrategy === 'offline') {
+      syncHandleRef.current?.close();
+      syncHandleRef.current = null;
+      return;
+    }
+    const handle = createP2PSync(syncSenderId.current, (payload) => {
+      setState((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        return {
+          ...prev,
+          profiles: payload.profiles,
+          calendars: payload.calendars,
+          events: payload.events
+        };
+      });
+    });
+    syncHandleRef.current = handle;
+    return () => {
+      handle.close();
+      syncHandleRef.current = null;
+    };
+  }, [state?.settings.syncStrategy]);
+
+  useEffect(() => {
+    if (!state || !syncHandleRef.current) {
+      return;
+    }
+    syncHandleRef.current.broadcast({
+      profiles: state.profiles,
+      calendars: state.calendars,
+      events: state.events
+    });
+  }, [state?.profiles, state?.calendars, state?.events]);
+
+  useEffect(() => {
+    reminderHandleRef.current?.stop();
+    if (!state) {
+      return;
+    }
+    if (!state.settings.remindersEnabled || state.settings.reminderChannel !== 'local') {
+      return;
+    }
+    const activeEvents = state.events.filter(
+      (event) => event.profileId === state.settings.activeProfileId
+    );
+    reminderHandleRef.current = scheduleReminders(activeEvents);
+  }, [state?.events, state?.settings.activeProfileId, state?.settings.remindersEnabled, state?.settings.reminderChannel]);
 
   useEffect(() => {
     if (!state) {
@@ -430,22 +511,27 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const unlock = useCallback(
-    async (pin?: string) => {
+    async (secret?: string) => {
       if (!state) {
         return false;
       }
-      if (!state.securityPrefs.pinEnabled && !state.securityPrefs.decoyPinEnabled) {
+      if (
+        !state.securityPrefs.pinEnabled &&
+        !state.securityPrefs.decoyPinEnabled &&
+        !state.securityPrefs.localAuthEnabled &&
+        !state.securityPrefs.webAuthnEnabled
+      ) {
         setLocked(false);
         return true;
       }
-      if (!pin) {
+      if (!secret) {
         return false;
       }
       const matchesPrimary =
         state.securityPrefs.pinEnabled &&
         state.securityPrefs.pinHash &&
         state.securityPrefs.pinSalt
-          ? await verifyPin(pin, {
+          ? await verifyPin(secret, {
               hash: state.securityPrefs.pinHash,
               salt: state.securityPrefs.pinSalt,
               iterations: state.securityPrefs.pinIterations ?? 90000
@@ -455,7 +541,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         state.securityPrefs.decoyPinEnabled &&
         state.securityPrefs.decoyPinHash &&
         state.securityPrefs.decoyPinSalt
-          ? await verifyPin(pin, {
+          ? await verifyPin(secret, {
               hash: state.securityPrefs.decoyPinHash,
               salt: state.securityPrefs.decoyPinSalt,
               iterations: state.securityPrefs.decoyPinIterations ?? 90000
@@ -474,10 +560,39 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         updateSettings({ activeProfileId: decoyProfileId });
         return true;
       }
+      const matchesLocal =
+        state.securityPrefs.localAuthEnabled &&
+        state.securityPrefs.localAuthHash &&
+        state.securityPrefs.localAuthSalt
+          ? await verifyLocalSecret(secret, {
+              hash: state.securityPrefs.localAuthHash,
+              salt: state.securityPrefs.localAuthSalt,
+              iterations: state.securityPrefs.localAuthIterations ?? 140000
+            })
+          : false;
+      if (matchesLocal) {
+        setLocked(false);
+        return true;
+      }
       return false;
     },
     [state, updateSettings]
   );
+
+  const unlockWithWebAuthn = useCallback(async () => {
+    if (!state?.securityPrefs.webAuthnEnabled || !state.securityPrefs.webAuthnCredentialId) {
+      return false;
+    }
+    try {
+      const ok = await authenticatePasskey(state.securityPrefs.webAuthnCredentialId);
+      if (ok) {
+        setLocked(false);
+      }
+      return ok;
+    } catch {
+      return false;
+    }
+  }, [state]);
 
   const setPin = useCallback(
     async (pin: string) => {
@@ -513,8 +628,13 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       pinSalt: undefined,
       pinIterations: undefined
     });
-    setLocked(false);
-  }, [updateSecurityPrefs]);
+    const stillLocked = Boolean(
+      state?.securityPrefs.decoyPinEnabled ||
+        state?.securityPrefs.localAuthEnabled ||
+        state?.securityPrefs.webAuthnEnabled
+    );
+    setLocked(stillLocked);
+  }, [state?.securityPrefs.decoyPinEnabled, state?.securityPrefs.localAuthEnabled, state?.securityPrefs.webAuthnEnabled, updateSecurityPrefs]);
 
   const clearDecoyPin = useCallback(() => {
     updateSecurityPrefs({
@@ -523,7 +643,13 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       decoyPinSalt: undefined,
       decoyPinIterations: undefined
     });
-  }, [updateSecurityPrefs]);
+    const stillLocked = Boolean(
+      state?.securityPrefs.pinEnabled ||
+        state?.securityPrefs.localAuthEnabled ||
+        state?.securityPrefs.webAuthnEnabled
+    );
+    setLocked(stillLocked);
+  }, [state?.securityPrefs.pinEnabled, state?.securityPrefs.localAuthEnabled, state?.securityPrefs.webAuthnEnabled, updateSecurityPrefs]);
 
   const replaceState = useCallback((next: AppState) => {
     setState(next);
@@ -584,7 +710,14 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
           ...decrypted.securityPrefs
         }
       });
-      setLocked(Boolean(decrypted.securityPrefs.pinEnabled || decrypted.securityPrefs.decoyPinEnabled));
+      setLocked(
+        Boolean(
+          decrypted.securityPrefs.pinEnabled ||
+            decrypted.securityPrefs.decoyPinEnabled ||
+            decrypted.securityPrefs.localAuthEnabled ||
+            decrypted.securityPrefs.webAuthnEnabled
+        )
+      );
     },
     []
   );
@@ -605,6 +738,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       locked,
       lockNow,
       unlock,
+      unlockWithWebAuthn,
       updateSettings,
       updateSecurityPrefs,
       setActiveProfile,
@@ -634,6 +768,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       locked,
       lockNow,
       unlock,
+      unlockWithWebAuthn,
       updateSettings,
       updateSecurityPrefs,
       setActiveProfile,
