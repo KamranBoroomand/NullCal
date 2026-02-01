@@ -62,3 +62,22 @@ export const decryptPayload = async (payload: EncryptedPayload, passphrase: stri
   );
   return JSON.parse(textDecoder.decode(decrypted));
 };
+
+const NOTE_PREFIX = 'enc:v1:';
+
+export const isEncryptedNote = (value?: string) => Boolean(value?.startsWith(NOTE_PREFIX));
+
+export const encryptNote = async (note: string, passphrase: string) => {
+  const payload = await encryptPayload({ note }, passphrase);
+  return `${NOTE_PREFIX}${JSON.stringify(payload)}`;
+};
+
+export const decryptNote = async (payload: string, passphrase: string) => {
+  if (!payload.startsWith(NOTE_PREFIX)) {
+    return payload;
+  }
+  const raw = payload.slice(NOTE_PREFIX.length);
+  const parsed = JSON.parse(raw) as EncryptedPayload;
+  const data = await decryptPayload(parsed, passphrase);
+  return typeof data?.note === 'string' ? data.note : '';
+};
