@@ -1219,15 +1219,6 @@ const SafetyCenter = () => {
                     />
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setThemeBrowserOpen(true)}
-                    className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
-                  >
-                    Browse all
-                  </button>
-                </div>
               </div>
             </div>
           </motion.section>
