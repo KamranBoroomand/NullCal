@@ -376,6 +376,7 @@ type TopBarProps = {
   syncStrategy: 'offline' | 'ipfs' | 'p2p';
   syncTrustedDevices: boolean;
   notificationsCount?: number;
+  variant?: 'full' | 'minimal';
 };
 
 const TopBar = ({
@@ -408,7 +409,8 @@ const TopBar = ({
   twoFactorEnabled,
   syncStrategy,
   syncTrustedDevices,
-  notificationsCount = 0
+  notificationsCount = 0,
+  variant = 'full'
 }: TopBarProps) => {
   const reduceMotion = useReducedMotion();
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
@@ -523,6 +525,7 @@ const TopBar = ({
   const allowProfileSwitch = profileSwitchAllowed && profiles.length > 0;
   const allowCreateProfile = showCreateProfile && allowProfileSwitch;
   const showSearchPill = showSearch && (showSearchInput || Boolean(search));
+  const showSearchBar = showSearch && Boolean(onSearchChange);
   const showViewControls = Boolean(view && onViewChange);
   const showNavControls = Boolean(onPrev && onNext);
   const themeOptions = THEME_PACKS;
@@ -575,6 +578,13 @@ const TopBar = ({
   const renderSearchInput = (inputRef: React.RefObject<HTMLInputElement>) => (
     <motion.div
       className={`${pillBase} w-full min-w-0 justify-start gap-2 px-3 text-muted hover:text-text`}
+      onClick={() => {
+        if (showSearchInput) {
+          return;
+        }
+        setShowSearchInput(true);
+        focusInput();
+      }}
       {...pillMotion}
     >
       <span className="flex-none text-muted">
@@ -587,10 +597,129 @@ const TopBar = ({
         placeholder="Search events"
         readOnly={!showSearchInput}
         aria-disabled={!showSearchInput}
+        onFocus={() => setShowSearchInput(true)}
         className="w-full min-w-0 overflow-hidden text-ellipsis bg-transparent text-[11px] leading-none text-text placeholder:text-muted focus:outline-none"
       />
     </motion.div>
   );
+
+  if (variant === 'minimal') {
+    return (
+      <header className="topbar relative w-full text-sm">
+        <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <div className="flex items-center gap-2">
+              {onOpenNav && (
+                <motion.button
+                  type="button"
+                  onClick={onOpenNav}
+                  className={`${pillBase} flex-none px-3 text-muted hover:text-text md:hidden`}
+                  aria-label="Open navigation"
+                  {...pillMotion}
+                >
+                  <HamburgerIcon />
+                </motion.button>
+              )}
+              <motion.button
+                type="button"
+                onClick={onHome}
+                className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
+                aria-label="Go to calendar"
+                {...pillMotion}
+              >
+                <span className="h-6 w-6">
+                  <img
+                    src={mark2x}
+                    srcSet={`${mark1x} 1x, ${mark2x} 2x`}
+                    alt=""
+                    aria-hidden="true"
+                    className="h-full w-full rounded-lg"
+                    draggable={false}
+                  />
+                </span>
+                <span className="brand-glitch text-[0.7rem] font-medium leading-none tracking-[0.2em]">
+                  NullCal
+                </span>
+              </motion.button>
+            </div>
+            <div className="flex flex-1 flex-wrap items-center justify-center gap-2">
+              {onToday && (
+                <motion.button
+                  onClick={onToday}
+                  className={`${pillBase} px-3 text-muted hover:text-text`}
+                  {...pillMotion}
+                >
+                  Today
+                </motion.button>
+              )}
+              {showViewControls && (
+                <Segmented
+                  ariaLabel="Calendar view"
+                  items={[
+                    {
+                      key: 'week',
+                      label: 'Week',
+                      onClick: () => onViewChange('timeGridWeek'),
+                      active: view === 'timeGridWeek'
+                    },
+                    {
+                      key: 'month',
+                      label: 'Month',
+                      onClick: () => onViewChange('dayGridMonth'),
+                      active: view === 'dayGridMonth'
+                    }
+                  ]}
+                />
+              )}
+            </div>
+            <div className="flex flex-1 items-center justify-end gap-2">
+              {showSearchBar && (
+                <div className="min-w-[180px] max-w-[320px] flex-1">{renderSearchInput(desktopSearchInputRef)}</div>
+              )}
+              {onCommandAdd && (
+                <motion.button
+                  type="button"
+                  onClick={onCommandAdd}
+                  className="flex h-9 items-center gap-2 rounded-full bg-accent px-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow"
+                  {...pillMotion}
+                >
+                  + New event
+                </motion.button>
+              )}
+              <div className="hidden text-xs text-muted sm:block">
+                <Clock />
+              </div>
+            </div>
+            <div className="flex w-full items-center justify-end text-xs text-muted sm:hidden">
+              <Clock />
+            </div>
+          </div>
+        </div>
+        <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
+        <Modal title="Theme Packs" open={themeOpen} onClose={() => setThemeOpen(false)}>
+          <div className="space-y-3 text-sm text-muted">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs uppercase tracking-[0.3em] text-muted">Current</span>
+              <span className="text-[11px] uppercase tracking-[0.2em] text-text">{activeTheme.name}</span>
+            </div>
+            <p className="text-xs text-muted">Select a theme pack to restyle the entire interface.</p>
+            <ThemePicker
+              themes={themeOptions}
+              activeId={palette}
+              onSelect={(nextId) => {
+                const next = themeOptions.find((pack) => pack.id === nextId);
+                if (!next) {
+                  return;
+                }
+                onPaletteChange(next.id, next.mode);
+                setThemeOpen(false);
+              }}
+            />
+          </div>
+        </Modal>
+      </header>
+    );
+  }
 
   return (
     <header className="topbar relative w-full text-sm">

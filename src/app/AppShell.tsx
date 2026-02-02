@@ -32,19 +32,21 @@ const AppShell = ({ topBar, sidebar, children, mobileNav, navOpen, onNavClose }:
   }, [navOpen, onNavClose]);
 
   return (
-    <div className="min-h-[100dvh]">
-      <header className="sticky top-0 z-20 border-b border-grid bg-panel backdrop-blur">
-        {topBar}
-      </header>
-      <div className="mx-auto w-full max-w-[1600px] px-3 py-4 md:px-4 lg:px-5">
-        <div className="flex gap-3">
-          <aside className="hidden w-[260px] shrink-0 md:block">{sidebar}</aside>
-          <main className="flex-1 min-w-0">{children}</main>
+    <div className="min-h-[100dvh] bg-panel2">
+      <aside className="fixed left-0 top-0 hidden h-full w-[250px] border-r border-grid bg-panel px-4 py-6 md:flex">
+        <div className="flex h-full w-full flex-col overflow-y-auto pr-2">{sidebar}</div>
+      </aside>
+      <div className="flex min-h-[100dvh] flex-col md:pl-[250px]">
+        <header className="sticky top-0 z-20 border-b border-grid bg-panel/95 backdrop-blur">
+          {topBar}
+        </header>
+        <div className="flex-1 px-4 py-4 sm:px-6">
+          <div className="mx-auto w-full max-w-[1500px]">{children}</div>
         </div>
+        <footer className="w-full border-t border-grid px-4 py-4 text-center text-[11px] text-muted">
+          “No cloud. No observers. Your time stays yours.”
+        </footer>
       </div>
-      <footer className="w-full border-t border-grid px-4 py-4 text-center text-[11px] text-muted">
-        “No cloud. No observers. Your time stays yours.”
-      </footer>
       <AnimatePresence>
         {mobileNav && navOpen && (
           <motion.div
@@ -64,7 +66,7 @@ const AppShell = ({ topBar, sidebar, children, mobileNav, navOpen, onNavClose }:
               role="presentation"
             />
             <motion.aside
-              className="absolute left-0 top-0 flex h-full w-[85vw] max-w-xs flex-col border-r border-grid bg-panel p-4 shadow-2xl"
+              className="absolute left-0 top-0 flex h-full w-[85vw] max-w-[300px] flex-col border-r border-grid bg-panel p-4 shadow-2xl"
               initial={reduceMotion ? { x: 0 } : { x: '-100%' }}
               animate={{ x: 0 }}
               exit={reduceMotion ? { x: 0 } : { x: '-100%' }}

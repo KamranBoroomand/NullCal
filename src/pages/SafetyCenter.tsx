@@ -568,6 +568,7 @@ const SafetyCenter = () => {
     <AppShell
       topBar={
         <TopBar
+          variant="minimal"
           profiles={state.profiles.map((profile) => ({ id: profile.id, name: profile.name }))}
           activeProfileId={activeProfile?.id ?? ''}
           onProfileChange={handleManualProfileSwitch}
@@ -604,6 +605,7 @@ const SafetyCenter = () => {
           onSelectDate={setCurrentDate}
           calendars={calendars}
           activeProfileId={activeProfile?.id ?? ''}
+          activeProfileName={activeProfile?.name ?? 'KamranBroomand'}
           onToggleCalendar={toggleCalendarVisibility}
           onCreateCalendar={createCalendar}
           onRenameCalendar={renameCalendar}
@@ -615,6 +617,15 @@ const SafetyCenter = () => {
           onExport={handleQuickExport}
           onImport={handleQuickImport}
           onResetProfile={handleResetProfile}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onLockNow={lockNow}
+          palette={state.settings.palette}
+          onPaletteChange={(paletteId, themeMode) =>
+            updateSettings({
+              palette: paletteId,
+              theme: resolveThemeModeFromPalette(paletteId, themeMode)
+            })
+          }
           showClipboardWarning
         />
       }
@@ -624,6 +635,7 @@ const SafetyCenter = () => {
           onSelectDate={setCurrentDate}
           calendars={calendars}
           activeProfileId={activeProfile?.id ?? ''}
+          activeProfileName={activeProfile?.name ?? 'KamranBroomand'}
           variant="drawer"
           onToggleCalendar={toggleCalendarVisibility}
           onCreateCalendar={createCalendar}
@@ -631,6 +643,15 @@ const SafetyCenter = () => {
           onRecolorCalendar={recolorCalendar}
           onDeleteCalendar={deleteCalendar}
           onNavigate={() => setNavOpen(false)}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onLockNow={lockNow}
+          palette={state.settings.palette}
+          onPaletteChange={(paletteId, themeMode) =>
+            updateSettings({
+              palette: paletteId,
+              theme: resolveThemeModeFromPalette(paletteId, themeMode)
+            })
+          }
         />
       }
       navOpen={navOpen}
