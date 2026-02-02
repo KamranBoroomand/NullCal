@@ -390,6 +390,7 @@ const AppPage = () => {
       <AppShell
         topBar={
           <TopBar
+            variant="minimal"
             view={view}
             onViewChange={setView}
             onToday={handleToday}
@@ -432,6 +433,7 @@ const AppPage = () => {
             onSelectDate={setCurrentDate}
             calendars={calendars}
             activeProfileId={activeProfile.id}
+            activeProfileName={activeProfile.name}
             onToggleCalendar={handleToggleCalendar}
             onCreateCalendar={createCalendar}
             onRenameCalendar={renameCalendar}
@@ -441,6 +443,15 @@ const AppPage = () => {
             onExport={handleExport}
             onImport={handleImport}
             onResetProfile={handleResetProfile}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onLockNow={lockNow}
+            palette={state.settings.palette}
+            onPaletteChange={(paletteId, themeMode) =>
+              updateSettings({
+                palette: paletteId,
+                theme: resolveThemeModeFromPalette(paletteId, themeMode)
+              })
+            }
           />
         }
         mobileNav={
@@ -449,6 +460,7 @@ const AppPage = () => {
             onSelectDate={setCurrentDate}
             calendars={calendars}
             activeProfileId={activeProfile.id}
+            activeProfileName={activeProfile.name}
             variant="drawer"
             onToggleCalendar={handleToggleCalendar}
             onCreateCalendar={createCalendar}
@@ -456,6 +468,15 @@ const AppPage = () => {
             onRecolorCalendar={recolorCalendar}
             onDeleteCalendar={deleteCalendar}
             onNavigate={() => setNavOpen(false)}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onLockNow={lockNow}
+            palette={state.settings.palette}
+            onPaletteChange={(paletteId, themeMode) =>
+              updateSettings({
+                palette: paletteId,
+                theme: resolveThemeModeFromPalette(paletteId, themeMode)
+              })
+            }
           />
         }
         navOpen={navOpen}

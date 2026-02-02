@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import MiniMonth from '../components/MiniMonth';
+import { motion, useReducedMotion } from 'framer-motion';
+import ThemePicker from '../components/ThemePicker';
 import ColorDot from '../components/ColorDot';
 import Modal from '../components/Modal';
 import type { Calendar } from '../storage/types';
-import { motion, useReducedMotion } from 'framer-motion';
+import { THEME_PACKS } from '../theme/themePacks';
+import type { ThemeMode } from '../theme/ThemeProvider';
+
+const base = import.meta.env.BASE_URL;
+const mark1x = `${base}mark-128.png?v=3`;
+const mark2x = `${base}mark-256.png?v=3`;
 
 const EyeIcon = ({ hidden }: { hidden?: boolean }) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -26,7 +32,13 @@ const MoreIcon = () => (
   </svg>
 );
 
-const palette = [
+const NavIcon = ({ path }: { path: string }) => (
+  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path d={path} stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const colorPalette = [
   '#f4ff00',
   '#9bff00',
   '#6b7cff',
@@ -37,11 +49,14 @@ const palette = [
   '#7b5cff'
 ];
 
+const themeOptions = THEME_PACKS;
+
 type SideBarProps = {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   calendars: Calendar[];
   activeProfileId: string;
+  activeProfileName?: string;
   variant?: 'full' | 'drawer';
   onToggleCalendar: (id: string) => void;
   onCreateCalendar: (profileId: string, payload: { name: string; color: string }) => void;
@@ -53,6 +68,10 @@ type SideBarProps = {
   onImport?: (file: File) => void;
   onResetProfile?: () => void;
   onNavigate?: () => void;
+  onOpenSettings?: () => void;
+  onLockNow?: () => void;
+  palette?: string;
+  onPaletteChange?: (paletteId: string, themeMode: ThemeMode) => void;
   showClipboardWarning?: boolean;
 };
 
@@ -61,6 +80,7 @@ const SideBar = ({
   onSelectDate,
   calendars,
   activeProfileId,
+  activeProfileName,
   variant = 'full',
   onToggleCalendar,
   onCreateCalendar,
@@ -72,6 +92,10 @@ const SideBar = ({
   onImport,
   onResetProfile,
   onNavigate,
+  onOpenSettings,
+  onLockNow,
+  palette,
+  onPaletteChange,
   showClipboardWarning = false
 }: SideBarProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -80,7 +104,7 @@ const SideBar = ({
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Calendar | null>(null);
   const [topicName, setTopicName] = useState('');
-  const [topicColor, setTopicColor] = useState(palette[0]);
+  const [topicColor, setTopicColor] = useState(colorPalette[0]);
   const [customColor, setCustomColor] = useState('');
   const [clipboardDismissed, setClipboardDismissed] = useState(false);
 
@@ -104,7 +128,7 @@ const SideBar = ({
       return;
     }
     setTopicName('');
-    setTopicColor(palette[0]);
+    setTopicColor(colorPalette[0]);
     setCustomColor('');
   }, [createOpen]);
 
@@ -151,55 +175,110 @@ const SideBar = ({
     onDeleteCalendar(activeProfileId, calendar.id);
   };
 
+  const primaryNav = [
+    {
+      key: 'today',
+      label: 'Today',
+      icon: 'M10 3.5v2.5M5.5 10H3M17 10h-2.5M6.6 6.6 4.9 4.9M13.4 13.4l1.7 1.7M6.6 13.4l-1.7 1.7M13.4 6.6l1.7-1.7M10 6.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z',
+      onClick: () => onSelectDate(new Date())
+    }
+  ];
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-grid bg-panel p-4">
-        <p className="text-xs uppercase tracking-[0.3em] text-muted">Navigation</p>
-        <div className="mt-3 flex flex-col gap-2 text-xs">
+    <div className="flex h-full flex-col gap-6 text-sm">
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 overflow-hidden rounded-xl border border-grid bg-panel2">
+          <img
+            src={mark2x}
+            srcSet={`${mark1x} 1x, ${mark2x} 2x`}
+            alt="NullCal logo"
+            className="h-full w-full object-cover"
+            draggable={false}
+          />
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-muted">NullCal</p>
+          <p className="text-sm font-semibold text-text">Operations Suite</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Navigation</p>
+        <div className="grid gap-2 text-xs">
+          {primaryNav.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={item.onClick}
+              className="flex items-center gap-3 rounded-xl border border-grid bg-panel px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:border-accent/60 hover:text-text"
+            >
+              <NavIcon path={item.icon} />
+              {item.label}
+            </button>
+          ))}
           <NavLink
             to="/"
             onClick={onNavigate}
             className={({ isActive }) =>
-              `rounded-xl px-3 py-2 uppercase tracking-[0.2em] transition ${
-                isActive ? 'bg-accent text-[var(--accentText)]' : 'text-muted hover:text-text'
+              `flex items-center gap-3 rounded-xl border px-3 py-2 uppercase tracking-[0.2em] transition ${
+                isActive
+                  ? 'border-accent bg-[color-mix(in srgb,var(--accent) 18%, transparent)] text-text'
+                  : 'border-grid bg-panel text-muted hover:border-accent/60 hover:text-text'
               }`
             }
           >
+            <NavIcon path="M4 8.5 10 3l6 5.5V16H4V8.5Z" />
             Calendar
           </NavLink>
-          <NavLink
-            to="/safety"
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              `rounded-xl px-3 py-2 uppercase tracking-[0.2em] transition ${
-                isActive ? 'bg-accent text-[var(--accentText)]' : 'text-muted hover:text-text'
-              }`
-            }
+          <button
+            type="button"
+            className="flex items-center gap-3 rounded-xl border border-grid bg-panel px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:border-accent/60 hover:text-text"
+            title="Reminders syncs with mobile soon"
           >
-            Safety Center
-          </NavLink>
+            <NavIcon path="M10 3.5a4.5 4.5 0 0 1 4.5 4.5v2.5l1.5 2.5H4l1.5-2.5V8A4.5 4.5 0 0 1 10 3.5Z" />
+            Reminders
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-3 rounded-xl border border-grid bg-panel px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:border-accent/60 hover:text-text"
+            title="Notes dashboard coming soon"
+          >
+            <NavIcon path="M5 4h10v12H5zM7.5 8h5M7.5 11h5" />
+            Notes
+          </button>
         </div>
       </div>
-      {variant === 'full' && <MiniMonth selectedDate={selectedDate} onSelect={onSelectDate} />}
-      <div className="rounded-2xl border border-grid bg-panel p-4">
+
+      <div className="space-y-3 rounded-2xl border border-grid bg-panel px-3 py-4">
         <div className="flex items-center justify-between">
-          <p className="text-xs uppercase tracking-[0.3em] text-muted">Calendars</p>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Calendars</p>
           <span className="text-[10px] text-muted">{calendars.length}</span>
         </div>
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
-          className="mt-3 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-muted transition hover:text-text"
+          className="w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted transition hover:text-text"
         >
-          + New topic
+          + New calendar
         </button>
-        <div className="mt-4 flex max-h-[40vh] flex-col gap-3 overflow-y-auto pr-1">
+        <div className="flex flex-col gap-2">
           {calendars.map((calendar) => (
-            <div key={calendar.id} className="flex items-center justify-between text-xs text-muted">
-              <div className="flex items-center gap-2">
+            <div
+              key={calendar.id}
+              className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs transition ${
+                calendar.isVisible
+                  ? 'border-accent/50 bg-[color-mix(in srgb,var(--accent) 12%, transparent)] text-text'
+                  : 'border-grid bg-panel2 text-muted'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => onToggleCalendar(calendar.id)}
+                className="flex min-w-0 flex-1 items-center gap-2 text-left"
+              >
                 <ColorDot color={calendar.color} active={calendar.isVisible} />
-                <span>{calendar.name}</span>
-              </div>
+                <span className="truncate uppercase tracking-[0.2em]">{calendar.name}</span>
+              </button>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -250,37 +329,113 @@ const SideBar = ({
           ))}
         </div>
       </div>
-      {variant === 'full' && onNewEvent && onExport && onImport && onResetProfile && (
-        <div className="flex flex-col gap-3">
-          <div className="rounded-2xl border border-grid bg-panel p-4">
-            <motion.button
-              onClick={onNewEvent}
-              whileHover={reduceMotion ? undefined : { scale: 1.02 }}
-              whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-              className="w-full rounded-xl bg-accent px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow transition"
-            >
-              New event
-            </motion.button>
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex-1 rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
+
+      {onPaletteChange && palette && (
+        <div className="space-y-3 rounded-2xl border border-grid bg-panel px-3 py-4">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Theme</p>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted">{palette}</span>
+          </div>
+          <ThemePicker
+            themes={themeOptions}
+            activeId={palette}
+            onSelect={(nextId) => {
+              const next = themeOptions.find((pack) => pack.id === nextId);
+              if (!next) {
+                return;
+              }
+              onPaletteChange(next.id, next.mode);
+            }}
+          />
+        </div>
+      )}
+
+      <div className="mt-auto space-y-3">
+        <div className="rounded-2xl border border-grid bg-panel px-3 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Profile</p>
+              <p className="text-sm font-semibold text-text">{activeProfileName ?? 'KamranBroomand'}</p>
+            </div>
+            {onLockNow && (
+              <motion.button
+                type="button"
+                onClick={onLockNow}
+                whileHover={reduceMotion ? undefined : { scale: 1.02 }}
+                whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+                className="rounded-full border border-accent bg-[color-mix(in srgb,var(--accent) 18%, transparent)] px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-accent"
               >
-                Import
-              </button>
+                Lock now
+              </motion.button>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-grid bg-panel px-3 py-4">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-muted">System</p>
+          <div className="mt-3 grid gap-2 text-xs">
+            {onOpenSettings && (
               <button
+                type="button"
+                onClick={onOpenSettings}
+                className="flex items-center justify-between rounded-xl border border-grid bg-panel2 px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:text-text"
+              >
+                Settings
+                <NavIcon path="M10 4.5v2M10 13.5v2M4.5 10h2M13.5 10h2M6.3 6.3l1.4 1.4M12.3 12.3l1.4 1.4M6.3 13.7l1.4-1.4M12.3 7.7l1.4-1.4" />
+              </button>
+            )}
+            <NavLink
+              to="/safety"
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                `flex items-center justify-between rounded-xl border px-3 py-2 uppercase tracking-[0.2em] transition ${
+                  isActive
+                    ? 'border-accent bg-[color-mix(in srgb,var(--accent) 18%, transparent)] text-text'
+                    : 'border-grid bg-panel2 text-muted hover:text-text'
+                }`
+              }
+            >
+              Safety Center
+              <NavIcon path="M10 3.5 15 5.5V9c0 3.2-2.2 5.7-5 6.6-2.8-.9-5-3.4-5-6.6V5.5L10 3.5Z" />
+            </NavLink>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center justify-between rounded-xl border border-grid bg-panel2 px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:text-text"
+            >
+              Import
+              <NavIcon path="M10 4v8M6.5 7.5 10 4l3.5 3.5M5 16h10" />
+            </button>
+            {onExport && (
+              <button
+                type="button"
                 onClick={onExport}
-                className="flex-1 rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
+                className="flex items-center justify-between rounded-xl border border-grid bg-panel2 px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:text-text"
               >
                 Export
+                <NavIcon path="M10 16V8M6.5 11.5 10 16l3.5-4.5M5 4h10" />
               </button>
-            </div>
-            <button
-              onClick={onResetProfile}
-              className="mt-4 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted transition hover:text-text"
-            >
-              Reset profile data
-            </button>
+            )}
+            {onResetProfile && (
+              <button
+                type="button"
+                onClick={onResetProfile}
+                className="flex items-center justify-between rounded-xl border border-grid bg-panel2 px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:text-text"
+              >
+                Reset profile
+                <NavIcon path="M6 6h8M6 10h8M6 14h5" />
+              </button>
+            )}
+            {onLockNow && (
+              <button
+                type="button"
+                onClick={onLockNow}
+                className="flex items-center justify-between rounded-xl border border-danger bg-[color-mix(in srgb,var(--danger) 12%, transparent)] px-3 py-2 uppercase tracking-[0.2em] text-danger transition hover:text-text"
+              >
+                Logout
+                <NavIcon path="M7 5h6a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7M9 7l-3 3 3 3" />
+              </button>
+            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -295,55 +450,66 @@ const SideBar = ({
               }}
             />
           </div>
-          {showClipboardWarning && !clipboardDismissed && (
-            <div className="rounded-2xl border border-danger bg-[color-mix(in srgb,var(--danger) 8%, transparent)] px-3 py-2 text-[11px] text-muted">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-danger">Clipboard warning</p>
-              <p className="mt-1 text-[11px] text-muted">Clipboard contains sensitive data. Clear now?</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard?.writeText('');
-                    } catch {
-                      // Ignore clipboard permission errors.
-                    } finally {
-                      setClipboardDismissed(true);
-                    }
-                  }}
-                  className="rounded-xl border border-danger px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-danger"
-                >
-                  Clear
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard?.writeText('[REDACTED]');
-                    } catch {
-                      // Ignore clipboard permission errors.
-                    } finally {
-                      setClipboardDismissed(true);
-                    }
-                  }}
-                  className="rounded-xl border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
-                >
-                  Copy sanitized
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setClipboardDismissed(true)}
-                  className="rounded-xl border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
-                >
-                  Ignore
-                </button>
-              </div>
-            </div>
-          )}
         </div>
-      )}
+        {variant === 'full' && onNewEvent && (
+          <motion.button
+            onClick={onNewEvent}
+            whileHover={reduceMotion ? undefined : { scale: 1.02 }}
+            whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+            className="w-full rounded-xl bg-accent px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow transition"
+          >
+            New event
+          </motion.button>
+        )}
+        {showClipboardWarning && !clipboardDismissed && (
+          <div className="rounded-2xl border border-danger bg-[color-mix(in srgb,var(--danger) 8%, transparent)] px-3 py-2 text-[11px] text-muted">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-danger">Clipboard warning</p>
+            <p className="mt-1 text-[11px] text-muted">Clipboard contains sensitive data. Clear now?</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard?.writeText('');
+                  } catch {
+                    // Ignore clipboard permission errors.
+                  } finally {
+                    setClipboardDismissed(true);
+                  }
+                }}
+                className="rounded-xl border border-danger px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-danger"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard?.writeText('[REDACTED]');
+                  } catch {
+                    // Ignore clipboard permission errors.
+                  } finally {
+                    setClipboardDismissed(true);
+                  }
+                }}
+                className="rounded-xl border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+              >
+                Copy sanitized
+              </button>
+              <button
+                type="button"
+                onClick={() => setClipboardDismissed(true)}
+                className="rounded-xl border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+              >
+                Ignore
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       <Modal
-        title={editTarget ? 'Edit topic' : 'New topic'}
+        title={editTarget ? 'Edit calendar' : 'New calendar'}
         open={createOpen || Boolean(editTarget)}
         onClose={() => {
           setCreateOpen(false);
@@ -363,7 +529,7 @@ const SideBar = ({
           <div className="space-y-2">
             <p className="text-xs text-muted">Color</p>
             <div className="flex flex-wrap gap-2">
-              {palette.map((swatch) => (
+              {colorPalette.map((swatch) => (
                 <button
                   key={swatch}
                   type="button"
@@ -403,7 +569,7 @@ const SideBar = ({
             disabled={topicName.trim().length < 2 || topicName.trim().length > 30}
             className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {editTarget ? 'Save changes' : 'Create topic'}
+            {editTarget ? 'Save changes' : 'Create calendar'}
           </button>
         </div>
       </Modal>
