@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import ThemePicker from '../components/ThemePicker';
 import ColorDot from '../components/ColorDot';
 import Modal from '../components/Modal';
 import type { Calendar } from '../storage/types';
-import { THEME_PACKS } from '../theme/themePacks';
-import type { ThemeMode } from '../theme/ThemeProvider';
 
 const base = import.meta.env.BASE_URL;
 const mark1x = `${base}mark-128.png?v=3`;
@@ -49,11 +46,7 @@ const colorPalette = [
   '#7b5cff'
 ];
 
-const themeOptions = THEME_PACKS;
-
 type SideBarProps = {
-  selectedDate: Date;
-  onSelectDate: (date: Date) => void;
   calendars: Calendar[];
   activeProfileId: string;
   activeProfileName?: string;
@@ -68,16 +61,13 @@ type SideBarProps = {
   onImport?: (file: File) => void;
   onResetProfile?: () => void;
   onNavigate?: () => void;
-  onOpenSettings?: () => void;
+  onOpenReminders?: () => void;
+  onOpenNotes?: () => void;
   onLockNow?: () => void;
-  palette?: string;
-  onPaletteChange?: (paletteId: string, themeMode: ThemeMode) => void;
   showClipboardWarning?: boolean;
 };
 
 const SideBar = ({
-  selectedDate,
-  onSelectDate,
   calendars,
   activeProfileId,
   activeProfileName,
@@ -92,10 +82,9 @@ const SideBar = ({
   onImport,
   onResetProfile,
   onNavigate,
-  onOpenSettings,
+  onOpenReminders,
+  onOpenNotes,
   onLockNow,
-  palette,
-  onPaletteChange,
   showClipboardWarning = false
 }: SideBarProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -141,6 +130,11 @@ const SideBar = ({
     setCustomColor('');
   }, [editTarget]);
 
+  const handleSectionOpen = (callback?: () => void) => {
+    callback?.();
+    onNavigate?.();
+  };
+
   const previewColor = useMemo(() => {
     if (customColor.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)) {
       return customColor;
@@ -175,15 +169,6 @@ const SideBar = ({
     onDeleteCalendar(activeProfileId, calendar.id);
   };
 
-  const primaryNav = [
-    {
-      key: 'today',
-      label: 'Today',
-      icon: 'M10 3.5v2.5M5.5 10H3M17 10h-2.5M6.6 6.6 4.9 4.9M13.4 13.4l1.7 1.7M6.6 13.4l-1.7 1.7M13.4 6.6l1.7-1.7M10 6.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z',
-      onClick: () => onSelectDate(new Date())
-    }
-  ];
-
   return (
     <div className="flex h-full flex-col gap-6 text-sm">
       <div className="flex items-center gap-3">
@@ -205,17 +190,6 @@ const SideBar = ({
       <div className="space-y-2">
         <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Navigation</p>
         <div className="grid gap-2 text-xs">
-          {primaryNav.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={item.onClick}
-              className="flex items-center gap-3 rounded-xl border border-grid bg-panel px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:border-accent/60 hover:text-text"
-            >
-              <NavIcon path={item.icon} />
-              {item.label}
-            </button>
-          ))}
           <NavLink
             to="/"
             onClick={onNavigate}
@@ -232,16 +206,16 @@ const SideBar = ({
           </NavLink>
           <button
             type="button"
+            onClick={() => handleSectionOpen(onOpenReminders)}
             className="flex items-center gap-3 rounded-xl border border-grid bg-panel px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:border-accent/60 hover:text-text"
-            title="Reminders syncs with mobile soon"
           >
             <NavIcon path="M10 3.5a4.5 4.5 0 0 1 4.5 4.5v2.5l1.5 2.5H4l1.5-2.5V8A4.5 4.5 0 0 1 10 3.5Z" />
             Reminders
           </button>
           <button
             type="button"
+            onClick={() => handleSectionOpen(onOpenNotes)}
             className="flex items-center gap-3 rounded-xl border border-grid bg-panel px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:border-accent/60 hover:text-text"
-            title="Notes dashboard coming soon"
           >
             <NavIcon path="M5 4h10v12H5zM7.5 8h5M7.5 11h5" />
             Notes
@@ -257,15 +231,15 @@ const SideBar = ({
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
-          className="w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted transition hover:text-text"
+          className="w-full rounded-xl border border-accent/40 bg-[color-mix(in srgb,var(--accent) 16%, transparent)] px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text"
         >
-          + New calendar
+          + New topic
         </button>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {calendars.map((calendar) => (
             <div
               key={calendar.id}
-              className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs transition ${
+              className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-xs transition ${
                 calendar.isVisible
                   ? 'border-accent/50 bg-[color-mix(in srgb,var(--accent) 12%, transparent)] text-text'
                   : 'border-grid bg-panel2 text-muted'
@@ -277,7 +251,10 @@ const SideBar = ({
                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
               >
                 <ColorDot color={calendar.color} active={calendar.isVisible} />
-                <span className="truncate uppercase tracking-[0.2em]">{calendar.name}</span>
+                <div className="min-w-0">
+                  <span className="block truncate uppercase tracking-[0.2em]">{calendar.name}</span>
+                  <span className="block text-[9px] uppercase tracking-[0.3em] text-muted">Topic</span>
+                </div>
               </button>
               <div className="flex items-center gap-2">
                 <button
@@ -330,26 +307,6 @@ const SideBar = ({
         </div>
       </div>
 
-      {onPaletteChange && palette && (
-        <div className="space-y-3 rounded-2xl border border-grid bg-panel px-3 py-4">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Theme</p>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-muted">{palette}</span>
-          </div>
-          <ThemePicker
-            themes={themeOptions}
-            activeId={palette}
-            onSelect={(nextId) => {
-              const next = themeOptions.find((pack) => pack.id === nextId);
-              if (!next) {
-                return;
-              }
-              onPaletteChange(next.id, next.mode);
-            }}
-          />
-        </div>
-      )}
-
       <div className="mt-auto space-y-3">
         <div className="rounded-2xl border border-grid bg-panel px-3 py-3">
           <div className="flex items-center justify-between gap-3">
@@ -374,16 +331,6 @@ const SideBar = ({
         <div className="rounded-2xl border border-grid bg-panel px-3 py-4">
           <p className="text-[10px] uppercase tracking-[0.3em] text-muted">System</p>
           <div className="mt-3 grid gap-2 text-xs">
-            {onOpenSettings && (
-              <button
-                type="button"
-                onClick={onOpenSettings}
-                className="flex items-center justify-between rounded-xl border border-grid bg-panel2 px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:text-text"
-              >
-                Settings
-                <NavIcon path="M10 4.5v2M10 13.5v2M4.5 10h2M13.5 10h2M6.3 6.3l1.4 1.4M12.3 12.3l1.4 1.4M6.3 13.7l1.4-1.4M12.3 7.7l1.4-1.4" />
-              </button>
-            )}
             <NavLink
               to="/safety"
               onClick={onNavigate}
@@ -509,7 +456,7 @@ const SideBar = ({
       </div>
 
       <Modal
-        title={editTarget ? 'Edit calendar' : 'New calendar'}
+        title={editTarget ? 'Edit topic' : 'New topic'}
         open={createOpen || Boolean(editTarget)}
         onClose={() => {
           setCreateOpen(false);
@@ -569,7 +516,7 @@ const SideBar = ({
             disabled={topicName.trim().length < 2 || topicName.trim().length > 30}
             className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {editTarget ? 'Save changes' : 'Create calendar'}
+            {editTarget ? 'Save changes' : 'Create topic'}
           </button>
         </div>
       </Modal>

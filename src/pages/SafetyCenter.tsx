@@ -15,7 +15,7 @@ import { isWebAuthnSupported, registerPasskey } from '../security/webauthn';
 import { buildExportPayload, type ExportMode, validateExportPayload } from '../security/exportUtils';
 import { usePrivacyScreen } from '../state/privacy';
 import type { AppSettings } from '../storage/types';
-import { DEFAULT_THEME_BY_MODE, THEME_PACKS, resolveThemeModeFromPalette } from '../theme/themePacks';
+import { DEFAULT_THEME_BY_MODE, THEME_PACKS } from '../theme/themePacks';
 
 const formatDate = (value?: string) => {
   if (!value) {
@@ -62,9 +62,7 @@ const SafetyCenter = () => {
   const [localAuthDraft, setLocalAuthDraft] = useState('');
   const [localAuthConfirm, setLocalAuthConfirm] = useState('');
   const [panicOpen, setPanicOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [themeBrowserOpen, setThemeBrowserOpen] = useState(false);
-  const [currentDate, setCurrentDate] = useState(new Date());
   const [wipedImportOpen, setWipedImportOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [exportMode, setExportMode] = useState<ExportMode>('clean');
@@ -563,6 +561,36 @@ const SafetyCenter = () => {
   const panelMotion = reduceMotion
     ? undefined
     : { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.25 } };
+  const authSummary = useMemo(() => {
+    const methods = [];
+    if (state.securityPrefs.pinEnabled) {
+      methods.push('PIN');
+    }
+    if (state.settings.twoFactorEnabled) {
+      methods.push('2FA');
+    }
+    if (state.settings.biometricEnabled) {
+      methods.push('Biometric');
+    }
+    return methods.length ? methods.join(' + ') : 'None';
+  }, [state.securityPrefs.pinEnabled, state.settings.biometricEnabled, state.settings.twoFactorEnabled]);
+  const localEncryption = state.settings.encryptedNotes || state.settings.encryptedAttachments ? 'Encrypted' : 'Standard';
+  const syncEncryption = state.settings.encryptedSharingEnabled ? 'Encrypted channels' : 'Standard channels';
+  const networkLabel =
+    state.settings.syncStrategy === 'offline'
+      ? 'Offline only'
+      : state.settings.syncTrustedDevices
+        ? 'VPN (trusted)'
+        : 'Wi-Fi (secured)';
+  const ipTrackingStatus = state.settings.networkLock ? 'Blocked' : 'Limited';
+  const lastSyncAt = useMemo(() => new Date().toLocaleString(), []);
+  const handleSectionJump = (targetId: string) => {
+    const section = document.getElementById(targetId);
+    if (!section) {
+      return;
+    }
+    section.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  };
 
   return (
     <AppShell
@@ -575,16 +603,8 @@ const SafetyCenter = () => {
           onCreateProfile={handleCreateProfile}
           profileSwitchAllowed={!state.securityPrefs.pinEnabled && !state.securityPrefs.decoyPinEnabled}
           showCreateProfile={!state.securityPrefs.pinEnabled && !state.securityPrefs.decoyPinEnabled}
-          onOpenSettings={() => setSettingsOpen(true)}
           onLockNow={lockNow}
           onHome={() => navigate('/')}
-          palette={state.settings.palette}
-          onPaletteChange={(paletteId, themeMode) =>
-            updateSettings({
-              palette: paletteId,
-              theme: resolveThemeModeFromPalette(paletteId, themeMode)
-            })
-          }
           showSearch={false}
           onOpenNav={() => setNavOpen(true)}
           onCommandAdd={handleCommandAdd}
@@ -601,8 +621,6 @@ const SafetyCenter = () => {
       }
       sidebar={
         <SideBar
-          selectedDate={currentDate}
-          onSelectDate={setCurrentDate}
           calendars={calendars}
           activeProfileId={activeProfile?.id ?? ''}
           activeProfileName={activeProfile?.name ?? 'KamranBroomand'}
@@ -617,22 +635,14 @@ const SafetyCenter = () => {
           onExport={handleQuickExport}
           onImport={handleQuickImport}
           onResetProfile={handleResetProfile}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenReminders={() => handleSectionJump('reminders-section')}
+          onOpenNotes={() => handleSectionJump('notes-section')}
           onLockNow={lockNow}
-          palette={state.settings.palette}
-          onPaletteChange={(paletteId, themeMode) =>
-            updateSettings({
-              palette: paletteId,
-              theme: resolveThemeModeFromPalette(paletteId, themeMode)
-            })
-          }
           showClipboardWarning
         />
       }
       mobileNav={
         <SideBar
-          selectedDate={currentDate}
-          onSelectDate={setCurrentDate}
           calendars={calendars}
           activeProfileId={activeProfile?.id ?? ''}
           activeProfileName={activeProfile?.name ?? 'KamranBroomand'}
@@ -643,15 +653,9 @@ const SafetyCenter = () => {
           onRecolorCalendar={recolorCalendar}
           onDeleteCalendar={deleteCalendar}
           onNavigate={() => setNavOpen(false)}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenReminders={() => handleSectionJump('reminders-section')}
+          onOpenNotes={() => handleSectionJump('notes-section')}
           onLockNow={lockNow}
-          palette={state.settings.palette}
-          onPaletteChange={(paletteId, themeMode) =>
-            updateSettings({
-              palette: paletteId,
-              theme: resolveThemeModeFromPalette(paletteId, themeMode)
-            })
-          }
         />
       }
       navOpen={navOpen}
@@ -855,7 +859,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+            <div id="notes-section" className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Private Notes & Sharing</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -935,7 +939,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+            <div id="reminders-section" className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Reminders & Collaboration</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -1022,16 +1026,44 @@ const SafetyCenter = () => {
                   <span className="text-text">Local-only</span>
                 </li>
                 <li className="flex min-w-0 items-center justify-between gap-3">
+                  <span>Local data encryption</span>
+                  <span className="text-text">{localEncryption}</span>
+                </li>
+                <li className="flex min-w-0 items-center justify-between gap-3">
+                  <span>Sync encryption</span>
+                  <span className="text-text">{syncEncryption}</span>
+                </li>
+                <li className="flex min-w-0 items-center justify-between gap-3">
                   <span>Network access</span>
-                  <span className="text-text">Blocked (offline-only)</span>
+                  <span className="text-text">
+                    {state.settings.syncStrategy === 'offline' ? 'Blocked (offline-only)' : 'Guarded (secure sync)'}
+                  </span>
                 </li>
                 <li className="flex min-w-0 items-center justify-between gap-3">
-                  <span>Sync</span>
-                  <span className="text-text">Off</span>
+                  <span>Connection type</span>
+                  <span className="text-text">{networkLabel}</span>
                 </li>
                 <li className="flex min-w-0 items-center justify-between gap-3">
-                  <span>Last export</span>
+                  <span>IP tracking</span>
+                  <span className="text-text">{ipTrackingStatus}</span>
+                </li>
+                <li className="flex min-w-0 items-center justify-between gap-3">
+                  <span>Location access</span>
+                  <span className="text-text">Restricted</span>
+                </li>
+                <li className="flex min-w-0 items-center justify-between gap-3">
+                  <span>Last sync</span>
+                  <span className="text-text">
+                    {state.settings.syncStrategy === 'offline' ? 'Never' : lastSyncAt}
+                  </span>
+                </li>
+                <li className="flex min-w-0 items-center justify-between gap-3">
+                  <span>Last backup</span>
                   <span className="text-text">{formatDate(state.settings.lastExportAt)}</span>
+                </li>
+                <li className="flex min-w-0 items-center justify-between gap-3">
+                  <span>Authentication</span>
+                  <span className="text-text">{authSummary}</span>
                 </li>
               </ul>
             </div>
@@ -1352,26 +1384,28 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Decoy Profile</p>
-              <div className="mt-3 grid gap-3 text-sm text-muted md:grid-cols-2">
-                <div className="space-y-3">
-                  <p className="text-xs text-muted">
+              <div className="mt-4 grid gap-4 text-sm text-muted lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+                <div className="space-y-4">
+                  <p className="text-xs text-muted leading-relaxed">
                     Decoy profile is a separate local workspace. Use a decoy PIN to open it under pressure.
                   </p>
-                  <div className="rounded-2xl border border-grid bg-panel2 px-3 py-2 text-xs text-muted">
-                    <p>
-                      Active profile:{' '}
-                      <span className="text-text">{activeProfile?.name ?? 'Unknown'}</span>
-                    </p>
-                    <p className="mt-1">
-                      Decoy profile:{' '}
-                      <span className="text-text">
-                        {state.settings.decoyProfileId ? 'Configured' : 'Not created'}
-                      </span>
-                    </p>
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
+                    <div className="grid gap-2">
+                      <p>
+                        Active profile:{' '}
+                        <span className="text-text">{activeProfile?.name ?? 'Unknown'}</span>
+                      </p>
+                      <p>
+                        Decoy profile:{' '}
+                        <span className="text-text">
+                          {state.settings.decoyProfileId ? 'Configured' : 'Not created'}
+                        </span>
+                      </p>
+                    </div>
                   </div>
-                  <div className="rounded-2xl border border-grid bg-panel2 px-3 py-2">
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
                     <label className="text-xs uppercase tracking-[0.3em] text-muted">Choose decoy profile</label>
                     <select
                       value={state.settings.decoyProfileId ?? ''}
@@ -1390,28 +1424,28 @@ const SafetyCenter = () => {
                     </p>
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <div className="rounded-2xl border border-grid bg-panel2 px-3 py-2">
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Profile actions</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <button
                         type="button"
                         onClick={handleCreateDecoyProfile}
-                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                        className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
                       >
                         Create decoy shell
                       </button>
                       <button
                         type="button"
                         onClick={handleSwitchToDecoy}
-                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                        className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
                       >
                         Switch to decoy
                       </button>
                       <button
                         type="button"
                         onClick={() => handleManualProfileSwitch(state.settings.primaryProfileId)}
-                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                        className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted sm:col-span-2"
                       >
                         Switch to primary
                       </button>
@@ -1507,25 +1541,6 @@ const SafetyCenter = () => {
                 setThemeBrowserOpen(false);
               }}
             />
-          </div>
-        </Modal>
-        <Modal title="Settings" open={settingsOpen} onClose={() => setSettingsOpen(false)}>
-          <div className="grid gap-3 text-sm text-muted">
-            <p>
-              Profile: <span className="text-text">{activeProfile?.name}</span>
-            </p>
-            <p>
-              Storage: <span className="text-text">Local IndexedDB</span>
-            </p>
-            <button
-              onClick={() => {
-                setSettingsOpen(false);
-                handleResetProfile();
-              }}
-              className="mt-2 rounded-full border border-grid px-4 py-2 text-xs text-muted transition hover:text-text"
-            >
-              Reset profile data
-            </button>
           </div>
         </Modal>
       </RouteErrorBoundary>
