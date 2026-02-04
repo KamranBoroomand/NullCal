@@ -11,11 +11,10 @@ import Modal from '../components/Modal';
 import { useAppStore } from '../app/AppStore';
 import type { CalendarEvent } from '../storage/types';
 import { useToast } from '../components/ToastProvider';
-import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import RouteErrorBoundary from '../components/RouteErrorBoundary';
 import { decryptNote, encryptNote, encryptPayload, isEncryptedNote } from '../security/encryption';
 import { buildExportPayload, validateExportPayload } from '../security/exportUtils';
-import { resolveThemeModeFromPalette } from '../theme/themePacks';
+import type { AppSettings } from '../storage/types';
 
 const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 const fromInputValue = (value: string) => new Date(value).toISOString();
@@ -46,15 +45,15 @@ const AppPage = () => {
   const [search, setSearch] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draft, setDraft] = useState<EventDraft | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  const [remindersOpen, setRemindersOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [noteEncryptionArmed, setNoteEncryptionArmed] = useState(false);
   const [notePassphrase, setNotePassphrase] = useState('');
   const [noteConfirm, setNoteConfirm] = useState('');
   const [noteDecryptPassphrase, setNoteDecryptPassphrase] = useState('');
   const [noteError, setNoteError] = useState('');
   const reduceMotion = useReducedMotion();
-  const { canInstall, promptInstall } = useInstallPrompt();
   const noteEncrypted = isEncryptedNote(draft?.notes);
 
   useEffect(() => {
@@ -405,15 +404,7 @@ const AppPage = () => {
             onCreateProfile={handleCreateProfile}
             profileSwitchAllowed={true}
             showCreateProfile={true}
-            onOpenSettings={() => setSettingsOpen(true)}
             onLockNow={lockNow}
-            palette={state.settings.palette}
-            onPaletteChange={(paletteId, themeMode) =>
-              updateSettings({
-                palette: paletteId,
-                theme: resolveThemeModeFromPalette(paletteId, themeMode)
-              })
-            }
             onOpenNav={() => setNavOpen(true)}
             onCommandAdd={handleCommandAdd}
             onCommandDecoy={handleCommandDecoy}
@@ -429,8 +420,6 @@ const AppPage = () => {
         }
         sidebar={
           <SideBar
-            selectedDate={currentDate}
-            onSelectDate={setCurrentDate}
             calendars={calendars}
             activeProfileId={activeProfile.id}
             activeProfileName={activeProfile.name}
@@ -443,21 +432,13 @@ const AppPage = () => {
             onExport={handleExport}
             onImport={handleImport}
             onResetProfile={handleResetProfile}
-            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenReminders={() => setRemindersOpen(true)}
+            onOpenNotes={() => setNotesOpen(true)}
             onLockNow={lockNow}
-            palette={state.settings.palette}
-            onPaletteChange={(paletteId, themeMode) =>
-              updateSettings({
-                palette: paletteId,
-                theme: resolveThemeModeFromPalette(paletteId, themeMode)
-              })
-            }
           />
         }
         mobileNav={
           <SideBar
-            selectedDate={currentDate}
-            onSelectDate={setCurrentDate}
             calendars={calendars}
             activeProfileId={activeProfile.id}
             activeProfileName={activeProfile.name}
@@ -468,15 +449,9 @@ const AppPage = () => {
             onRecolorCalendar={recolorCalendar}
             onDeleteCalendar={deleteCalendar}
             onNavigate={() => setNavOpen(false)}
-            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenReminders={() => setRemindersOpen(true)}
+            onOpenNotes={() => setNotesOpen(true)}
             onLockNow={lockNow}
-            palette={state.settings.palette}
-            onPaletteChange={(paletteId, themeMode) =>
-              updateSettings({
-                palette: paletteId,
-                theme: resolveThemeModeFromPalette(paletteId, themeMode)
-              })
-            }
           />
         }
         navOpen={navOpen}
@@ -684,31 +659,71 @@ const AppPage = () => {
           </div>
         )}
       </Modal>
-      <Modal title="Settings" open={settingsOpen} onClose={() => setSettingsOpen(false)}>
+      <Modal title="Reminders" open={remindersOpen} onClose={() => setRemindersOpen(false)}>
         <div className="grid gap-3 text-sm text-muted">
-          <p>
-            Profile: <span className="text-text">{activeProfile.name}</span>
-          </p>
-          <p>
-            Storage: <span className="text-text">Local IndexedDB</span>
-          </p>
-          {canInstall && (
-            <button
-              onClick={promptInstall}
-              className="rounded-full border border-grid px-4 py-2 text-xs text-accent transition hover:text-text"
+          <p className="text-xs uppercase tracking-[0.3em] text-muted">Reminders</p>
+          <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel px-4 py-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Enable reminders</p>
+              <p className="mt-1 text-xs text-muted">Show device notifications for upcoming events.</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={state.settings.remindersEnabled}
+              onChange={(event) => updateSettings({ remindersEnabled: event.target.checked })}
+              className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+            />
+          </label>
+          <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+            Reminder channel
+            <select
+              value={state.settings.reminderChannel}
+              onChange={(event) =>
+                updateSettings({ reminderChannel: event.target.value as AppSettings['reminderChannel'] })
+              }
+              className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+              disabled={!state.settings.remindersEnabled}
             >
-              Install app
-            </button>
-          )}
-          <button
-            onClick={() => {
-              setSettingsOpen(false);
-              handleResetProfile();
-            }}
-            className="mt-2 rounded-full border border-grid px-4 py-2 text-xs text-muted transition hover:text-text"
-          >
-            Reset profile data
-          </button>
+              <option value="local" className="bg-panel2">
+                Local notifications
+              </option>
+              <option value="signal" className="bg-panel2">
+                Signal secure ping
+              </option>
+              <option value="telegram" className="bg-panel2">
+                Telegram secure ping
+              </option>
+            </select>
+          </label>
+        </div>
+      </Modal>
+      <Modal title="Notes" open={notesOpen} onClose={() => setNotesOpen(false)}>
+        <div className="grid gap-3 text-sm text-muted">
+          <p className="text-xs uppercase tracking-[0.3em] text-muted">Private notes</p>
+          <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel px-4 py-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Encrypted notes by default</p>
+              <p className="mt-1 text-xs text-muted">Encrypt notes locally with AES-GCM.</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={state.settings.encryptedNotes}
+              onChange={(event) => updateSettings({ encryptedNotes: event.target.checked })}
+              className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+            />
+          </label>
+          <label className="flex items-start justify-between gap-4 rounded-2xl border border-grid bg-panel px-4 py-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Encrypted attachments</p>
+              <p className="mt-1 text-xs text-muted">Protect files attached to events.</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={state.settings.encryptedAttachments}
+              onChange={(event) => updateSettings({ encryptedAttachments: event.target.checked })}
+              className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+            />
+          </label>
         </div>
       </Modal>
     </>

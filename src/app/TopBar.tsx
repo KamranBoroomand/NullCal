@@ -2,11 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import Clock from '../components/Clock';
 import Segmented from '../components/Segmented';
-import type { ThemeMode } from '../theme/ThemeProvider';
 import HotkeysModal from './HotkeysModal';
-import Modal from '../components/Modal';
-import ThemePicker from '../components/ThemePicker';
-import { THEME_PACKS } from '../theme/themePacks';
 
 const base = import.meta.env.BASE_URL;
 const mark1x = `${base}mark-128.png?v=3`;
@@ -76,29 +72,6 @@ const LockIcon = () => (
   <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
     <rect x="4.5" y="8" width="11" height="8" rx="2" stroke="currentColor" strokeWidth="1.4" />
     <path d="M7 8V6.2a3 3 0 0 1 6 0V8" stroke="currentColor" strokeWidth="1.4" />
-  </svg>
-);
-
-const ThemeIcon = ({ mode }: { mode: ThemeMode }) => (
-  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-    {mode === 'dark' ? (
-      <path
-        d="M12.8 3.5a6.5 6.5 0 1 0 3.7 8.7A6 6 0 0 1 12.8 3.5Z"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      />
-    ) : (
-      <>
-        <circle cx="10" cy="10" r="3.5" stroke="currentColor" strokeWidth="1.4" />
-        <path
-          d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.4 4.4l1.4 1.4M14.2 14.2l1.4 1.4M4.4 15.6l1.4-1.4M14.2 5.8l1.4-1.4"
-          stroke="currentColor"
-          strokeWidth="1.2"
-          strokeLinecap="round"
-        />
-      </>
-    )}
   </svg>
 );
 
@@ -361,11 +334,8 @@ type TopBarProps = {
   onCreateProfile: () => void;
   profileSwitchAllowed?: boolean;
   showCreateProfile?: boolean;
-  onOpenSettings: () => void;
   onLockNow: () => void;
   onOpenNav?: () => void;
-  palette: string;
-  onPaletteChange: (paletteId: string, themeMode: ThemeMode) => void;
   onCommandAdd?: () => void;
   onCommandDecoy?: () => void;
   onCommandExport?: (mode: 'clean' | 'full') => void;
@@ -395,11 +365,8 @@ const TopBar = ({
   onCreateProfile,
   profileSwitchAllowed = true,
   showCreateProfile = true,
-  onOpenSettings,
   onLockNow,
   onOpenNav,
-  palette,
-  onPaletteChange,
   onCommandAdd,
   onCommandDecoy,
   onCommandExport,
@@ -414,7 +381,6 @@ const TopBar = ({
 }: TopBarProps) => {
   const reduceMotion = useReducedMotion();
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
-  const [themeOpen, setThemeOpen] = useState(false);
   const desktopSearchInputRef = useRef<HTMLInputElement | null>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
   const pillMotion = reduceMotion
@@ -528,11 +494,8 @@ const TopBar = ({
   const showSearchBar = showSearch && Boolean(onSearchChange);
   const showViewControls = Boolean(view && onViewChange);
   const showNavControls = Boolean(onPrev && onNext);
-  const themeOptions = THEME_PACKS;
-  const activeTheme = useMemo(
-    () => themeOptions.find((pack) => pack.id === palette) ?? themeOptions[0],
-    [palette, themeOptions]
-  );
+  const newEventClass =
+    'flex h-9 items-center gap-2 rounded-full border border-accent/40 bg-[color-mix(in srgb,var(--accent) 28%, transparent)] px-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-[0_10px_24px_rgba(0,0,0,0.25)] backdrop-blur transition hover:border-accent';
   const securityLabel = secureMode
     ? 'Secure mode'
     : eventObfuscation
@@ -545,34 +508,22 @@ const TopBar = ({
   const syncLabel = syncStrategy === 'offline' ? 'Offline' : syncStrategy === 'ipfs' ? 'IPFS sync' : 'P2P sync';
   const syncDetail =
     syncStrategy === 'offline' ? 'Local only' : syncTrustedDevices ? 'Trusted devices' : 'Manual pairing';
-  const handleThemeToggle = () => {
-    const nextMode: ThemeMode = activeTheme.mode === 'dark' ? 'light' : 'dark';
-    const nextTheme =
-      themeOptions.find((pack) => pack.family === activeTheme.family && pack.mode === nextMode) ??
-      themeOptions.find((pack) => pack.mode === nextMode) ??
-      activeTheme;
-    onPaletteChange(nextTheme.id, nextTheme.mode);
-  };
   const desktopOverflowActions = useMemo<OverflowAction[]>(() => {
     const actions: OverflowAction[] = [];
     if (allowCreateProfile) {
       actions.push({ key: 'profile', label: '+ Profile', onClick: onCreateProfile });
     }
-    actions.push({ key: 'settings', label: 'Settings', onClick: onOpenSettings });
-    actions.push({ key: 'theme', label: 'Theme toggle', onClick: () => setThemeOpen(true) });
     actions.push({ key: 'hotkeys', label: 'Hotkey', onClick: () => setHotkeysOpen(true) });
     return actions;
-  }, [allowCreateProfile, onCreateProfile, onOpenSettings, setHotkeysOpen, setThemeOpen]);
+  }, [allowCreateProfile, onCreateProfile, setHotkeysOpen]);
   const mobileOverflowActions = useMemo<OverflowAction[]>(() => {
     const actions: OverflowAction[] = [];
     if (allowCreateProfile) {
       actions.push({ key: 'profile', label: '+ Profile', onClick: onCreateProfile });
     }
-    actions.push({ key: 'settings', label: 'Settings', onClick: onOpenSettings });
-    actions.push({ key: 'theme', label: 'Theme toggle', onClick: () => setThemeOpen(true) });
     actions.push({ key: 'hotkeys', label: 'Hotkey', onClick: () => setHotkeysOpen(true) });
     return actions;
-  }, [allowCreateProfile, onCreateProfile, onOpenSettings, setHotkeysOpen, setThemeOpen]);
+  }, [allowCreateProfile, onCreateProfile, setHotkeysOpen]);
   const showDesktopOverflow = allowProfileSwitch || desktopOverflowActions.length > 0;
 
   const renderSearchInput = (inputRef: React.RefObject<HTMLInputElement>) => (
@@ -680,10 +631,13 @@ const TopBar = ({
                 <motion.button
                   type="button"
                   onClick={onCommandAdd}
-                  className="flex h-9 items-center gap-2 rounded-full bg-accent px-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow"
+                  className={newEventClass}
                   {...pillMotion}
                 >
-                  + New event
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color-mix(in srgb,var(--accentText) 25%, transparent)] text-[12px]">
+                    +
+                  </span>
+                  New event
                 </motion.button>
               )}
               <div className="hidden text-xs text-muted sm:block">
@@ -696,27 +650,6 @@ const TopBar = ({
           </div>
         </div>
         <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
-        <Modal title="Theme Packs" open={themeOpen} onClose={() => setThemeOpen(false)}>
-          <div className="space-y-3 text-sm text-muted">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs uppercase tracking-[0.3em] text-muted">Current</span>
-              <span className="text-[11px] uppercase tracking-[0.2em] text-text">{activeTheme.name}</span>
-            </div>
-            <p className="text-xs text-muted">Select a theme pack to restyle the entire interface.</p>
-            <ThemePicker
-              themes={themeOptions}
-              activeId={palette}
-              onSelect={(nextId) => {
-                const next = themeOptions.find((pack) => pack.id === nextId);
-                if (!next) {
-                  return;
-                }
-                onPaletteChange(next.id, next.mode);
-                setThemeOpen(false);
-              }}
-            />
-          </div>
-        </Modal>
       </header>
     );
   }
@@ -813,10 +746,13 @@ const TopBar = ({
                     <motion.button
                       type="button"
                       onClick={onCommandAdd}
-                      className="flex h-9 items-center gap-2 rounded-full bg-accent px-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow"
+                      className={newEventClass}
                       {...pillMotion}
                     >
-                      + New event
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color-mix(in srgb,var(--accentText) 25%, transparent)] text-[12px]">
+                        +
+                      </span>
+                      New event
                     </motion.button>
                   )}
                   <motion.button
@@ -840,15 +776,6 @@ const TopBar = ({
                     {...pillMotion}
                   >
                     <InfoIcon />
-                  </motion.button>
-                  <motion.button
-                    type="button"
-                    onClick={handleThemeToggle}
-                    className={iconButtonBase}
-                    aria-label="Toggle theme"
-                    {...pillMotion}
-                  >
-                    <ThemeIcon mode={activeTheme.mode} />
                   </motion.button>
                   <motion.div className={`${pillBase} gap-2 px-3 text-muted`} {...pillMotion}>
                     <ShieldIcon />
@@ -976,10 +903,13 @@ const TopBar = ({
                 <motion.button
                   type="button"
                   onClick={onCommandAdd}
-                  className="flex h-9 items-center gap-2 rounded-full bg-accent px-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow"
+                  className={newEventClass}
                   {...pillMotion}
                 >
-                  + New
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color-mix(in srgb,var(--accentText) 25%, transparent)] text-[12px]">
+                    +
+                  </span>
+                  New event
                 </motion.button>
               )}
               <ProfileMenu
@@ -1058,15 +988,6 @@ const TopBar = ({
             </motion.button>
             <motion.button
               type="button"
-              onClick={handleThemeToggle}
-              className={iconButtonBase}
-              aria-label="Toggle theme"
-              {...pillMotion}
-            >
-              <ThemeIcon mode={activeTheme.mode} />
-            </motion.button>
-            <motion.button
-              type="button"
               onClick={() => setHotkeysOpen(true)}
               className={iconButtonBase}
               aria-label="Help & shortcuts"
@@ -1083,27 +1004,6 @@ const TopBar = ({
         </div>
       </div>
       <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
-      <Modal title="Theme Packs" open={themeOpen} onClose={() => setThemeOpen(false)}>
-        <div className="space-y-3 text-sm text-muted">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs uppercase tracking-[0.3em] text-muted">Current</span>
-            <span className="text-[11px] uppercase tracking-[0.2em] text-text">{activeTheme.name}</span>
-          </div>
-          <p className="text-xs text-muted">Select a theme pack to restyle the entire interface.</p>
-          <ThemePicker
-            themes={themeOptions}
-            activeId={palette}
-            onSelect={(nextId) => {
-              const next = themeOptions.find((pack) => pack.id === nextId);
-              if (!next) {
-                return;
-              }
-              onPaletteChange(next.id, next.mode);
-              setThemeOpen(false);
-            }}
-          />
-        </div>
-      </Modal>
     </header>
   );
 };
