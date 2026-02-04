@@ -16,6 +16,7 @@ import RouteErrorBoundary from '../components/RouteErrorBoundary';
 import { decryptNote, encryptNote, encryptPayload, isEncryptedNote } from '../security/encryption';
 import { buildExportPayload, validateExportPayload } from '../security/exportUtils';
 import { resolveThemeModeFromPalette } from '../theme/themePacks';
+import { NotesModal, RemindersModal } from '../components/SidebarPanels';
 
 const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 const fromInputValue = (value: string) => new Date(value).toISOString();
@@ -48,6 +49,8 @@ const AppPage = () => {
   const [draft, setDraft] = useState<EventDraft | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  const [remindersOpen, setRemindersOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [noteEncryptionArmed, setNoteEncryptionArmed] = useState(false);
   const [notePassphrase, setNotePassphrase] = useState('');
   const [noteConfirm, setNoteConfirm] = useState('');
@@ -190,6 +193,14 @@ const AppPage = () => {
     if (event) {
       setDraft({ ...event });
     }
+  };
+
+  const handleOpenEventFromPanel = (eventId: string) => {
+    const event = events.find((item) => item.id === eventId);
+    if (!event) {
+      return;
+    }
+    setDraft({ ...event });
   };
 
   const handleDecryptNote = async () => {
@@ -358,6 +369,18 @@ const AppPage = () => {
     });
   }, [activeProfile, search, visibleCalendarIds]);
 
+  const reminders = useMemo(() => {
+    return events
+      .filter((event) => Boolean(event.reminderRule?.trim()))
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  }, [events]);
+
+  const notesWithContent = useMemo(() => {
+    return events
+      .filter((event) => Boolean(event.notes?.trim()))
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  }, [events]);
+
   const calendarEvents: EventInput[] = useMemo(() => {
     if (!activeProfile) {
       return [];
@@ -429,8 +452,6 @@ const AppPage = () => {
         }
         sidebar={
           <SideBar
-            selectedDate={currentDate}
-            onSelectDate={setCurrentDate}
             calendars={calendars}
             activeProfileId={activeProfile.id}
             activeProfileName={activeProfile.name}
@@ -442,22 +463,16 @@ const AppPage = () => {
             onNewEvent={() => handleCreateDraft(startOfHour(new Date()), addHours(startOfHour(new Date()), 1))}
             onExport={handleExport}
             onImport={handleImport}
-            onResetProfile={handleResetProfile}
             onOpenSettings={() => setSettingsOpen(true)}
             onLockNow={lockNow}
-            palette={state.settings.palette}
-            onPaletteChange={(paletteId, themeMode) =>
-              updateSettings({
-                palette: paletteId,
-                theme: resolveThemeModeFromPalette(paletteId, themeMode)
-              })
-            }
+            onOpenReminders={() => setRemindersOpen(true)}
+            onOpenNotes={() => setNotesOpen(true)}
+            remindersActive={remindersOpen}
+            notesActive={notesOpen}
           />
         }
         mobileNav={
           <SideBar
-            selectedDate={currentDate}
-            onSelectDate={setCurrentDate}
             calendars={calendars}
             activeProfileId={activeProfile.id}
             activeProfileName={activeProfile.name}
@@ -470,13 +485,10 @@ const AppPage = () => {
             onNavigate={() => setNavOpen(false)}
             onOpenSettings={() => setSettingsOpen(true)}
             onLockNow={lockNow}
-            palette={state.settings.palette}
-            onPaletteChange={(paletteId, themeMode) =>
-              updateSettings({
-                palette: paletteId,
-                theme: resolveThemeModeFromPalette(paletteId, themeMode)
-              })
-            }
+            onOpenReminders={() => setRemindersOpen(true)}
+            onOpenNotes={() => setNotesOpen(true)}
+            remindersActive={remindersOpen}
+            notesActive={notesOpen}
           />
         }
         navOpen={navOpen}
@@ -692,6 +704,33 @@ const AppPage = () => {
           <p>
             Storage: <span className="text-text">Local IndexedDB</span>
           </p>
+          <label className="flex items-center justify-between gap-3 rounded-2xl border border-grid bg-panel px-4 py-3 text-xs uppercase tracking-[0.2em] text-muted">
+            Reminders
+            <input
+              type="checkbox"
+              checked={state.settings.remindersEnabled}
+              onChange={(event) => updateSettings({ remindersEnabled: event.target.checked })}
+              className="h-4 w-4 rounded border border-grid bg-panel2"
+            />
+          </label>
+          <label className="flex items-center justify-between gap-3 rounded-2xl border border-grid bg-panel px-4 py-3 text-xs uppercase tracking-[0.2em] text-muted">
+            Encrypted notes
+            <input
+              type="checkbox"
+              checked={state.settings.encryptedNotes}
+              onChange={(event) => updateSettings({ encryptedNotes: event.target.checked })}
+              className="h-4 w-4 rounded border border-grid bg-panel2"
+            />
+          </label>
+          <label className="flex items-center justify-between gap-3 rounded-2xl border border-grid bg-panel px-4 py-3 text-xs uppercase tracking-[0.2em] text-muted">
+            Secure mode
+            <input
+              type="checkbox"
+              checked={state.settings.secureMode}
+              onChange={(event) => updateSettings({ secureMode: event.target.checked })}
+              className="h-4 w-4 rounded border border-grid bg-panel2"
+            />
+          </label>
           {canInstall && (
             <button
               onClick={promptInstall}
@@ -711,6 +750,26 @@ const AppPage = () => {
           </button>
         </div>
       </Modal>
+      <RemindersModal
+        open={remindersOpen}
+        onClose={() => setRemindersOpen(false)}
+        events={reminders}
+        calendars={calendars}
+        onSelectEvent={(eventId) => {
+          setRemindersOpen(false);
+          handleOpenEventFromPanel(eventId);
+        }}
+      />
+      <NotesModal
+        open={notesOpen}
+        onClose={() => setNotesOpen(false)}
+        events={notesWithContent}
+        calendars={calendars}
+        onSelectEvent={(eventId) => {
+          setNotesOpen(false);
+          handleOpenEventFromPanel(eventId);
+        }}
+      />
     </>
   );
 };
