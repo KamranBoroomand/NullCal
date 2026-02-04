@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import Modal from '../components/Modal';
 import RouteErrorBoundary from '../components/RouteErrorBoundary';
+import { NotesModal, RemindersModal } from '../components/SidebarPanels';
 import { useAppStore } from '../app/AppStore';
 import { useToast } from '../components/ToastProvider';
 import AppShell from '../app/AppShell';
@@ -64,9 +65,10 @@ const SafetyCenter = () => {
   const [panicOpen, setPanicOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themeBrowserOpen, setThemeBrowserOpen] = useState(false);
-  const [currentDate, setCurrentDate] = useState(new Date());
   const [wipedImportOpen, setWipedImportOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  const [remindersOpen, setRemindersOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [exportMode, setExportMode] = useState<ExportMode>('clean');
   const [keepTitles, setKeepTitles] = useState(false);
   const holdTimer = useRef<number | null>(null);
@@ -125,6 +127,22 @@ const SafetyCenter = () => {
     }
     return state.calendars.filter((calendar) => calendar.profileId === activeProfile.id);
   }, [activeProfile, state]);
+  const events = useMemo(() => {
+    if (!state || !activeProfile) {
+      return [];
+    }
+    return state.events.filter((event) => event.profileId === activeProfile.id);
+  }, [activeProfile, state]);
+  const reminders = useMemo(() => {
+    return events
+      .filter((event) => Boolean(event.reminderRule?.trim()))
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  }, [events]);
+  const notesWithContent = useMemo(() => {
+    return events
+      .filter((event) => Boolean(event.notes?.trim()))
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  }, [events]);
   const activeTheme = useMemo(() => {
     const fallback = themeOptions.find((theme) => theme.id === DEFAULT_THEME_BY_MODE.dark) ?? themeOptions[0];
     return themeOptions.find((palette) => palette.id === state?.settings.palette) ?? fallback;
@@ -564,9 +582,16 @@ const SafetyCenter = () => {
     ? undefined
     : { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.25 } };
 
+  const handleOpenEventFromPanel = (_eventId: string) => {
+    navigate('/');
+    setNotesOpen(false);
+    setRemindersOpen(false);
+  };
+
   return (
-    <AppShell
-      topBar={
+    <>
+      <AppShell
+        topBar={
         <TopBar
           variant="minimal"
           profiles={state.profiles.map((profile) => ({ id: profile.id, name: profile.name }))}
@@ -601,8 +626,6 @@ const SafetyCenter = () => {
       }
       sidebar={
         <SideBar
-          selectedDate={currentDate}
-          onSelectDate={setCurrentDate}
           calendars={calendars}
           activeProfileId={activeProfile?.id ?? ''}
           activeProfileName={activeProfile?.name ?? 'KamranBroomand'}
@@ -616,23 +639,17 @@ const SafetyCenter = () => {
           }}
           onExport={handleQuickExport}
           onImport={handleQuickImport}
-          onResetProfile={handleResetProfile}
           onOpenSettings={() => setSettingsOpen(true)}
           onLockNow={lockNow}
-          palette={state.settings.palette}
-          onPaletteChange={(paletteId, themeMode) =>
-            updateSettings({
-              palette: paletteId,
-              theme: resolveThemeModeFromPalette(paletteId, themeMode)
-            })
-          }
+          onOpenReminders={() => setRemindersOpen(true)}
+          onOpenNotes={() => setNotesOpen(true)}
+          remindersActive={remindersOpen}
+          notesActive={notesOpen}
           showClipboardWarning
         />
       }
       mobileNav={
         <SideBar
-          selectedDate={currentDate}
-          onSelectDate={setCurrentDate}
           calendars={calendars}
           activeProfileId={activeProfile?.id ?? ''}
           activeProfileName={activeProfile?.name ?? 'KamranBroomand'}
@@ -645,13 +662,10 @@ const SafetyCenter = () => {
           onNavigate={() => setNavOpen(false)}
           onOpenSettings={() => setSettingsOpen(true)}
           onLockNow={lockNow}
-          palette={state.settings.palette}
-          onPaletteChange={(paletteId, themeMode) =>
-            updateSettings({
-              palette: paletteId,
-              theme: resolveThemeModeFromPalette(paletteId, themeMode)
-            })
-          }
+          onOpenReminders={() => setRemindersOpen(true)}
+          onOpenNotes={() => setNotesOpen(true)}
+          remindersActive={remindersOpen}
+          notesActive={notesOpen}
         />
       }
       navOpen={navOpen}
@@ -1517,6 +1531,33 @@ const SafetyCenter = () => {
             <p>
               Storage: <span className="text-text">Local IndexedDB</span>
             </p>
+            <label className="flex items-center justify-between gap-3 rounded-2xl border border-grid bg-panel px-4 py-3 text-xs uppercase tracking-[0.2em] text-muted">
+              Reminders
+              <input
+                type="checkbox"
+                checked={state.settings.remindersEnabled}
+                onChange={(event) => updateSettings({ remindersEnabled: event.target.checked })}
+                className="h-4 w-4 rounded border border-grid bg-panel2"
+              />
+            </label>
+            <label className="flex items-center justify-between gap-3 rounded-2xl border border-grid bg-panel px-4 py-3 text-xs uppercase tracking-[0.2em] text-muted">
+              Encrypted notes
+              <input
+                type="checkbox"
+                checked={state.settings.encryptedNotes}
+                onChange={(event) => updateSettings({ encryptedNotes: event.target.checked })}
+                className="h-4 w-4 rounded border border-grid bg-panel2"
+              />
+            </label>
+            <label className="flex items-center justify-between gap-3 rounded-2xl border border-grid bg-panel px-4 py-3 text-xs uppercase tracking-[0.2em] text-muted">
+              Secure mode
+              <input
+                type="checkbox"
+                checked={state.settings.secureMode}
+                onChange={(event) => updateSettings({ secureMode: event.target.checked })}
+                className="h-4 w-4 rounded border border-grid bg-panel2"
+              />
+            </label>
             <button
               onClick={() => {
                 setSettingsOpen(false);
@@ -1529,7 +1570,22 @@ const SafetyCenter = () => {
           </div>
         </Modal>
       </RouteErrorBoundary>
-    </AppShell>
+      </AppShell>
+      <RemindersModal
+        open={remindersOpen}
+        onClose={() => setRemindersOpen(false)}
+        events={reminders}
+        calendars={calendars}
+        onSelectEvent={handleOpenEventFromPanel}
+      />
+      <NotesModal
+        open={notesOpen}
+        onClose={() => setNotesOpen(false)}
+        events={notesWithContent}
+        calendars={calendars}
+        onSelectEvent={handleOpenEventFromPanel}
+      />
+    </>
   );
 };
 

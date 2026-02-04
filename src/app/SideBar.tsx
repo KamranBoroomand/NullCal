@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import ThemePicker from '../components/ThemePicker';
 import ColorDot from '../components/ColorDot';
 import Modal from '../components/Modal';
 import type { Calendar } from '../storage/types';
-import { THEME_PACKS } from '../theme/themePacks';
-import type { ThemeMode } from '../theme/ThemeProvider';
 
 const base = import.meta.env.BASE_URL;
 const mark1x = `${base}mark-128.png?v=3`;
@@ -49,11 +46,7 @@ const colorPalette = [
   '#7b5cff'
 ];
 
-const themeOptions = THEME_PACKS;
-
 type SideBarProps = {
-  selectedDate: Date;
-  onSelectDate: (date: Date) => void;
   calendars: Calendar[];
   activeProfileId: string;
   activeProfileName?: string;
@@ -66,18 +59,17 @@ type SideBarProps = {
   onNewEvent?: () => void;
   onExport?: () => void;
   onImport?: (file: File) => void;
-  onResetProfile?: () => void;
   onNavigate?: () => void;
   onOpenSettings?: () => void;
   onLockNow?: () => void;
-  palette?: string;
-  onPaletteChange?: (paletteId: string, themeMode: ThemeMode) => void;
   showClipboardWarning?: boolean;
+  onOpenReminders?: () => void;
+  onOpenNotes?: () => void;
+  remindersActive?: boolean;
+  notesActive?: boolean;
 };
 
 const SideBar = ({
-  selectedDate,
-  onSelectDate,
   calendars,
   activeProfileId,
   activeProfileName,
@@ -90,13 +82,14 @@ const SideBar = ({
   onNewEvent,
   onExport,
   onImport,
-  onResetProfile,
   onNavigate,
   onOpenSettings,
   onLockNow,
-  palette,
-  onPaletteChange,
-  showClipboardWarning = false
+  showClipboardWarning = false,
+  onOpenReminders,
+  onOpenNotes,
+  remindersActive = false,
+  notesActive = false
 }: SideBarProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const reduceMotion = useReducedMotion();
@@ -175,15 +168,6 @@ const SideBar = ({
     onDeleteCalendar(activeProfileId, calendar.id);
   };
 
-  const primaryNav = [
-    {
-      key: 'today',
-      label: 'Today',
-      icon: 'M10 3.5v2.5M5.5 10H3M17 10h-2.5M6.6 6.6 4.9 4.9M13.4 13.4l1.7 1.7M6.6 13.4l-1.7 1.7M13.4 6.6l1.7-1.7M10 6.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z',
-      onClick: () => onSelectDate(new Date())
-    }
-  ];
-
   return (
     <div className="flex h-full flex-col gap-6 text-sm">
       <div className="flex items-center gap-3">
@@ -205,17 +189,6 @@ const SideBar = ({
       <div className="space-y-2">
         <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Navigation</p>
         <div className="grid gap-2 text-xs">
-          {primaryNav.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={item.onClick}
-              className="flex items-center gap-3 rounded-xl border border-grid bg-panel px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:border-accent/60 hover:text-text"
-            >
-              <NavIcon path={item.icon} />
-              {item.label}
-            </button>
-          ))}
           <NavLink
             to="/"
             onClick={onNavigate}
@@ -223,7 +196,7 @@ const SideBar = ({
               `flex items-center gap-3 rounded-xl border px-3 py-2 uppercase tracking-[0.2em] transition ${
                 isActive
                   ? 'border-accent bg-[color-mix(in srgb,var(--accent) 18%, transparent)] text-text'
-                  : 'border-grid bg-panel text-muted hover:border-accent/60 hover:text-text'
+                  : 'border-grid bg-panel text-muted hover:border-accent/60 hover:text-text hover:bg-panel2'
               }`
             }
           >
@@ -232,16 +205,28 @@ const SideBar = ({
           </NavLink>
           <button
             type="button"
-            className="flex items-center gap-3 rounded-xl border border-grid bg-panel px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:border-accent/60 hover:text-text"
-            title="Reminders syncs with mobile soon"
+            onClick={onOpenReminders}
+            disabled={!onOpenReminders}
+            className={`flex items-center gap-3 rounded-xl border px-3 py-2 uppercase tracking-[0.2em] transition disabled:cursor-not-allowed disabled:opacity-60 ${
+              remindersActive
+                ? 'border-accent bg-[color-mix(in srgb,var(--accent) 18%, transparent)] text-text'
+                : 'border-grid bg-panel text-muted hover:border-accent/60 hover:text-text hover:bg-panel2'
+            }`}
+            aria-pressed={remindersActive}
           >
             <NavIcon path="M10 3.5a4.5 4.5 0 0 1 4.5 4.5v2.5l1.5 2.5H4l1.5-2.5V8A4.5 4.5 0 0 1 10 3.5Z" />
             Reminders
           </button>
           <button
             type="button"
-            className="flex items-center gap-3 rounded-xl border border-grid bg-panel px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:border-accent/60 hover:text-text"
-            title="Notes dashboard coming soon"
+            onClick={onOpenNotes}
+            disabled={!onOpenNotes}
+            className={`flex items-center gap-3 rounded-xl border px-3 py-2 uppercase tracking-[0.2em] transition disabled:cursor-not-allowed disabled:opacity-60 ${
+              notesActive
+                ? 'border-accent bg-[color-mix(in srgb,var(--accent) 18%, transparent)] text-text'
+                : 'border-grid bg-panel text-muted hover:border-accent/60 hover:text-text hover:bg-panel2'
+            }`}
+            aria-pressed={notesActive}
           >
             <NavIcon path="M5 4h10v12H5zM7.5 8h5M7.5 11h5" />
             Notes
@@ -330,26 +315,6 @@ const SideBar = ({
         </div>
       </div>
 
-      {onPaletteChange && palette && (
-        <div className="space-y-3 rounded-2xl border border-grid bg-panel px-3 py-4">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Theme</p>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-muted">{palette}</span>
-          </div>
-          <ThemePicker
-            themes={themeOptions}
-            activeId={palette}
-            onSelect={(nextId) => {
-              const next = themeOptions.find((pack) => pack.id === nextId);
-              if (!next) {
-                return;
-              }
-              onPaletteChange(next.id, next.mode);
-            }}
-          />
-        </div>
-      )}
-
       <div className="mt-auto space-y-3">
         <div className="rounded-2xl border border-grid bg-panel px-3 py-3">
           <div className="flex items-center justify-between gap-3">
@@ -414,16 +379,6 @@ const SideBar = ({
               >
                 Export
                 <NavIcon path="M10 16V8M6.5 11.5 10 16l3.5-4.5M5 4h10" />
-              </button>
-            )}
-            {onResetProfile && (
-              <button
-                type="button"
-                onClick={onResetProfile}
-                className="flex items-center justify-between rounded-xl border border-grid bg-panel2 px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:text-text"
-              >
-                Reset profile
-                <NavIcon path="M6 6h8M6 10h8M6 14h5" />
               </button>
             )}
             {onLockNow && (

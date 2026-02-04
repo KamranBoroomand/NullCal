@@ -680,7 +680,7 @@ const TopBar = ({
                 <motion.button
                   type="button"
                   onClick={onCommandAdd}
-                  className="flex h-9 items-center gap-2 rounded-full bg-accent px-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow"
+                  className="flex h-9 items-center gap-2 rounded-full border border-accent/60 bg-[color-mix(in srgb,var(--accent) 22%, transparent)] px-5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accentText)] shadow-glow transition hover:border-accent hover:bg-[color-mix(in srgb,var(--accent) 30%, transparent)]"
                   {...pillMotion}
                 >
                   + New event
@@ -813,7 +813,7 @@ const TopBar = ({
                     <motion.button
                       type="button"
                       onClick={onCommandAdd}
-                      className="flex h-9 items-center gap-2 rounded-full bg-accent px-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow"
+                      className="flex h-9 items-center gap-2 rounded-full border border-accent/60 bg-[color-mix(in srgb,var(--accent) 22%, transparent)] px-5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accentText)] shadow-glow transition hover:border-accent hover:bg-[color-mix(in srgb,var(--accent) 30%, transparent)]"
                       {...pillMotion}
                     >
                       + New event
@@ -976,7 +976,7 @@ const TopBar = ({
                 <motion.button
                   type="button"
                   onClick={onCommandAdd}
-                  className="flex h-9 items-center gap-2 rounded-full bg-accent px-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow"
+                  className="flex h-9 items-center gap-2 rounded-full border border-accent/60 bg-[color-mix(in srgb,var(--accent) 22%, transparent)] px-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accentText)] shadow-glow transition hover:border-accent hover:bg-[color-mix(in srgb,var(--accent) 30%, transparent)]"
                   {...pillMotion}
                 >
                   + New
