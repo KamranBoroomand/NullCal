@@ -333,6 +333,39 @@ const SafetyCenter = () => {
     }
   ];
   const score = securityScoreChecklist.filter((item) => item.value).length;
+  const securityChecklistSections = [
+    {
+      title: 'Access & locking',
+      items: [
+        { label: 'PIN enabled', value: state.securityPrefs.pinEnabled || state.securityPrefs.decoyPinEnabled },
+        { label: 'Auto-lock enabled', value: state.settings.autoLockMinutes > 0 || state.settings.autoLockOnBlur },
+        { label: 'Two-factor ready', value: state.settings.twoFactorEnabled }
+      ]
+    },
+    {
+      title: 'Data & encryption',
+      items: [
+        { label: 'Secure mode enabled', value: state.settings.secureMode },
+        { label: 'Encrypted notes', value: state.settings.encryptedNotes },
+        { label: 'Sync encryption', value: state.settings.encryptedSharingEnabled }
+      ]
+    },
+    {
+      title: 'Backups & network',
+      items: [
+        {
+          label: 'Recent encrypted backup (14 days)',
+          value: state.settings.lastExportAt
+            ? Date.now() - new Date(state.settings.lastExportAt).getTime() < 14 * 24 * 60 * 60 * 1000
+            : false
+        },
+        {
+          label: 'Offline mode enforced',
+          value: state.settings.networkLock || state.settings.syncStrategy === 'offline'
+        }
+      ]
+    }
+  ];
 
   const handleExport = async () => {
     if (!exportPassphrase || exportPassphrase !== exportConfirm) {
@@ -597,6 +630,18 @@ const SafetyCenter = () => {
       ? 'Offline only'
       : 'Secure sync';
   const ipTrackingStatus = state.settings.networkLock ? 'Blocked' : 'Limited';
+  const privacyScore = [
+    state.settings.networkLock || state.settings.syncStrategy === 'offline',
+    state.settings.encryptedNotes || state.settings.encryptedAttachments,
+    state.settings.encryptedSharingEnabled,
+    state.settings.twoFactorEnabled
+  ].filter(Boolean).length;
+  const privacyLevel = privacyScore >= 3 ? 'High' : privacyScore >= 2 ? 'Moderate' : 'Basic';
+  const decoyReadiness = [
+    { label: 'Decoy profile selected', value: Boolean(state.settings.decoyProfileId) },
+    { label: 'Decoy PIN set', value: state.securityPrefs.decoyPinEnabled },
+    { label: 'Switch-on-blur ready', value: state.settings.switchToDecoyOnBlur }
+  ];
   const privacySections = [
     {
       title: 'General privacy',
@@ -1061,7 +1106,25 @@ const SafetyCenter = () => {
           <motion.section {...panelMotion} className="grid gap-2 text-sm text-muted md:grid-cols-2">
             <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy Status</p>
-              <div className="mt-3 space-y-2 text-xs text-muted">
+              <div className="mt-3 space-y-3 text-xs text-muted">
+                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                    <span>Privacy level</span>
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-text">{privacyLevel}</span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted">
+                    <span>Coverage</span>
+                    <span className="text-text">
+                      {privacyScore}/4 signals active
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-grid">
+                    <div
+                      className="h-full rounded-full bg-accent transition-all"
+                      style={{ width: `${(privacyScore / 4) * 100}%` }}
+                    />
+                  </div>
+                </div>
                 {privacySections.map((section, index) => (
                   <details
                     key={section.title}
@@ -1087,16 +1150,44 @@ const SafetyCenter = () => {
             <div className="grid gap-3">
               <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
                 <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Checklist</p>
-                <ul className="mt-2 space-y-1.5">
-                  {securityScoreChecklist.map((item) => (
-                    <li key={item.label} className="flex min-w-0 items-center justify-between gap-3">
-                      <span>{item.label}</span>
-                      <span className={item.value ? 'text-accent' : 'text-muted'}>
-                        {item.value ? 'Enabled' : 'Off'}
+                <div className="mt-3 space-y-3 text-xs text-muted">
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                      <span>Coverage score</span>
+                      <span className="text-[10px] uppercase tracking-[0.2em] text-text">
+                        {score}/{securityScoreChecklist.length}
                       </span>
-                    </li>
+                    </div>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-grid">
+                      <div
+                        className="h-full rounded-full bg-accent transition-all"
+                        style={{ width: `${(score / securityScoreChecklist.length) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  {securityChecklistSections.map((section, index) => (
+                    <details
+                      key={section.title}
+                      className="rounded-2xl border border-grid bg-panel2 px-4 py-3"
+                      open={index === 0}
+                    >
+                      <summary className="flex cursor-pointer list-none items-center justify-between text-xs uppercase tracking-[0.3em] text-muted">
+                        <span>{section.title}</span>
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-muted">View</span>
+                      </summary>
+                      <ul className="mt-3 space-y-1.5 text-sm text-muted">
+                        {section.items.map((item) => (
+                          <li key={item.label} className="flex min-w-0 items-center justify-between gap-3">
+                            <span>{item.label}</span>
+                            <span className={item.value ? 'text-accent' : 'text-muted'}>
+                              {item.value ? 'Enabled' : 'Off'}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
                   ))}
-                </ul>
+                </div>
               </div>
               <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
                 <p className="text-xs uppercase tracking-[0.3em] text-muted">Locking</p>
@@ -1442,6 +1533,27 @@ const SafetyCenter = () => {
                   </div>
                 </div>
                 <div className="space-y-4">
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Decoy readiness</p>
+                    <ul className="mt-3 space-y-2 text-xs text-muted">
+                      {decoyReadiness.map((item) => (
+                        <li key={item.label} className="flex items-center justify-between gap-3">
+                          <span>{item.label}</span>
+                          <span className={item.value ? 'text-accent' : 'text-muted'}>
+                            {item.value ? 'Ready' : 'Pending'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      type="button"
+                      onClick={handleSwitchToDecoy}
+                      disabled={!state.settings.decoyProfileId}
+                      className="mt-4 w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Open decoy workspace
+                    </button>
+                  </div>
                   <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Profile actions</p>
                     <div className="mt-3 grid gap-2">
