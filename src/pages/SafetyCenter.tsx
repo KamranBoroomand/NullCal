@@ -45,6 +45,7 @@ const SafetyCenter = () => {
     setDecoyPin,
     clearPin,
     clearDecoyPin,
+    updateSecurityPrefs,
     importEncrypted,
     panicWipe
   } = useAppStore();
@@ -127,6 +128,31 @@ const SafetyCenter = () => {
     const fallback = themeOptions.find((theme) => theme.id === DEFAULT_THEME_BY_MODE.dark) ?? themeOptions[0];
     return themeOptions.find((palette) => palette.id === state?.settings.palette) ?? fallback;
   }, [state?.settings.palette]);
+  const authSummary = useMemo(() => {
+    if (!state) {
+      return 'None';
+    }
+    const methods = [];
+    if (state.securityPrefs.pinEnabled) {
+      methods.push('PIN');
+    }
+    if (state.settings.twoFactorEnabled) {
+      methods.push('2FA');
+    }
+    if (state.settings.biometricEnabled) {
+      methods.push('Biometric');
+    }
+    return methods.length ? methods.join(' + ') : 'None';
+  }, [state?.securityPrefs.pinEnabled, state?.settings.biometricEnabled, state?.settings.twoFactorEnabled]);
+  const lastSyncAt = useMemo(() => new Date().toLocaleString(), []);
+
+  useEffect(() => {
+    return () => {
+      if (holdTimer.current) {
+        window.clearTimeout(holdTimer.current);
+      }
+    };
+  }, []);
 
   if (wiped) {
     return (
@@ -564,19 +590,6 @@ const SafetyCenter = () => {
   const panelMotion = reduceMotion
     ? undefined
     : { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.25 } };
-  const authSummary = useMemo(() => {
-    const methods = [];
-    if (state.securityPrefs.pinEnabled) {
-      methods.push('PIN');
-    }
-    if (state.settings.twoFactorEnabled) {
-      methods.push('2FA');
-    }
-    if (state.settings.biometricEnabled) {
-      methods.push('Biometric');
-    }
-    return methods.length ? methods.join(' + ') : 'None';
-  }, [state.securityPrefs.pinEnabled, state.settings.biometricEnabled, state.settings.twoFactorEnabled]);
   const localEncryption = state.settings.encryptedNotes || state.settings.encryptedAttachments ? 'Encrypted' : 'Standard';
   const syncEncryption = state.settings.encryptedSharingEnabled ? 'Enabled' : 'Standard';
   const networkLabel =
@@ -584,7 +597,6 @@ const SafetyCenter = () => {
       ? 'Offline only'
       : 'Secure sync';
   const ipTrackingStatus = state.settings.networkLock ? 'Blocked' : 'Limited';
-  const lastSyncAt = useMemo(() => new Date().toLocaleString(), []);
   const privacySections = [
     {
       title: 'General privacy',

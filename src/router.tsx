@@ -7,6 +7,7 @@ import SafetyCenter from './pages/SafetyCenter';
 const RouteErrorScreen = () => {
   const error = useRouteError();
   const location = useLocation();
+  const errorDetails = error instanceof Error ? error : null;
 
   useEffect(() => {
     if (import.meta.env.DEV) {
@@ -21,6 +22,15 @@ const RouteErrorScreen = () => {
         <p className="mt-2 text-sm text-muted">
           Something went wrong while loading this route. Try reloading the page.
         </p>
+        {import.meta.env.DEV && errorDetails && (
+          <div className="mt-4 rounded-2xl border border-grid bg-panel2 p-4 text-left text-xs text-muted">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-muted">Debug details</p>
+            <p className="mt-2 font-mono text-[11px] text-text">{errorDetails.message}</p>
+            {errorDetails.stack && (
+              <pre className="mt-2 whitespace-pre-wrap text-[10px] text-muted">{errorDetails.stack}</pre>
+            )}
+          </div>
+        )}
         <button
           type="button"
           onClick={() => window.location.reload()}
