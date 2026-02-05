@@ -45,8 +45,11 @@ export type AppSettings = {
   privacyScreenHotkeyEnabled: boolean;
   syncStrategy: 'offline' | 'ipfs' | 'p2p';
   syncTrustedDevices: boolean;
+  syncShareToken?: string;
   tamperProofLog: boolean;
   twoFactorEnabled: boolean;
+  twoFactorChannel: 'email' | 'sms';
+  twoFactorDestination?: string;
   biometricEnabled: boolean;
   encryptedNotes: boolean;
   encryptedAttachments: boolean;
@@ -54,6 +57,9 @@ export type AppSettings = {
   eventObfuscation: boolean;
   reminderChannel: 'local' | 'signal' | 'telegram';
   remindersEnabled: boolean;
+  telegramBotToken?: string;
+  telegramChatId?: string;
+  signalWebhookUrl?: string;
   collaborationMode: 'private' | 'shared' | 'team';
   collaborationEnabled: boolean;
   notesShareToken?: string;
@@ -76,6 +82,7 @@ export type SecurityPrefs = {
   localAuthIterations?: number;
   webAuthnEnabled: boolean;
   webAuthnCredentialId?: string;
+  biometricCredentialId?: string;
 };
 
 export type AppState = {

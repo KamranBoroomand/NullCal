@@ -8,7 +8,17 @@ import { safeLocalStorage } from '../storage/safeStorage';
 import { DEFAULT_THEME_BY_MODE, resolveThemeModeFromPalette } from '../theme/themePacks';
 
 const ThemeBridge = ({ children }: { children: ReactNode }) => {
-  const { state, updateSettings, locked, unlock, unlockWithWebAuthn } = useAppStore();
+  const {
+    state,
+    updateSettings,
+    locked,
+    unlock,
+    unlockWithWebAuthn,
+    unlockWithBiometric,
+    twoFactorPending,
+    verifyTwoFactor,
+    resendTwoFactor
+  } = useAppStore();
   const fallbackPalette = safeLocalStorage.getItem('nullcal:palette') ?? DEFAULT_THEME_BY_MODE.dark;
   const fallbackTheme =
     (safeLocalStorage.getItem('nullcal:theme') as 'dark' | 'light' | null) ??
@@ -29,8 +39,13 @@ const ThemeBridge = ({ children }: { children: ReactNode }) => {
           pinEnabled={Boolean(state?.securityPrefs.pinEnabled || state?.securityPrefs.decoyPinEnabled)}
           passwordEnabled={Boolean(state?.securityPrefs.localAuthEnabled)}
           webAuthnEnabled={Boolean(state?.securityPrefs.webAuthnEnabled)}
+          biometricEnabled={Boolean(state?.settings.biometricEnabled && state?.securityPrefs.biometricCredentialId)}
+          twoFactorPending={twoFactorPending}
           onUnlock={unlock}
           onUnlockWithWebAuthn={unlockWithWebAuthn}
+          onUnlockWithBiometric={unlockWithBiometric}
+          onVerifyTwoFactor={verifyTwoFactor}
+          onResendTwoFactor={resendTwoFactor}
         />
       </PrivacyScreenProvider>
     </ThemeProvider>
