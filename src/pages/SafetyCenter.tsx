@@ -292,7 +292,10 @@ const SafetyCenter = () => {
   const securityScoreChecklist = [
     { label: 'PIN enabled', value: state.securityPrefs.pinEnabled || state.securityPrefs.decoyPinEnabled },
     { label: 'Auto-lock enabled', value: state.settings.autoLockMinutes > 0 || state.settings.autoLockOnBlur },
-    { label: 'Offline mode enforced', value: state.settings.networkLock },
+    {
+      label: 'Offline mode enforced',
+      value: state.settings.networkLock || state.settings.syncStrategy === 'offline'
+    },
     { label: 'Secure mode enabled', value: state.settings.secureMode },
     { label: 'Two-factor ready', value: state.settings.twoFactorEnabled },
     { label: 'Encrypted notes', value: state.settings.encryptedNotes },
@@ -575,15 +578,39 @@ const SafetyCenter = () => {
     return methods.length ? methods.join(' + ') : 'None';
   }, [state.securityPrefs.pinEnabled, state.settings.biometricEnabled, state.settings.twoFactorEnabled]);
   const localEncryption = state.settings.encryptedNotes || state.settings.encryptedAttachments ? 'Encrypted' : 'Standard';
-  const syncEncryption = state.settings.encryptedSharingEnabled ? 'Encrypted channels' : 'Standard channels';
+  const syncEncryption = state.settings.encryptedSharingEnabled ? 'Enabled' : 'Standard';
   const networkLabel =
     state.settings.syncStrategy === 'offline'
       ? 'Offline only'
-      : state.settings.syncTrustedDevices
-        ? 'VPN (trusted)'
-        : 'Wi-Fi (secured)';
+      : 'Secure sync';
   const ipTrackingStatus = state.settings.networkLock ? 'Blocked' : 'Limited';
   const lastSyncAt = useMemo(() => new Date().toLocaleString(), []);
+  const privacySections = [
+    {
+      title: 'General privacy',
+      items: [
+        { label: 'Storage', value: 'Local-only' },
+        { label: 'Network access', value: networkLabel },
+        { label: 'Last sync', value: state.settings.syncStrategy === 'offline' ? 'Never' : lastSyncAt },
+        { label: 'Last backup', value: formatDate(state.settings.lastExportAt) },
+        { label: 'Authentication', value: authSummary }
+      ]
+    },
+    {
+      title: 'Location & access',
+      items: [
+        { label: 'IP tracking', value: ipTrackingStatus },
+        { label: 'Location access', value: 'Restricted' }
+      ]
+    },
+    {
+      title: 'Encryption',
+      items: [
+        { label: 'Local data encryption', value: localEncryption },
+        { label: 'Sync encryption', value: syncEncryption }
+      ]
+    }
+  ];
   const handleSectionJump = (targetId: string) => {
     const section = document.getElementById(targetId);
     if (!section) {
@@ -671,7 +698,9 @@ const SafetyCenter = () => {
               </div>
               <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-center">
                 <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Score</p>
-                <p className="text-2xl font-semibold text-accent">{score}/5</p>
+                <p className="text-2xl font-semibold text-accent">
+                  {score}/{securityScoreChecklist.length}
+                </p>
               </div>
             </div>
           </motion.section>
@@ -1020,52 +1049,28 @@ const SafetyCenter = () => {
           <motion.section {...panelMotion} className="grid gap-2 text-sm text-muted md:grid-cols-2">
             <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy Status</p>
-              <ul className="mt-2 space-y-1.5">
-                <li className="flex min-w-0 items-center justify-between gap-3">
-                  <span>Storage</span>
-                  <span className="text-text">Local-only</span>
-                </li>
-                <li className="flex min-w-0 items-center justify-between gap-3">
-                  <span>Local data encryption</span>
-                  <span className="text-text">{localEncryption}</span>
-                </li>
-                <li className="flex min-w-0 items-center justify-between gap-3">
-                  <span>Sync encryption</span>
-                  <span className="text-text">{syncEncryption}</span>
-                </li>
-                <li className="flex min-w-0 items-center justify-between gap-3">
-                  <span>Network access</span>
-                  <span className="text-text">
-                    {state.settings.syncStrategy === 'offline' ? 'Blocked (offline-only)' : 'Guarded (secure sync)'}
-                  </span>
-                </li>
-                <li className="flex min-w-0 items-center justify-between gap-3">
-                  <span>Connection type</span>
-                  <span className="text-text">{networkLabel}</span>
-                </li>
-                <li className="flex min-w-0 items-center justify-between gap-3">
-                  <span>IP tracking</span>
-                  <span className="text-text">{ipTrackingStatus}</span>
-                </li>
-                <li className="flex min-w-0 items-center justify-between gap-3">
-                  <span>Location access</span>
-                  <span className="text-text">Restricted</span>
-                </li>
-                <li className="flex min-w-0 items-center justify-between gap-3">
-                  <span>Last sync</span>
-                  <span className="text-text">
-                    {state.settings.syncStrategy === 'offline' ? 'Never' : lastSyncAt}
-                  </span>
-                </li>
-                <li className="flex min-w-0 items-center justify-between gap-3">
-                  <span>Last backup</span>
-                  <span className="text-text">{formatDate(state.settings.lastExportAt)}</span>
-                </li>
-                <li className="flex min-w-0 items-center justify-between gap-3">
-                  <span>Authentication</span>
-                  <span className="text-text">{authSummary}</span>
-                </li>
-              </ul>
+              <div className="mt-3 space-y-2 text-xs text-muted">
+                {privacySections.map((section, index) => (
+                  <details
+                    key={section.title}
+                    className="rounded-2xl border border-grid bg-panel2 px-4 py-3"
+                    open={index === 0}
+                  >
+                    <summary className="flex cursor-pointer list-none items-center justify-between text-xs uppercase tracking-[0.3em] text-muted">
+                      <span>{section.title}</span>
+                      <span className="text-[10px] uppercase tracking-[0.2em] text-muted">View</span>
+                    </summary>
+                    <ul className="mt-3 space-y-1.5 text-sm text-muted">
+                      {section.items.map((item) => (
+                        <li key={item.label} className="flex min-w-0 items-center justify-between gap-3">
+                          <span>{item.label}</span>
+                          <span className="text-text">{item.value}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ))}
+              </div>
             </div>
             <div className="grid gap-3">
               <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
@@ -1386,13 +1391,13 @@ const SafetyCenter = () => {
 
             <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Decoy Profile</p>
-              <div className="mt-4 grid gap-4 text-sm text-muted lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+              <div className="mt-4 grid gap-4 text-sm text-muted xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
                 <div className="space-y-4">
                   <p className="text-xs text-muted leading-relaxed">
                     Decoy profile is a separate local workspace. Use a decoy PIN to open it under pressure.
                   </p>
                   <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
-                    <div className="grid gap-2">
+                    <div className="grid gap-2 sm:grid-cols-2">
                       <p>
                         Active profile:{' '}
                         <span className="text-text">{activeProfile?.name ?? 'Unknown'}</span>
@@ -1427,7 +1432,7 @@ const SafetyCenter = () => {
                 <div className="space-y-4">
                   <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Profile actions</p>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div className="mt-3 grid gap-2">
                       <button
                         type="button"
                         onClick={handleCreateDecoyProfile}
@@ -1435,43 +1440,51 @@ const SafetyCenter = () => {
                       >
                         Create decoy shell
                       </button>
-                      <button
-                        type="button"
-                        onClick={handleSwitchToDecoy}
-                        className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                      >
-                        Switch to decoy
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleManualProfileSwitch(state.settings.primaryProfileId)}
-                        className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted sm:col-span-2"
-                      >
-                        Switch to primary
-                      </button>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={handleSwitchToDecoy}
+                          className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                        >
+                          Switch to decoy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleManualProfileSwitch(state.settings.primaryProfileId)}
+                          className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                        >
+                          Switch to primary
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-[0.3em] text-muted">Set decoy PIN</label>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      <input
-                        type="password"
-                        inputMode="numeric"
-                        placeholder="Decoy PIN"
-                        value={decoyPinDraft}
-                        onChange={(event) => setDecoyPinDraft(event.target.value)}
-                        className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                      />
-                      <input
-                        type="password"
-                        inputMode="numeric"
-                        placeholder="Confirm decoy PIN"
-                        value={decoyPinConfirm}
-                        onChange={(event) => setDecoyPinConfirm(event.target.value)}
-                        className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                      />
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Set decoy PIN</p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <label className="grid gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                        Decoy PIN
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          placeholder="Enter PIN"
+                          value={decoyPinDraft}
+                          onChange={(event) => setDecoyPinDraft(event.target.value)}
+                          className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                        />
+                      </label>
+                      <label className="grid gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                        Confirm decoy PIN
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          placeholder="Confirm PIN"
+                          value={decoyPinConfirm}
+                          onChange={(event) => setDecoyPinConfirm(event.target.value)}
+                          className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                        />
+                      </label>
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-4 flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={handleSetDecoyPin}
