@@ -495,7 +495,8 @@ const TopBar = ({
   const showViewControls = Boolean(view && onViewChange);
   const showNavControls = Boolean(onPrev && onNext);
   const newEventClass =
-    'flex h-9 items-center gap-2 rounded-full border border-accent/40 bg-[color-mix(in srgb,var(--accent) 28%, transparent)] px-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-[0_10px_24px_rgba(0,0,0,0.25)] backdrop-blur transition hover:border-accent';
+    'flex h-10 items-center justify-center gap-2 rounded-full border border-accent/50 bg-[color-mix(in srgb,var(--accent) 26%, transparent)] px-5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accentText)] shadow-[0_12px_26px_rgba(0,0,0,0.28)] backdrop-blur transition hover:border-accent hover:bg-[color-mix(in srgb,var(--accent) 34%, transparent)] active:translate-y-px active:shadow-[0_6px_18px_rgba(0,0,0,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60';
+  const clockClass = 'flex min-w-[120px] items-center justify-center px-3 py-1 text-xs text-muted';
   const securityLabel = secureMode
     ? 'Secure mode'
     : eventObfuscation
@@ -640,12 +641,16 @@ const TopBar = ({
                   New event
                 </motion.button>
               )}
-              <div className="hidden text-xs text-muted sm:block">
-                <Clock />
+              <div className="hidden sm:flex justify-end">
+                <div className={clockClass}>
+                  <Clock />
+                </div>
               </div>
             </div>
-            <div className="flex w-full items-center justify-end text-xs text-muted sm:hidden">
-              <Clock />
+            <div className="flex w-full items-center justify-end sm:hidden">
+              <div className={clockClass}>
+                <Clock />
+              </div>
             </div>
           </div>
         </div>
@@ -839,8 +844,10 @@ const TopBar = ({
                     />
                   )}
                 </div>
-                <div className="flex min-w-0 items-center justify-end text-xs">
-                  <Clock />
+                <div className="flex min-w-0 items-center justify-end">
+                  <div className={clockClass}>
+                    <Clock />
+                  </div>
                 </div>
               </div>
             </div>
