@@ -492,21 +492,24 @@ const SideBar = ({
                 />
               ))}
             </div>
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <div className="grid gap-2 sm:grid-cols-[auto_1fr]">
+              <label className="flex items-center gap-2 rounded-lg border border-grid bg-panel2 px-2.5 py-2 text-xs text-muted">
+                <input
+                  type="color"
+                  value={previewColor}
+                  onChange={(event) => {
+                    setCustomColor(event.target.value);
+                  }}
+                  className="h-9 w-9 cursor-pointer rounded-md border border-grid bg-panel2"
+                  aria-label="Pick custom color"
+                />
+                <span className="uppercase tracking-[0.2em] text-[10px] text-muted">Custom</span>
+              </label>
               <input
                 value={customColor}
                 onChange={(event) => setCustomColor(event.target.value.trim())}
-                placeholder="Custom hex (#12ABCD)"
+                placeholder="#12ABCD"
                 className="rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-              />
-              <input
-                type="color"
-                value={previewColor}
-                onChange={(event) => {
-                  setCustomColor(event.target.value);
-                }}
-                className="h-10 w-full rounded-lg border border-grid bg-panel2"
-                aria-label="Pick custom color"
               />
             </div>
           </div>

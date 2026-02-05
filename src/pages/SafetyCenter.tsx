@@ -1500,17 +1500,17 @@ const SafetyCenter = () => {
                     Decoy profile is a separate local workspace. Use a decoy PIN to open it under pressure.
                   </p>
                   <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <p>
-                        Active profile:{' '}
-                        <span className="text-text">{activeProfile?.name ?? 'Unknown'}</span>
-                      </p>
-                      <p>
-                        Decoy profile:{' '}
-                        <span className="text-text">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2.5 text-center text-[11px] leading-snug">
+                        <div className="uppercase tracking-[0.2em] text-muted">Active profile</div>
+                        <div className="mt-1 break-words text-text">{activeProfile?.name ?? 'Unknown'}</div>
+                      </div>
+                      <div className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2.5 text-center text-[11px] leading-snug">
+                        <div className="uppercase tracking-[0.2em] text-muted">Decoy profile</div>
+                        <div className="mt-1 break-words text-text">
                           {state.settings.decoyProfileId ? 'Configured' : 'Not created'}
-                        </span>
-                      </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -1556,7 +1556,7 @@ const SafetyCenter = () => {
                   </div>
                   <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Profile actions</p>
-                    <div className="mt-3 grid gap-2">
+                    <div className="mt-4 grid gap-3">
                       <button
                         type="button"
                         onClick={handleCreateDecoyProfile}
@@ -1564,7 +1564,7 @@ const SafetyCenter = () => {
                       >
                         Create decoy shell
                       </button>
-                      <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="grid gap-3 sm:grid-cols-2">
                         <button
                           type="button"
                           onClick={handleSwitchToDecoy}
