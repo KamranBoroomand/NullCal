@@ -1,8 +1,8 @@
 import { openDB, type DBSchema } from 'idb';
-import type { AppSettings, Calendar, CalendarEvent, Profile, SecurityPrefs } from './types';
+import type { AppSettings, Calendar, CalendarEvent, EventTemplate, Profile, SecurityPrefs } from './types';
 
 export const DB_NAME = 'nullcal-db';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 interface NullCalDB extends DBSchema {
   profiles: {
@@ -18,6 +18,11 @@ interface NullCalDB extends DBSchema {
     key: string;
     value: CalendarEvent;
     indexes: { 'by-profile': string; 'by-calendar': string };
+  };
+  templates: {
+    key: string;
+    value: EventTemplate;
+    indexes: { 'by-profile': string };
   };
   settings: {
     key: string;
@@ -43,6 +48,10 @@ export const openNullCalDB = () =>
         const store = db.createObjectStore('events', { keyPath: 'id' });
         store.createIndex('by-profile', 'profileId');
         store.createIndex('by-calendar', 'calendarId');
+      }
+      if (!db.objectStoreNames.contains('templates')) {
+        const store = db.createObjectStore('templates', { keyPath: 'id' });
+        store.createIndex('by-profile', 'profileId');
       }
       if (!db.objectStoreNames.contains('settings')) {
         db.createObjectStore('settings', { keyPath: 'id' });

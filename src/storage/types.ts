@@ -1,6 +1,10 @@
 export type Profile = {
   id: string;
   name: string;
+  displayName?: string;
+  avatarEmoji?: string;
+  avatarColor?: string;
+  bio?: string;
   createdAt: string;
 };
 
@@ -27,6 +31,21 @@ export type CalendarEvent = {
   reminderRule?: string;
 };
 
+export type EventTemplate = {
+  id: string;
+  profileId: string;
+  name: string;
+  title: string;
+  durationMinutes: number;
+  location?: string;
+  notes?: string;
+  label?: string;
+  icon?: string;
+  reminderRule?: string;
+  defaultCalendarId?: string;
+  createdAt: string;
+};
+
 export type AppSettings = {
   id: 'app';
   theme: 'dark' | 'light';
@@ -48,6 +67,7 @@ export type AppSettings = {
   syncShareToken?: string;
   tamperProofLog: boolean;
   twoFactorEnabled: boolean;
+  twoFactorMode: 'otp' | 'totp';
   twoFactorChannel: 'email' | 'sms';
   twoFactorDestination?: string;
   biometricEnabled: boolean;
@@ -55,8 +75,10 @@ export type AppSettings = {
   encryptedAttachments: boolean;
   encryptedSharingEnabled: boolean;
   eventObfuscation: boolean;
-  reminderChannel: 'local' | 'signal' | 'telegram';
+  reminderChannel: 'local' | 'signal' | 'telegram' | 'email' | 'sms' | 'push';
   remindersEnabled: boolean;
+  notificationEmail?: string;
+  notificationPhone?: string;
   telegramBotToken?: string;
   telegramChatId?: string;
   signalWebhookUrl?: string;
@@ -64,6 +86,11 @@ export type AppSettings = {
   collaborationEnabled: boolean;
   notesShareToken?: string;
   lastExportAt?: string;
+  highContrast?: boolean;
+  textScale?: number;
+  keyboardNavigation?: boolean;
+  cacheEnabled?: boolean;
+  cacheTtlMinutes?: number;
 };
 
 export type SecurityPrefs = {
@@ -83,12 +110,15 @@ export type SecurityPrefs = {
   webAuthnEnabled: boolean;
   webAuthnCredentialId?: string;
   biometricCredentialId?: string;
+  totpEnabled?: boolean;
+  totpSecret?: string;
 };
 
 export type AppState = {
   profiles: Profile[];
   calendars: Calendar[];
   events: CalendarEvent[];
+  templates: EventTemplate[];
   settings: AppSettings;
   securityPrefs: SecurityPrefs;
 };

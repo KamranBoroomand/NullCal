@@ -45,6 +45,7 @@ export const buildExportPayload = (
   const profileId = profile?.id ?? activeProfileId;
   const calendars = state.calendars.filter((calendar) => calendar.profileId === profileId);
   const events = state.events.filter((event) => event.profileId === profileId);
+  const templates = state.templates.filter((template) => template.profileId === profileId);
   const keepTitles = options.keepTitles ?? false;
 
   const sanitizedEvents =
@@ -58,6 +59,7 @@ export const buildExportPayload = (
     profiles: profile ? [profile] : [],
     calendars,
     events: sanitizedEvents,
+    templates,
     settings: normalizeSettingsForExport(state.settings, profileId),
     securityPrefs: normalizeSecurityForExport(state.securityPrefs)
   };

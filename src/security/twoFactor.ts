@@ -54,9 +54,6 @@ export const markTwoFactorVerified = () => {
   clearTwoFactorChallenge();
 };
 
-const buildMessage = (code: string) =>
-  `NullCal verification code: ${code}. It expires in 10 minutes.`;
-
 const notifyFallback = (code: string) => {
   if (typeof Notification === 'undefined') {
     return;
@@ -72,23 +69,17 @@ const notifyFallback = (code: string) => {
 };
 
 export const startTwoFactorChallenge = async (channel: TwoFactorChannel, destination: string | undefined) => {
+  if (!destination) {
+    throw new Error('Two-factor destination required.');
+  }
   const code = `${crypto.getRandomValues(new Uint32Array(1))[0] % 1000000}`.padStart(6, '0');
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const hash = await hashCode(code, salt);
   const expiresAt = Date.now() + 10 * 60 * 1000;
   saveChallenge({ hash, salt: toBase64(salt), expiresAt });
 
-  const message = buildMessage(code);
-  if (channel === 'email' && destination) {
-    const mailto = `mailto:${encodeURIComponent(destination)}?subject=${encodeURIComponent(
-      'NullCal verification code'
-    )}&body=${encodeURIComponent(message)}`;
-    window.open(mailto, '_blank', 'noopener');
-  } else if (channel === 'sms' && destination) {
-    const sms = `sms:${encodeURIComponent(destination)}?body=${encodeURIComponent(message)}`;
-    window.open(sms, '_blank', 'noopener');
-  }
-
+  const { sendTwoFactorCode } = await import('./notifications');
+  await sendTwoFactorCode(channel, destination, code);
   notifyFallback(code);
 };
 

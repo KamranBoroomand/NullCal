@@ -8,6 +8,7 @@ type LockScreenProps = {
   webAuthnEnabled: boolean;
   biometricEnabled: boolean;
   twoFactorPending: boolean;
+  twoFactorMode?: 'otp' | 'totp';
   onUnlock: (pin?: string) => Promise<boolean>;
   onUnlockWithWebAuthn: () => Promise<boolean>;
   onUnlockWithBiometric: () => Promise<boolean>;
@@ -22,6 +23,7 @@ const LockScreen = ({
   webAuthnEnabled,
   biometricEnabled,
   twoFactorPending,
+  twoFactorMode = 'otp',
   onUnlock,
   onUnlockWithWebAuthn,
   onUnlockWithBiometric,
@@ -97,7 +99,9 @@ const LockScreen = ({
             <h2 className="mt-2 text-lg font-semibold text-text">NullCAL Locked</h2>
             <p className="mt-2 text-sm text-muted">
               {twoFactorPending
-                ? 'Enter your verification code to finish unlocking.'
+                ? twoFactorMode === 'totp'
+                  ? 'Enter your authenticator code to finish unlocking.'
+                  : 'Enter your verification code to finish unlocking.'
                 : pinEnabled
                   ? 'Enter your PIN to continue.'
                   : passwordEnabled
@@ -121,7 +125,7 @@ const LockScreen = ({
                 value={twoFactorCode}
                 onChange={(event) => setTwoFactorCode(event.target.value)}
                 className="mt-4 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                placeholder="Verification code"
+                placeholder={twoFactorMode === 'totp' ? 'Authenticator code' : 'Verification code'}
               />
             )}
             {error && <p className="mt-2 text-xs text-danger">{error}</p>}
@@ -161,7 +165,7 @@ const LockScreen = ({
                 Use biometric unlock
               </button>
             )}
-            {twoFactorPending && (
+            {twoFactorPending && twoFactorMode === 'otp' && (
               <button
                 type="button"
                 onClick={onResendTwoFactor}

@@ -1,4 +1,4 @@
-import type { AppState, Calendar, CalendarEvent, Profile } from '../storage/types';
+import type { Calendar, CalendarEvent, EventTemplate, Profile } from '../storage/types';
 
 const CHANNEL = 'nullcal-sync';
 
@@ -12,6 +12,7 @@ export type SyncPayload = {
   profiles: Profile[];
   calendars: Calendar[];
   events: CalendarEvent[];
+  templates: EventTemplate[];
 };
 
 export type SyncHandle = {

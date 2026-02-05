@@ -14,10 +14,13 @@ import { hashLocalSecret } from '../security/localAuth';
 import { isWebAuthnSupported, registerPasskey } from '../security/webauthn';
 import { isBiometricSupported, registerBiometricCredential } from '../security/biometric';
 import { startTwoFactorChallenge, verifyTwoFactorCode } from '../security/twoFactor';
+import { buildTotpUri, generateTotpSecret, verifyTotpCode } from '../security/totp';
+import { buildCsv, buildIcs, buildJson } from '../security/eventExport';
 import { buildExportPayload, type ExportMode, validateExportPayload } from '../security/exportUtils';
 import { usePrivacyScreen } from '../state/privacy';
 import type { AppSettings } from '../storage/types';
 import { DEFAULT_THEME_BY_MODE, THEME_PACKS } from '../theme/themePacks';
+import { clearAuditLog, readAuditLog } from '../storage/auditLog';
 
 const formatDate = (value?: string) => {
   if (!value) {
@@ -27,6 +30,8 @@ const formatDate = (value?: string) => {
 };
 
 const themeOptions = THEME_PACKS;
+const avatarOptions = ['🛰️', '🌒', '🗂️', '🧭', '🧠', '⚡️', '🧪', '🌈'];
+const avatarColors = ['#f4ff00', '#9bff00', '#6b7cff', '#38f5c8', '#ff6b3d', '#ff4d8d', '#ffd166'];
 
 const SafetyCenter = () => {
   const reduceMotion = useReducedMotion();
@@ -38,6 +43,7 @@ const SafetyCenter = () => {
     createProfile,
     createDecoyProfile,
     resetProfile,
+    updateProfileDetails,
     createCalendar,
     renameCalendar,
     recolorCalendar,
@@ -64,10 +70,14 @@ const SafetyCenter = () => {
   const [decoyPinConfirm, setDecoyPinConfirm] = useState('');
   const [localAuthDraft, setLocalAuthDraft] = useState('');
   const [localAuthConfirm, setLocalAuthConfirm] = useState('');
+  const [twoFactorMode, setTwoFactorMode] = useState<'otp' | 'totp'>('otp');
   const [twoFactorChannel, setTwoFactorChannel] = useState<'email' | 'sms'>('email');
   const [twoFactorDestination, setTwoFactorDestination] = useState('');
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [twoFactorSent, setTwoFactorSent] = useState(false);
+  const [totpSecret, setTotpSecret] = useState('');
+  const [totpDraftSecret, setTotpDraftSecret] = useState('');
+  const [totpCode, setTotpCode] = useState('');
   const [biometricReady, setBiometricReady] = useState(false);
   const [panicOpen, setPanicOpen] = useState(false);
   const [themeBrowserOpen, setThemeBrowserOpen] = useState(false);
@@ -75,6 +85,10 @@ const SafetyCenter = () => {
   const [navOpen, setNavOpen] = useState(false);
   const [exportMode, setExportMode] = useState<ExportMode>('clean');
   const [keepTitles, setKeepTitles] = useState(false);
+  const [eventExportFormat, setEventExportFormat] = useState<'csv' | 'ics' | 'json'>('csv');
+  const [profileDisplayName, setProfileDisplayName] = useState('');
+  const [profileAvatarEmoji, setProfileAvatarEmoji] = useState('');
+  const [profileAvatarColor, setProfileAvatarColor] = useState('');
   const holdTimer = useRef<number | null>(null);
   const profileRecoveryRef = useRef(false);
   const [searchParams] = useSearchParams();
@@ -89,6 +103,9 @@ const SafetyCenter = () => {
     }
     setTwoFactorChannel(state.settings.twoFactorChannel ?? 'email');
     setTwoFactorDestination(state.settings.twoFactorDestination ?? '');
+    setTwoFactorMode(state.settings.twoFactorMode ?? 'otp');
+    setTotpSecret(state.securityPrefs.totpSecret ?? '');
+    setTotpDraftSecret('');
   }, [state]);
 
   useEffect(() => {
@@ -128,6 +145,15 @@ const SafetyCenter = () => {
   }, [state]);
 
   useEffect(() => {
+    if (!activeProfile) {
+      return;
+    }
+    setProfileDisplayName(activeProfile.displayName ?? activeProfile.name ?? '');
+    setProfileAvatarEmoji(activeProfile.avatarEmoji ?? '🛰️');
+    setProfileAvatarColor(activeProfile.avatarColor ?? '#f4ff00');
+  }, [activeProfile]);
+
+  useEffect(() => {
     if (!state || profileRecoveryRef.current) {
       return;
     }
@@ -150,6 +176,13 @@ const SafetyCenter = () => {
     }
     return state.calendars.filter((calendar) => calendar.profileId === activeProfile.id);
   }, [activeProfile, state]);
+
+  const events = useMemo(() => {
+    if (!state || !activeProfile) {
+      return [];
+    }
+    return state.events.filter((event) => event.profileId === activeProfile.id);
+  }, [activeProfile, state]);
   const activeTheme = useMemo(() => {
     const fallback = themeOptions.find((theme) => theme.id === DEFAULT_THEME_BY_MODE.dark) ?? themeOptions[0];
     return themeOptions.find((palette) => palette.id === state?.settings.palette) ?? fallback;
@@ -163,13 +196,18 @@ const SafetyCenter = () => {
       methods.push('PIN');
     }
     if (state.settings.twoFactorEnabled) {
-      methods.push('2FA');
+      methods.push(state.settings.twoFactorMode === 'totp' ? 'TOTP' : '2FA');
     }
     if (state.settings.biometricEnabled) {
       methods.push('Biometric');
     }
     return methods.length ? methods.join(' + ') : 'None';
-  }, [state?.securityPrefs.pinEnabled, state?.settings.biometricEnabled, state?.settings.twoFactorEnabled]);
+  }, [
+    state?.securityPrefs.pinEnabled,
+    state?.settings.biometricEnabled,
+    state?.settings.twoFactorEnabled,
+    state?.settings.twoFactorMode
+  ]);
   const lastSyncAt = useMemo(() => new Date().toLocaleString(), []);
 
   useEffect(() => {
@@ -566,6 +604,7 @@ const SafetyCenter = () => {
       }
       updateSettings({
         twoFactorEnabled: true,
+        twoFactorMode: 'otp',
         twoFactorChannel,
         twoFactorDestination
       });
@@ -578,11 +617,46 @@ const SafetyCenter = () => {
     }
   };
 
+  const handleGenerateTotp = () => {
+    const secret = generateTotpSecret();
+    setTotpDraftSecret(secret);
+    setTotpCode('');
+    setTwoFactorSent(false);
+    notify('Authenticator secret generated.', 'success');
+  };
+
+  const handleEnableTotp = async () => {
+    if (!totpDraftSecret) {
+      notify('Generate a secret first.', 'error');
+      return;
+    }
+    if (!(await verifyTotpCode(totpCode, totpDraftSecret))) {
+      notify('Invalid authenticator code.', 'error');
+      return;
+    }
+    updateSecurityPrefs({ totpEnabled: true, totpSecret: totpDraftSecret });
+    updateSettings({ twoFactorEnabled: true, twoFactorMode: 'totp' });
+    setTotpSecret(totpDraftSecret);
+    setTotpDraftSecret('');
+    setTotpCode('');
+    lockNow();
+    notify('Authenticator app enabled.', 'success');
+  };
+
   const handleDisableTwoFactor = () => {
-    updateSettings({ twoFactorEnabled: false });
+    updateSettings({ twoFactorEnabled: false, twoFactorMode: 'otp' });
     setTwoFactorCode('');
     setTwoFactorSent(false);
     notify('Two-factor authentication disabled.', 'info');
+  };
+
+  const handleDisableTotp = () => {
+    updateSettings({ twoFactorEnabled: false, twoFactorMode: 'otp' });
+    updateSecurityPrefs({ totpEnabled: false, totpSecret: undefined });
+    setTotpSecret('');
+    setTotpDraftSecret('');
+    setTotpCode('');
+    notify('Authenticator app disabled.', 'info');
   };
 
   const handleToggleSyncEnabled = (enabled: boolean) => {
@@ -614,6 +688,61 @@ const SafetyCenter = () => {
     updateSettings({ remindersEnabled: enabled });
     notify(enabled ? 'Reminders enabled.' : 'Reminders disabled.', 'success');
   };
+
+  const handleProfileSave = () => {
+    if (!activeProfile) {
+      return;
+    }
+    const nextName = profileDisplayName.trim() || activeProfile.name;
+    updateProfileDetails(activeProfile.id, {
+      name: nextName,
+      displayName: nextName,
+      avatarEmoji: profileAvatarEmoji,
+      avatarColor: profileAvatarColor
+    });
+    notify('Profile updated.', 'success');
+  };
+
+  const handleEventExport = () => {
+    if (!activeProfile) {
+      notify('No profile data available.', 'error');
+      return;
+    }
+    let payload = '';
+    let extension = 'txt';
+    if (eventExportFormat === 'csv') {
+      payload = buildCsv(events, calendars);
+      extension = 'csv';
+    } else if (eventExportFormat === 'ics') {
+      payload = buildIcs(events, activeProfile);
+      extension = 'ics';
+    } else {
+      payload = buildJson(events, calendars, activeProfile);
+      extension = 'json';
+    }
+    const blob = new Blob([payload], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `nullcal-events-${new Date().toISOString().slice(0, 10)}.${extension}`;
+    link.click();
+    URL.revokeObjectURL(url);
+    notify('Event export saved.', 'success');
+  };
+
+  const handleExportAudit = () => {
+    const entries = readAuditLog();
+    const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `nullcal-audit-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    notify('Audit log exported.', 'success');
+  };
+
+  const auditEntries = readAuditLog();
 
   const handleToggleCollaboration = (enabled: boolean) => {
     updateSettings({ collaborationEnabled: enabled });
@@ -793,7 +922,12 @@ const SafetyCenter = () => {
       topBar={
         <TopBar
           variant="minimal"
-          profiles={state.profiles.map((profile) => ({ id: profile.id, name: profile.name }))}
+          profiles={state.profiles.map((profile) => ({
+            id: profile.id,
+            name: profile.displayName ?? profile.name,
+            avatarEmoji: profile.avatarEmoji,
+            avatarColor: profile.avatarColor
+          }))}
           activeProfileId={activeProfile?.id ?? ''}
           onProfileChange={handleManualProfileSwitch}
           onCreateProfile={handleCreateProfile}
@@ -819,7 +953,7 @@ const SafetyCenter = () => {
         <SideBar
           calendars={calendars}
           activeProfileId={activeProfile?.id ?? ''}
-          activeProfileName={activeProfile?.name ?? 'KamranBroomand'}
+          activeProfileName={activeProfile?.displayName ?? activeProfile?.name ?? 'KamranBroomand'}
           onToggleCalendar={toggleCalendarVisibility}
           onCreateCalendar={createCalendar}
           onRenameCalendar={renameCalendar}
@@ -963,6 +1097,31 @@ const SafetyCenter = () => {
                     className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
                   />
                 </label>
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Smart cache</p>
+                    <p className="mt-1 text-xs text-muted">Cache recent state for faster startup.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(state.settings.cacheEnabled)}
+                    onChange={(event) => updateSettings({ cacheEnabled: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                {state.settings.cacheEnabled && (
+                  <label className="flex min-w-0 flex-col gap-2 rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs uppercase tracking-[0.3em] text-muted">
+                    Cache TTL (minutes)
+                    <input
+                      type="number"
+                      min={5}
+                      max={240}
+                      value={state.settings.cacheTtlMinutes ?? 30}
+                      onChange={(event) => updateSettings({ cacheTtlMinutes: Number(event.target.value || 30) })}
+                      className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                    />
+                  </label>
+                )}
               </div>
             </div>
 
@@ -974,7 +1133,7 @@ const SafetyCenter = () => {
                     <div className="min-w-0">
                       <p className="text-xs uppercase tracking-[0.3em] text-muted">Two-factor authentication</p>
                       <p className="mt-1 text-xs text-muted">
-                        Send one-time codes via email or SMS before unlocking.
+                        Add SMS/email or authenticator app verification before unlocking.
                       </p>
                     </div>
                     {state.settings.twoFactorEnabled ? (
@@ -990,68 +1149,130 @@ const SafetyCenter = () => {
                   {!state.settings.twoFactorEnabled && (
                     <div className="mt-3 grid gap-3 text-xs text-muted">
                       <label className="flex min-w-0 flex-col gap-2 text-[10px] uppercase tracking-[0.3em] text-muted">
-                        Delivery channel
+                        MFA method
                         <select
-                          value={twoFactorChannel}
-                          onChange={(event) => setTwoFactorChannel(event.target.value as 'email' | 'sms')}
+                          value={twoFactorMode}
+                          onChange={(event) => setTwoFactorMode(event.target.value as 'otp' | 'totp')}
                           className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
                         >
-                          <option value="email" className="bg-panel2">
-                            Email
+                          <option value="otp" className="bg-panel2">
+                            SMS or email code
                           </option>
-                          <option value="sms" className="bg-panel2">
-                            SMS
+                          <option value="totp" className="bg-panel2">
+                            Authenticator app (TOTP)
                           </option>
                         </select>
                       </label>
-                      <input
-                        type={twoFactorChannel === 'email' ? 'email' : 'tel'}
-                        placeholder={twoFactorChannel === 'email' ? 'Email address' : 'Phone number'}
-                        value={twoFactorDestination}
-                        onChange={(event) => setTwoFactorDestination(event.target.value)}
-                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={handleStartTwoFactor}
-                          className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted"
-                        >
-                          Send code
-                        </button>
-                        {twoFactorSent && (
-                          <>
+                      {twoFactorMode === 'otp' && (
+                        <>
+                          <label className="flex min-w-0 flex-col gap-2 text-[10px] uppercase tracking-[0.3em] text-muted">
+                            Delivery channel
+                            <select
+                              value={twoFactorChannel}
+                              onChange={(event) => setTwoFactorChannel(event.target.value as 'email' | 'sms')}
+                              className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                            >
+                              <option value="email" className="bg-panel2">
+                                Email
+                              </option>
+                              <option value="sms" className="bg-panel2">
+                                SMS
+                              </option>
+                            </select>
+                          </label>
+                          <input
+                            type={twoFactorChannel === 'email' ? 'email' : 'tel'}
+                            placeholder={twoFactorChannel === 'email' ? 'Email address' : 'Phone number'}
+                            value={twoFactorDestination}
+                            onChange={(event) => setTwoFactorDestination(event.target.value)}
+                            className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={handleStartTwoFactor}
+                              className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted"
+                            >
+                              Send code
+                            </button>
+                            {twoFactorSent && (
+                              <>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  placeholder="Verification code"
+                                  value={twoFactorCode}
+                                  onChange={(event) => setTwoFactorCode(event.target.value)}
+                                  className="min-w-0 flex-1 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleVerifyTwoFactorSetup}
+                                  className="rounded-full bg-accent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                                >
+                                  Verify & enable
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
+                      {twoFactorMode === 'totp' && (
+                        <div className="grid gap-3">
+                          <button
+                            type="button"
+                            onClick={handleGenerateTotp}
+                            className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted"
+                          >
+                            Generate secret
+                          </button>
+                          {(totpDraftSecret || totpSecret) && (
+                            <div className="rounded-2xl border border-grid bg-panel px-3 py-2 text-[11px] text-text">
+                              <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Setup key</p>
+                              <p className="mt-1 break-all">{totpDraftSecret || totpSecret}</p>
+                              <p className="mt-2 text-[11px] text-muted">
+                                URI:{' '}
+                                {buildTotpUri(
+                                  activeProfile?.displayName ?? activeProfile?.name ?? 'nullcal',
+                                  totpDraftSecret || totpSecret
+                                )}
+                              </p>
+                            </div>
+                          )}
+                          <div className="flex flex-wrap gap-2">
                             <input
                               type="text"
                               inputMode="numeric"
-                              placeholder="Verification code"
-                              value={twoFactorCode}
-                              onChange={(event) => setTwoFactorCode(event.target.value)}
+                              placeholder="Authenticator code"
+                              value={totpCode}
+                              onChange={(event) => setTotpCode(event.target.value)}
                               className="min-w-0 flex-1 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
                             />
                             <button
                               type="button"
-                              onClick={handleVerifyTwoFactorSetup}
+                              onClick={handleEnableTotp}
                               className="rounded-full bg-accent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
                             >
                               Verify & enable
                             </button>
-                          </>
-                        )}
-                      </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                   {state.settings.twoFactorEnabled && (
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
                       <span className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted">
-                        {state.settings.twoFactorChannel.toUpperCase()}
+                        {state.settings.twoFactorMode === 'totp'
+                          ? 'AUTHENTICATOR'
+                          : state.settings.twoFactorChannel.toUpperCase()}
                       </span>
-                      {state.settings.twoFactorDestination && (
+                      {state.settings.twoFactorMode !== 'totp' && state.settings.twoFactorDestination && (
                         <span className="text-[11px] text-text">{state.settings.twoFactorDestination}</span>
                       )}
                       <button
                         type="button"
-                        onClick={handleDisableTwoFactor}
+                        onClick={state.settings.twoFactorMode === 'totp' ? handleDisableTotp : handleDisableTwoFactor}
                         className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
                       >
                         Disable 2FA
@@ -1159,6 +1380,113 @@ const SafetyCenter = () => {
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div id="profile-section" className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Profile customization</p>
+              <div className="mt-3 space-y-3 text-sm text-muted">
+                <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                  Display name
+                  <input
+                    value={profileDisplayName}
+                    onChange={(event) => setProfileDisplayName(event.target.value)}
+                    className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                  />
+                </label>
+                <div className="grid gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                  Avatar emoji
+                  <div className="flex flex-wrap gap-2">
+                    {avatarOptions.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setProfileAvatarEmoji(emoji)}
+                        aria-pressed={profileAvatarEmoji === emoji}
+                        className={`rounded-full border px-3 py-1 text-sm ${
+                          profileAvatarEmoji === emoji
+                            ? 'border-accent text-text'
+                            : 'border-grid text-muted hover:text-text'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                  Avatar color
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="color"
+                      value={profileAvatarColor}
+                      onChange={(event) => setProfileAvatarColor(event.target.value)}
+                      className="h-10 w-16 rounded-lg border border-grid bg-panel2 p-1"
+                    />
+                    {avatarColors.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setProfileAvatarColor(color)}
+                        aria-label={`Select ${color}`}
+                        className="h-8 w-8 rounded-full border border-grid"
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleProfileSave}
+                  className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                >
+                  Save profile
+                </button>
+              </div>
+            </div>
+
+            <div id="accessibility-section" className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Accessibility</p>
+              <div className="mt-3 space-y-3 text-sm text-muted">
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">High contrast</p>
+                    <p className="mt-1 text-xs text-muted">Boost contrast for low-vision readability.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(state.settings.highContrast)}
+                    onChange={(event) => updateSettings({ highContrast: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
+                <label className="flex min-w-0 flex-col gap-2 rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs uppercase tracking-[0.3em] text-muted">
+                  Text size
+                  <input
+                    type="range"
+                    min={0.85}
+                    max={1.4}
+                    step={0.05}
+                    value={state.settings.textScale ?? 1}
+                    onChange={(event) => updateSettings({ textScale: Number(event.target.value) })}
+                    className="w-full"
+                  />
+                  <span className="text-[11px] text-muted">
+                    Scale: {(state.settings.textScale ?? 1).toFixed(2)}x
+                  </span>
+                </label>
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Keyboard navigation</p>
+                    <p className="mt-1 text-xs text-muted">Highlight focus rings for keyboard users.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(state.settings.keyboardNavigation)}
+                    onChange={(event) => updateSettings({ keyboardNavigation: event.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
               </div>
             </div>
 
@@ -1270,6 +1598,15 @@ const SafetyCenter = () => {
                     <option value="local" className="bg-panel2">
                       Local notifications
                     </option>
+                    <option value="push" className="bg-panel2">
+                      Push notifications
+                    </option>
+                    <option value="email" className="bg-panel2">
+                      Email notifications
+                    </option>
+                    <option value="sms" className="bg-panel2">
+                      SMS notifications
+                    </option>
                     <option value="signal" className="bg-panel2">
                       Signal secure ping
                     </option>
@@ -1278,6 +1615,34 @@ const SafetyCenter = () => {
                     </option>
                   </select>
                 </label>
+                {(state.settings.reminderChannel === 'email' ||
+                  state.settings.reminderChannel === 'sms') && (
+                  <div className="grid gap-2">
+                    {state.settings.reminderChannel === 'email' && (
+                      <input
+                        type="email"
+                        placeholder="Notification email"
+                        value={state.settings.notificationEmail ?? ''}
+                        onChange={(event) => updateSettings({ notificationEmail: event.target.value })}
+                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                        disabled={!state.settings.remindersEnabled}
+                      />
+                    )}
+                    {state.settings.reminderChannel === 'sms' && (
+                      <input
+                        type="tel"
+                        placeholder="Notification phone"
+                        value={state.settings.notificationPhone ?? ''}
+                        onChange={(event) => updateSettings({ notificationPhone: event.target.value })}
+                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                        disabled={!state.settings.remindersEnabled}
+                      />
+                    )}
+                    <p className="text-[11px] text-muted">
+                      Uses the notification gateway (Twilio/Nodemailer) configured on the backend.
+                    </p>
+                  </div>
+                )}
                 {state.settings.reminderChannel === 'telegram' && (
                   <div className="grid gap-2">
                     <input
@@ -1632,6 +1997,76 @@ const SafetyCenter = () => {
           </motion.section>
 
           <motion.section {...panelMotion} className="grid gap-2 md:grid-cols-2">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Event export</p>
+              <div className="mt-3 space-y-3 text-sm text-muted">
+                <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                  Format
+                  <select
+                    value={eventExportFormat}
+                    onChange={(event) => setEventExportFormat(event.target.value as 'csv' | 'ics' | 'json')}
+                    className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                  >
+                    <option value="csv" className="bg-panel2">
+                      CSV
+                    </option>
+                    <option value="ics" className="bg-panel2">
+                      ICS
+                    </option>
+                    <option value="json" className="bg-panel2">
+                      JSON
+                    </option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleEventExport}
+                  className="w-full rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                >
+                  Export events
+                </button>
+                <p className="text-xs text-muted">Exports only events in the active profile.</p>
+              </div>
+            </div>
+
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">Audit log</p>
+              <div className="mt-3 space-y-3 text-sm text-muted">
+                <div className="max-h-44 space-y-2 overflow-auto rounded-2xl border border-grid bg-panel2 px-3 py-2 text-xs">
+                  {auditEntries.length === 0 && <p className="text-muted">No audit entries yet.</p>}
+                  {auditEntries.slice(-8).map((entry) => (
+                    <div key={entry.id} className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase tracking-[0.3em] text-muted">
+                        {entry.category}
+                      </span>
+                      <span className="text-text">{entry.action}</span>
+                      <span className="text-[10px] text-muted">{formatDate(entry.timestamp)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleExportAudit}
+                    className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted"
+                  >
+                    Export log
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearAuditLog();
+                      notify('Audit log cleared.', 'info');
+                    }}
+                    className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted"
+                  >
+                    Clear log
+                  </button>
+                </div>
+                <p className="text-xs text-muted">Stored locally for offline review.</p>
+              </div>
+            </div>
+
             <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Export Hygiene</p>
               <div className="mt-3 space-y-3 text-sm text-muted">

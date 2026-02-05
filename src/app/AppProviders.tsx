@@ -41,6 +41,7 @@ const ThemeBridge = ({ children }: { children: ReactNode }) => {
           webAuthnEnabled={Boolean(state?.securityPrefs.webAuthnEnabled)}
           biometricEnabled={Boolean(state?.settings.biometricEnabled && state?.securityPrefs.biometricCredentialId)}
           twoFactorPending={twoFactorPending}
+          twoFactorMode={state?.settings.twoFactorMode ?? 'otp'}
           onUnlock={unlock}
           onUnlockWithWebAuthn={unlockWithWebAuthn}
           onUnlockWithBiometric={unlockWithBiometric}

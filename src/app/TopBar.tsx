@@ -78,6 +78,8 @@ const LockIcon = () => (
 type ProfileOption = {
   id: string;
   name: string;
+  avatarEmoji?: string;
+  avatarColor?: string;
 };
 
 type ProfileMenuProps = {
@@ -92,7 +94,9 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
   const reduceMotion = useReducedMotion();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
-  const activeLabel = options.find((option) => option.id === activeId)?.name ?? 'Profile';
+  const activeProfile = options.find((option) => option.id === activeId);
+  const activeLabel = activeProfile?.name ?? 'Profile';
+  const activeEmoji = activeProfile?.avatarEmoji ?? '🛰️';
 
   useEffect(() => {
     if (!open) {
@@ -135,6 +139,13 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
         aria-haspopup="menu"
         aria-expanded={open}
       >
+        <span
+          className="flex h-6 w-6 items-center justify-center rounded-full text-xs"
+          style={{ backgroundColor: activeProfile?.avatarColor ?? 'var(--panel2)' }}
+          aria-hidden="true"
+        >
+          {activeEmoji}
+        </span>
         Agent
         <span className="text-[10px]">▾</span>
       </motion.button>
@@ -160,10 +171,17 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
                   onChange?.(option.id);
                   setOpen(false);
                 }}
-                className={`w-full rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.2em] transition hover:text-text ${
+                className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.2em] transition hover:text-text ${
                   option.id === activeId ? 'bg-panel2 text-text' : 'text-muted'
                 }`}
               >
+                <span
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-xs"
+                  style={{ backgroundColor: option.avatarColor ?? 'var(--panel2)' }}
+                  aria-hidden="true"
+                >
+                  {option.avatarEmoji ?? '🛰️'}
+                </span>
                 {option.name}
               </button>
             ))}
@@ -274,10 +292,17 @@ const OverflowMenu = ({
                         onProfileChange(profile.id);
                         setOpen(false);
                       }}
-                      className={`w-full rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.2em] transition hover:text-text ${
+                      className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.2em] transition hover:text-text ${
                         profile.id === activeProfileId ? 'bg-panel2 text-text' : 'text-muted'
                       }`}
                     >
+                      <span
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-xs"
+                        style={{ backgroundColor: profile.avatarColor ?? 'var(--panel2)' }}
+                        aria-hidden="true"
+                      >
+                        {profile.avatarEmoji ?? '🛰️'}
+                      </span>
                       {profile.name}
                     </button>
                   ))}
