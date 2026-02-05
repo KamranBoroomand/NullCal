@@ -27,6 +27,18 @@
   --focus: color-mix(in srgb, var(--accent) 70%, white 30%);
 }
 
+body[data-contrast='high'] {
+  --text: #f8fafc;
+  --muted: #d1d5db;
+  --border: rgba(255, 255, 255, 0.2);
+  --grid: color-mix(in srgb, var(--border) 80%, var(--accent) 20%);
+}
+
+body[data-keyboard-nav='enabled'] :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 [data-theme='dark'] {
   color-scheme: dark;
 }

@@ -1,12 +1,22 @@
 import { nanoid } from 'nanoid';
 import { DB_NAME, openNullCalDB } from './db';
 import { createSeedCalendars, createSeedProfile } from './seed';
-import type { AppSettings, AppState, Calendar, CalendarEvent, Profile, SecurityPrefs } from './types';
+import type {
+  AppSettings,
+  AppState,
+  Calendar,
+  CalendarEvent,
+  EventTemplate,
+  Profile,
+  SecurityPrefs
+} from './types';
 import { safeLocalStorage } from './safeStorage';
 import { DEFAULT_THEME_BY_MODE, resolveThemeModeFromPalette } from '../theme/themePacks';
 
 const LEGACY_KEY = 'nullcal:v1';
 const PALETTE_KEY = 'nullcal:palette';
+const avatarPalette = ['#f4ff00', '#9bff00', '#6b7cff', '#38f5c8', '#ff6b3d', '#ff4d8d', '#ffd166'];
+const avatarEmojis = ['🛰️', '🌒', '🗂️', '🧭', '🧠', '⚡️', '🧪'];
 
 const readPalette = () => {
   const value = safeLocalStorage.getItem(PALETTE_KEY);
@@ -41,6 +51,7 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     syncShareToken: undefined,
     tamperProofLog: false,
     twoFactorEnabled: false,
+    twoFactorMode: 'otp',
     twoFactorChannel: 'email',
     twoFactorDestination: undefined,
     biometricEnabled: false,
@@ -50,12 +61,19 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     eventObfuscation: false,
     reminderChannel: 'local',
     remindersEnabled: false,
+    notificationEmail: undefined,
+    notificationPhone: undefined,
     telegramBotToken: undefined,
     telegramChatId: undefined,
     signalWebhookUrl: undefined,
     collaborationMode: 'private',
     collaborationEnabled: false,
-    notesShareToken: undefined
+    notesShareToken: undefined,
+    highContrast: false,
+    textScale: 1,
+    keyboardNavigation: true,
+    cacheEnabled: true,
+    cacheTtlMinutes: 30
   };
 };
 
@@ -65,7 +83,9 @@ const defaultSecurityPrefs: SecurityPrefs = {
   decoyPinEnabled: false,
   localAuthEnabled: false,
   webAuthnEnabled: false,
-  biometricCredentialId: undefined
+  biometricCredentialId: undefined,
+  totpEnabled: false,
+  totpSecret: undefined
 };
 
 const normalizeCalendars = (calendars: Calendar[]): Calendar[] =>
@@ -73,6 +93,21 @@ const normalizeCalendars = (calendars: Calendar[]): Calendar[] =>
     ...calendar,
     isVisible: calendar.isVisible ?? calendar.visible ?? true,
     createdAt: calendar.createdAt ?? new Date().toISOString()
+  }));
+
+const pickAvatar = (name: string) => {
+  const seed = name.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return {
+    avatarColor: avatarPalette[seed % avatarPalette.length],
+    avatarEmoji: avatarEmojis[seed % avatarEmojis.length]
+  };
+};
+
+const normalizeProfiles = (profiles: Profile[]) =>
+  profiles.map((profile) => ({
+    ...profile,
+    displayName: profile.displayName ?? profile.name,
+    ...(!profile.avatarEmoji || !profile.avatarColor ? pickAvatar(profile.name) : {})
   }));
 
 export const createCalendar = (
@@ -137,11 +172,13 @@ const migrateLegacy = (): AppState | null => {
     if (!parsed.profiles?.length) {
       return null;
     }
-    const profiles: Profile[] = parsed.profiles.map((profile) => ({
-      id: profile.id,
-      name: profile.name,
-      createdAt: new Date().toISOString()
-    }));
+    const profiles: Profile[] = normalizeProfiles(
+      parsed.profiles.map((profile) => ({
+        id: profile.id,
+        name: profile.name,
+        createdAt: new Date().toISOString()
+      }))
+    );
     const calendars = parsed.profiles.flatMap((profile) =>
       normalizeCalendars(profile.calendars).map((calendar) => ({
         ...calendar,
@@ -159,6 +196,7 @@ const migrateLegacy = (): AppState | null => {
       profiles,
       calendars,
       events,
+      templates: [],
       settings,
       securityPrefs: defaultSecurityPrefs
     };
@@ -169,9 +207,10 @@ const migrateLegacy = (): AppState | null => {
 
 export const loadAppState = async (): Promise<AppState> => {
   const db = await openNullCalDB();
-  const profiles = await db.getAll('profiles');
+  const profiles = normalizeProfiles(await db.getAll('profiles'));
   const calendars = normalizeCalendars(await db.getAll('calendars'));
   const events = await db.getAll('events');
+  const templates = await db.getAll('templates');
   const settings = await db.get('settings', 'app');
   const securityPrefs = await db.get('securityPrefs', 'security');
 
@@ -191,6 +230,7 @@ export const loadAppState = async (): Promise<AppState> => {
       syncShareToken: resolvedSettings.syncShareToken ?? undefined,
       tamperProofLog: resolvedSettings.tamperProofLog ?? false,
       twoFactorEnabled: resolvedSettings.twoFactorEnabled ?? false,
+      twoFactorMode: resolvedSettings.twoFactorMode ?? 'otp',
       twoFactorChannel: resolvedSettings.twoFactorChannel ?? 'email',
       twoFactorDestination: resolvedSettings.twoFactorDestination ?? undefined,
       biometricEnabled: resolvedSettings.biometricEnabled ?? false,
@@ -200,12 +240,19 @@ export const loadAppState = async (): Promise<AppState> => {
       eventObfuscation: resolvedSettings.eventObfuscation ?? false,
       reminderChannel: resolvedSettings.reminderChannel ?? 'local',
       remindersEnabled: resolvedSettings.remindersEnabled ?? false,
+      notificationEmail: resolvedSettings.notificationEmail ?? resolvedSettings.twoFactorDestination ?? undefined,
+      notificationPhone: resolvedSettings.notificationPhone ?? resolvedSettings.twoFactorDestination ?? undefined,
       telegramBotToken: resolvedSettings.telegramBotToken ?? undefined,
       telegramChatId: resolvedSettings.telegramChatId ?? undefined,
       signalWebhookUrl: resolvedSettings.signalWebhookUrl ?? undefined,
       collaborationMode: resolvedSettings.collaborationMode ?? 'private',
       collaborationEnabled: resolvedSettings.collaborationEnabled ?? false,
-      notesShareToken: resolvedSettings.notesShareToken ?? undefined
+      notesShareToken: resolvedSettings.notesShareToken ?? undefined,
+      highContrast: resolvedSettings.highContrast ?? false,
+      textScale: resolvedSettings.textScale ?? 1,
+      keyboardNavigation: resolvedSettings.keyboardNavigation ?? true,
+      cacheEnabled: resolvedSettings.cacheEnabled ?? true,
+      cacheTtlMinutes: resolvedSettings.cacheTtlMinutes ?? 30
     };
     const activeProfileExists = profiles.some((profile) => profile.id === resolvedSettings.activeProfileId);
     const decoyProfileExists = profiles.some((profile) => profile.id === resolvedSettings.decoyProfileId);
@@ -213,6 +260,7 @@ export const loadAppState = async (): Promise<AppState> => {
       profiles,
       calendars,
       events,
+      templates,
       settings: activeProfileExists
         ? { ...normalizedSettings, decoyProfileId: decoyProfileExists ? resolvedSettings.decoyProfileId : undefined }
         : {
@@ -239,6 +287,7 @@ export const loadAppState = async (): Promise<AppState> => {
     profiles: [profile],
     calendars: seedCalendars,
     events: [],
+    templates: [],
     settings: buildDefaultSettings(profile.id),
     securityPrefs: defaultSecurityPrefs
   };
@@ -248,11 +297,15 @@ export const loadAppState = async (): Promise<AppState> => {
 
 export const saveAppState = async (state: AppState) => {
   const db = await openNullCalDB();
-  const tx = db.transaction(['profiles', 'calendars', 'events', 'settings', 'securityPrefs'], 'readwrite');
+  const tx = db.transaction(
+    ['profiles', 'calendars', 'events', 'templates', 'settings', 'securityPrefs'],
+    'readwrite'
+  );
   await Promise.all([
     tx.objectStore('profiles').clear(),
     tx.objectStore('calendars').clear(),
     tx.objectStore('events').clear(),
+    tx.objectStore('templates').clear(),
     tx.objectStore('settings').clear(),
     tx.objectStore('securityPrefs').clear()
   ]);
@@ -260,6 +313,7 @@ export const saveAppState = async (state: AppState) => {
     ...state.profiles.map((profile) => tx.objectStore('profiles').put(profile)),
     ...state.calendars.map((calendar) => tx.objectStore('calendars').put(calendar)),
     ...state.events.map((event) => tx.objectStore('events').put(event)),
+    ...state.templates.map((template) => tx.objectStore('templates').put(template)),
     tx.objectStore('settings').put(state.settings),
     tx.objectStore('securityPrefs').put(state.securityPrefs)
   ]);

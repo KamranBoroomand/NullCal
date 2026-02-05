@@ -1,9 +1,22 @@
 import { nanoid } from 'nanoid';
 import type { Calendar, CalendarEvent, Profile } from './types';
 
+const avatarPalette = ['#f4ff00', '#9bff00', '#6b7cff', '#38f5c8', '#ff6b3d', '#ff4d8d', '#ffd166'];
+const avatarEmojis = ['🛰️', '🌒', '🗂️', '🧭', '🧠', '⚡️', '🧪'];
+
+const pickAvatar = (name: string) => {
+  const seed = name.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return {
+    avatarColor: avatarPalette[seed % avatarPalette.length],
+    avatarEmoji: avatarEmojis[seed % avatarEmojis.length]
+  };
+};
+
 export const createSeedProfile = (name: string): Profile => ({
   id: nanoid(),
   name,
+  displayName: name,
+  ...pickAvatar(name),
   createdAt: new Date().toISOString()
 });
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { addHours, addMonths, addWeeks, format, startOfHour, subMonths, subWeeks } from 'date-fns';
+import { addHours, addMinutes, addMonths, addWeeks, format, startOfHour, subMonths, subWeeks } from 'date-fns';
 import { nanoid } from 'nanoid';
 import type { EventInput } from '@fullcalendar/core';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -15,6 +15,7 @@ import RouteErrorBoundary from '../components/RouteErrorBoundary';
 import { decryptNote, encryptNote, encryptPayload, isEncryptedNote } from '../security/encryption';
 import { buildExportPayload, validateExportPayload } from '../security/exportUtils';
 import type { AppSettings } from '../storage/types';
+import { formatReminderRule } from '../reminders/reminderRules';
 
 const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 const fromInputValue = (value: string) => new Date(value).toISOString();
@@ -37,6 +38,8 @@ const AppPage = () => {
     toggleCalendarVisibility,
     upsertEvent,
     deleteEvent,
+    createTemplate,
+    deleteTemplate,
     importEncrypted
   } =
     useAppStore();
@@ -53,6 +56,8 @@ const AppPage = () => {
   const [noteConfirm, setNoteConfirm] = useState('');
   const [noteDecryptPassphrase, setNoteDecryptPassphrase] = useState('');
   const [noteError, setNoteError] = useState('');
+  const [templateName, setTemplateName] = useState('');
+  const [templateApplyId, setTemplateApplyId] = useState('');
   const reduceMotion = useReducedMotion();
   const noteEncrypted = isEncryptedNote(draft?.notes);
 
@@ -63,18 +68,22 @@ const AppPage = () => {
   useEffect(() => {
     if (!draft) {
       setNoteEncryptionArmed(false);
-      setNotePassphrase('');
-      setNoteConfirm('');
-      setNoteDecryptPassphrase('');
-      setNoteError('');
-      return;
-    }
-    setNoteEncryptionArmed(noteEncrypted || Boolean(state?.settings.encryptedNotes));
     setNotePassphrase('');
     setNoteConfirm('');
     setNoteDecryptPassphrase('');
     setNoteError('');
-  }, [draft?.id, noteEncrypted, state?.settings.encryptedNotes]);
+    setTemplateName('');
+    setTemplateApplyId('');
+    return;
+  }
+  setNoteEncryptionArmed(noteEncrypted || Boolean(state?.settings.encryptedNotes));
+  setNotePassphrase('');
+  setNoteConfirm('');
+  setNoteDecryptPassphrase('');
+  setNoteError('');
+  setTemplateName('');
+  setTemplateApplyId('');
+}, [draft?.id, noteEncrypted, state?.settings.encryptedNotes]);
 
   const handleCalendarDateChange = (next: Date) => {
     setCurrentDate((prev) => (prev.getTime() === next.getTime() ? prev : next));
@@ -189,6 +198,59 @@ const AppPage = () => {
     if (event) {
       setDraft({ ...event });
     }
+  };
+
+  const handleApplyTemplate = (templateId: string) => {
+    if (!draft) {
+      return;
+    }
+    setTemplateApplyId(templateId);
+    const template = templates.find((item) => item.id === templateId);
+    if (!template) {
+      return;
+    }
+    const start = new Date(draft.start);
+    const end = addMinutes(start, template.durationMinutes || 60);
+    setDraft({
+      ...draft,
+      title: template.title,
+      location: template.location ?? '',
+      notes: template.notes ?? '',
+      label: template.label ?? '',
+      icon: template.icon ?? '',
+      reminderRule: template.reminderRule ?? '',
+      calendarId: template.defaultCalendarId ?? draft.calendarId,
+      end: end.toISOString()
+    });
+  };
+
+  const handleSaveTemplate = () => {
+    if (!draft || !activeProfile) {
+      return;
+    }
+    const name = templateName.trim();
+    if (!name) {
+      notify('Template name is required.', 'error');
+      return;
+    }
+    const durationMinutes = Math.max(
+      15,
+      Math.round((new Date(draft.end).getTime() - new Date(draft.start).getTime()) / 60000)
+    );
+    createTemplate({
+      profileId: activeProfile.id,
+      name,
+      title: draft.title || 'Untitled event',
+      durationMinutes,
+      location: draft.location ?? '',
+      notes: draft.notes ?? '',
+      label: draft.label ?? '',
+      icon: draft.icon ?? '',
+      reminderRule: draft.reminderRule ?? '',
+      defaultCalendarId: draft.calendarId
+    });
+    setTemplateName('');
+    notify('Template saved.', 'success');
   };
 
   const handleDecryptNote = async () => {
@@ -336,6 +398,13 @@ const AppPage = () => {
     return state.events.filter((event) => event.profileId === activeProfile.id);
   }, [activeProfile, state]);
 
+  const templates = useMemo(() => {
+    if (!activeProfile || !state) {
+      return [];
+    }
+    return state.templates.filter((template) => template.profileId === activeProfile.id);
+  }, [activeProfile, state]);
+
   const visibleCalendarIds = useMemo(() => {
     return calendars.filter((calendar) => calendar.isVisible).map((calendar) => calendar.id);
   }, [calendars]);
@@ -380,6 +449,21 @@ const AppPage = () => {
     });
   }, [calendars, filteredEvents]);
 
+  const reminderOptions = [
+    { label: 'At time of event', value: '' },
+    { label: '5 minutes before', value: formatReminderRule(5) },
+    { label: '15 minutes before', value: formatReminderRule(15) },
+    { label: '30 minutes before', value: formatReminderRule(30) },
+    { label: '1 hour before', value: formatReminderRule(60) },
+    { label: '1 day before', value: formatReminderRule(60 * 24) }
+  ];
+
+  const reminderSelection = draft
+    ? reminderOptions.some((option) => option.value === (draft.reminderRule ?? ''))
+      ? (draft.reminderRule ?? '')
+      : 'custom'
+    : '';
+
   if (loading || !activeProfile || !state) {
     return null;
   }
@@ -398,7 +482,12 @@ const AppPage = () => {
             onNext={handleNext}
             search={search}
             onSearchChange={setSearch}
-            profiles={state.profiles.map((profile) => ({ id: profile.id, name: profile.name }))}
+            profiles={state.profiles.map((profile) => ({
+              id: profile.id,
+              name: profile.displayName ?? profile.name,
+              avatarEmoji: profile.avatarEmoji,
+              avatarColor: profile.avatarColor
+            }))}
             activeProfileId={activeProfile.id}
             onProfileChange={setActiveProfile}
             onCreateProfile={handleCreateProfile}
@@ -422,7 +511,7 @@ const AppPage = () => {
           <SideBar
             calendars={calendars}
             activeProfileId={activeProfile.id}
-            activeProfileName={activeProfile.name}
+            activeProfileName={activeProfile.displayName ?? activeProfile.name}
             onToggleCalendar={handleToggleCalendar}
             onCreateCalendar={createCalendar}
             onRenameCalendar={renameCalendar}
@@ -441,7 +530,7 @@ const AppPage = () => {
           <SideBar
             calendars={calendars}
             activeProfileId={activeProfile.id}
-            activeProfileName={activeProfile.name}
+            activeProfileName={activeProfile.displayName ?? activeProfile.name}
             variant="drawer"
             onToggleCalendar={handleToggleCalendar}
             onCreateCalendar={createCalendar}
@@ -497,6 +586,21 @@ const AppPage = () => {
                 onChange={(event) => setDraft({ ...draft, title: event.target.value })}
                 className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
               />
+            </label>
+            <label className="text-xs text-muted">
+              Template
+              <select
+                value={templateApplyId}
+                onChange={(event) => handleApplyTemplate(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+              >
+                <option value="">Select a template</option>
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id} className="bg-panel2">
+                    {template.name}
+                  </option>
+                ))}
+              </select>
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-xs text-muted">
@@ -560,13 +664,32 @@ const AppPage = () => {
                 />
               </label>
               <label className="text-xs text-muted">
-                Reminder rule
-                <input
-                  value={draft.reminderRule ?? ''}
-                  onChange={(event) => setDraft({ ...draft, reminderRule: event.target.value })}
-                  placeholder="Every Friday"
+                Reminder
+                <select
+                  value={reminderSelection}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setDraft({ ...draft, reminderRule: value === 'custom' ? '' : value });
+                  }}
                   className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                />
+                >
+                  {reminderOptions.map((option) => (
+                    <option key={option.value || option.label} value={option.value} className="bg-panel2">
+                      {option.label}
+                    </option>
+                  ))}
+                  <option value="custom" className="bg-panel2">
+                    Custom reminder
+                  </option>
+                </select>
+                {reminderSelection === 'custom' && (
+                  <input
+                    value={draft.reminderRule ?? ''}
+                    onChange={(event) => setDraft({ ...draft, reminderRule: event.target.value })}
+                    placeholder="offset:45 or 2 hours"
+                    className="mt-2 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                  />
+                )}
               </label>
             </div>
             <label className="text-xs text-muted">
@@ -579,6 +702,48 @@ const AppPage = () => {
                 className="mt-1 min-h-[90px] w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
               />
             </label>
+            <div className="grid gap-3 rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-muted">Event templates</p>
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+                <input
+                  value={templateName}
+                  onChange={(event) => setTemplateName(event.target.value)}
+                  placeholder="Template name"
+                  className="w-full rounded-lg border border-grid bg-panel px-3 py-2 text-sm text-text"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveTemplate}
+                  className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
+                >
+                  Save template
+                </button>
+              </div>
+              {templates.length > 0 && (
+                <div className="grid gap-2">
+                  {templates.map((template) => (
+                    <div key={template.id} className="flex items-center justify-between text-xs text-muted">
+                      <span>{template.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const confirmed = window.confirm(`Delete "${template.name}"?`);
+                          if (confirmed) {
+                            deleteTemplate(template.id);
+                          }
+                        }}
+                        className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted transition hover:text-text"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[11px] text-muted">
+                Templates capture durations, labels, and reminders for quick reuse.
+              </p>
+            </div>
             <div className="grid gap-3 rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
               <label className="flex items-center justify-between gap-3">
                 <span className="uppercase tracking-[0.3em]">Encrypt notes</span>
@@ -687,6 +852,15 @@ const AppPage = () => {
               <option value="local" className="bg-panel2">
                 Local notifications
               </option>
+              <option value="push" className="bg-panel2">
+                Push notifications
+              </option>
+              <option value="email" className="bg-panel2">
+                Email notifications
+              </option>
+              <option value="sms" className="bg-panel2">
+                SMS notifications
+              </option>
               <option value="signal" className="bg-panel2">
                 Signal secure ping
               </option>
@@ -695,6 +869,33 @@ const AppPage = () => {
               </option>
             </select>
           </label>
+          {(state.settings.reminderChannel === 'email' || state.settings.reminderChannel === 'sms') && (
+            <div className="grid gap-2">
+              {state.settings.reminderChannel === 'email' && (
+                <input
+                  type="email"
+                  placeholder="Notification email"
+                  value={state.settings.notificationEmail ?? ''}
+                  onChange={(event) => updateSettings({ notificationEmail: event.target.value })}
+                  className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                  disabled={!state.settings.remindersEnabled}
+                />
+              )}
+              {state.settings.reminderChannel === 'sms' && (
+                <input
+                  type="tel"
+                  placeholder="Notification phone"
+                  value={state.settings.notificationPhone ?? ''}
+                  onChange={(event) => updateSettings({ notificationPhone: event.target.value })}
+                  className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                  disabled={!state.settings.remindersEnabled}
+                />
+              )}
+              <p className="text-[11px] text-muted">
+                Uses the configured notification service for real SMS/email delivery.
+              </p>
+            </div>
+          )}
           {state.settings.reminderChannel === 'telegram' && (
             <div className="grid gap-2">
               <input

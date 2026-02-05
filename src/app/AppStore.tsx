@@ -18,7 +18,7 @@ import {
   saveAppState,
   wipeAllData
 } from '../storage/storage';
-import type { AppSettings, AppState, CalendarEvent, SecurityPrefs } from '../storage/types';
+import type { AppSettings, AppState, CalendarEvent, EventTemplate, SecurityPrefs } from '../storage/types';
 import { applyNetworkLock } from '../security/networkLock';
 import { hashPin, verifyPin } from '../security/pin';
 import { decryptPayload, encryptPayload, type EncryptedPayload } from '../security/encryption';
@@ -31,8 +31,12 @@ import {
   startTwoFactorChallenge,
   verifyTwoFactorCode
 } from '../security/twoFactor';
+import { verifyTotpCode } from '../security/totp';
 import { createP2PSync } from '../sync/p2pSync';
 import { scheduleReminders } from '../reminders/reminderScheduler';
+import { logAuditEvent } from '../storage/auditLog';
+import { readCachedState, writeCachedState } from '../storage/cache';
+import { hashSnapshot } from '../security/fingerprint';
 
 type AppStoreContextValue = {
   state: AppState | null;
@@ -52,6 +56,16 @@ type AppStoreContextValue = {
   createDecoyProfile: (name: string) => void;
   resetProfile: (profileId: string) => void;
   updateProfileName: (profileId: string, name: string) => void;
+  updateProfileDetails: (
+    profileId: string,
+    updates: Partial<{
+      name: string;
+      displayName: string;
+      avatarEmoji: string;
+      avatarColor: string;
+      bio: string;
+    }>
+  ) => void;
   createCalendar: (profileId: string, payload: { name: string; color: string }) => void;
   renameCalendar: (profileId: string, calendarId: string, name: string) => void;
   recolorCalendar: (profileId: string, calendarId: string, color: string) => void;
@@ -59,6 +73,9 @@ type AppStoreContextValue = {
   toggleCalendarVisibility: (calendarId: string) => void;
   upsertEvent: (event: CalendarEvent) => void;
   deleteEvent: (eventId: string) => void;
+  createTemplate: (template: Omit<EventTemplate, 'id' | 'createdAt'>) => void;
+  updateTemplate: (templateId: string, updates: Partial<EventTemplate>) => void;
+  deleteTemplate: (templateId: string) => void;
   replaceState: (next: AppState) => void;
   panicWipe: () => Promise<void>;
   setPin: (pin: string) => Promise<void>;
@@ -76,7 +93,9 @@ const baseSecurityPrefs: SecurityPrefs = {
   decoyPinEnabled: false,
   localAuthEnabled: false,
   webAuthnEnabled: false,
-  biometricCredentialId: undefined
+  biometricCredentialId: undefined,
+  totpEnabled: false,
+  totpSecret: undefined
 };
 
 export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
@@ -87,6 +106,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   const [twoFactorVerified, setTwoFactorVerified] = useState(false);
   const syncHandleRef = useRef<ReturnType<typeof createP2PSync> | null>(null);
   const syncSenderId = useRef(crypto.randomUUID());
+  const syncHashRef = useRef<string | null>(null);
   const reminderHandleRef = useRef<ReturnType<typeof scheduleReminders> | null>(null);
   const autoLockTimer = useRef<number | null>(null);
   const blurLockTimer = useRef<number | null>(null);
@@ -95,6 +115,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     setTwoFactorPending(false);
     setTwoFactorVerified(false);
     clearTwoFactorSession();
+    logAuditEvent({ action: 'auth.locked', category: 'auth' });
   }, []);
   const updateSettings = useCallback((updates: Partial<AppSettings>) => {
     setState((prev) => {
@@ -128,6 +149,10 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
+    const cached = readCachedState(30);
+    if (cached) {
+      setState({ ...cached, templates: cached.templates ?? [] });
+    }
     loadAppState()
       .then((data) => {
         setState(data);
@@ -151,6 +176,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     saveAppState(state);
+    if (state.settings.cacheEnabled) {
+      writeCachedState(state, state.settings.cacheTtlMinutes);
+    }
   }, [state]);
 
   useEffect(() => {
@@ -180,6 +208,24 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     const scanlinesEnabled = state.settings.scanlines && state.settings.theme === 'dark';
     document.body.classList.toggle('scanlines-on', scanlinesEnabled);
   }, [state?.settings.scanlines, state?.settings.theme]);
+
+  useEffect(() => {
+    if (!state) {
+      return;
+    }
+    const scale = state.settings.textScale ?? 1;
+    document.documentElement.style.fontSize = `${Math.max(0.85, Math.min(scale, 1.4)) * 100}%`;
+    if (state.settings.highContrast) {
+      document.body.setAttribute('data-contrast', 'high');
+    } else {
+      document.body.removeAttribute('data-contrast');
+    }
+    if (state.settings.keyboardNavigation) {
+      document.body.setAttribute('data-keyboard-nav', 'enabled');
+    } else {
+      document.body.removeAttribute('data-keyboard-nav');
+    }
+  }, [state?.settings.highContrast, state?.settings.keyboardNavigation, state?.settings.textScale]);
 
   useEffect(() => {
     if (!state) {
@@ -232,7 +278,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
             ...prev,
             profiles: payload.profiles,
             calendars: payload.calendars,
-            events: payload.events
+            events: payload.events,
+            templates: payload.templates ?? prev.templates
           };
         });
       },
@@ -249,12 +296,31 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     if (!state || !syncHandleRef.current) {
       return;
     }
-    syncHandleRef.current.broadcast({
-      profiles: state.profiles,
-      calendars: state.calendars,
-      events: state.events
-    });
-  }, [state?.profiles, state?.calendars, state?.events]);
+    let cancelled = false;
+    const broadcast = async () => {
+      const snapshot = JSON.stringify({
+        profiles: state.profiles,
+        calendars: state.calendars,
+        events: state.events,
+        templates: state.templates
+      });
+      const hash = await hashSnapshot(snapshot);
+      if (cancelled || syncHashRef.current === hash) {
+        return;
+      }
+      syncHashRef.current = hash;
+      syncHandleRef.current?.broadcast({
+        profiles: state.profiles,
+        calendars: state.calendars,
+        events: state.events,
+        templates: state.templates
+      });
+    };
+    void broadcast();
+    return () => {
+      cancelled = true;
+    };
+  }, [state?.profiles, state?.calendars, state?.events, state?.templates]);
 
   useEffect(() => {
     reminderHandleRef.current?.stop();
@@ -273,6 +339,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     state?.settings.activeProfileId,
     state?.settings.remindersEnabled,
     state?.settings.reminderChannel,
+    state?.settings.notificationEmail,
+    state?.settings.notificationPhone,
     state?.settings.telegramBotToken,
     state?.settings.telegramChatId,
     state?.settings.signalWebhookUrl
@@ -398,11 +466,11 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const createProfile = useCallback((name: string) => {
+    const profile = createSeedProfile(name);
     setState((prev) => {
       if (!prev) {
         return prev;
       }
-      const profile = createSeedProfile(name);
       const calendars = createSeedCalendars(profile.id);
       return {
         ...prev,
@@ -416,9 +484,11 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         }
       };
     });
+    logAuditEvent({ action: 'profile.created', category: 'profile', metadata: { profileId: profile.id } });
   }, []);
 
   const createDecoyProfile = useCallback((name: string) => {
+    const profile = createSeedProfile(name);
     setState((prev) => {
       if (!prev) {
         return prev;
@@ -426,7 +496,6 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       if (prev.settings.decoyProfileId) {
         return prev;
       }
-      const profile = createSeedProfile(name);
       const calendars = createDecoyCalendars(profile.id);
       const events = createDecoyEvents(profile.id, calendars);
       return {
@@ -441,6 +510,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         }
       };
     });
+    logAuditEvent({ action: 'profile.decoy_created', category: 'profile', metadata: { profileId: profile.id } });
   }, []);
 
   const resetProfile = useCallback((profileId: string) => {
@@ -455,6 +525,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         events: prev.events.filter((item) => item.profileId !== profileId)
       };
     });
+    logAuditEvent({ action: 'profile.reset', category: 'profile', metadata: { profileId } });
   }, []);
 
   const updateProfileName = useCallback((profileId: string, name: string) => {
@@ -465,11 +536,39 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       return {
         ...prev,
         profiles: prev.profiles.map((profile) =>
-          profile.id === profileId ? { ...profile, name } : profile
+          profile.id === profileId ? { ...profile, name, displayName: name } : profile
         )
       };
     });
+    logAuditEvent({ action: 'profile.updated', category: 'profile', metadata: { profileId } });
   }, []);
+
+  const updateProfileDetails = useCallback(
+    (
+      profileId: string,
+      updates: Partial<{
+        name: string;
+        displayName: string;
+        avatarEmoji: string;
+        avatarColor: string;
+        bio: string;
+      }>
+    ) => {
+      setState((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        return {
+          ...prev,
+          profiles: prev.profiles.map((profile) =>
+            profile.id === profileId ? { ...profile, ...updates } : profile
+          )
+        };
+      });
+      logAuditEvent({ action: 'profile.customized', category: 'profile', metadata: { profileId } });
+    },
+    []
+  );
 
   const createCalendar = useCallback((profileId: string, payload: { name: string; color: string }) => {
     const calendar = buildCalendar(profileId, payload);
@@ -481,6 +580,11 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         ...prev,
         calendars: [...prev.calendars, calendar]
       };
+    });
+    logAuditEvent({
+      action: 'calendar.created',
+      category: 'calendar',
+      metadata: { calendarId: calendar.id, profileId }
     });
   }, []);
 
@@ -494,6 +598,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         calendars: renameCalendarInState(profileId, calendarId, name, prev.calendars)
       };
     });
+    logAuditEvent({ action: 'calendar.renamed', category: 'calendar', metadata: { calendarId, profileId } });
   }, []);
 
   const recolorCalendar = useCallback((profileId: string, calendarId: string, color: string) => {
@@ -506,6 +611,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         calendars: recolorCalendarInState(profileId, calendarId, color, prev.calendars)
       };
     });
+    logAuditEvent({ action: 'calendar.recolored', category: 'calendar', metadata: { calendarId, profileId } });
   }, []);
 
   const deleteCalendar = useCallback((profileId: string, calendarId: string) => {
@@ -520,6 +626,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         events: next.events
       };
     });
+    logAuditEvent({ action: 'calendar.deleted', category: 'calendar', metadata: { calendarId, profileId } });
   }, []);
 
   const toggleCalendarVisibility = useCallback((calendarId: string) => {
@@ -553,6 +660,11 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         events: prev.events.map((item) => (item.id === event.id ? event : item))
       };
     });
+    logAuditEvent({
+      action: 'event.upserted',
+      category: 'event',
+      metadata: { eventId: event.id, profileId: event.profileId }
+    });
   }, []);
 
   const deleteEvent = useCallback((eventId: string) => {
@@ -565,6 +677,57 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         events: prev.events.filter((event) => event.id !== eventId)
       };
     });
+    logAuditEvent({ action: 'event.deleted', category: 'event', metadata: { eventId } });
+  }, []);
+
+  const createTemplate = useCallback((template: Omit<EventTemplate, 'id' | 'createdAt'>) => {
+    const nextTemplate: EventTemplate = {
+      ...template,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString()
+    };
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        templates: [...prev.templates, nextTemplate]
+      };
+    });
+    logAuditEvent({
+      action: 'template.created',
+      category: 'template',
+      metadata: { templateId: nextTemplate.id, profileId: nextTemplate.profileId }
+    });
+  }, []);
+
+  const updateTemplate = useCallback((templateId: string, updates: Partial<EventTemplate>) => {
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        templates: prev.templates.map((template) =>
+          template.id === templateId ? { ...template, ...updates } : template
+        )
+      };
+    });
+    logAuditEvent({ action: 'template.updated', category: 'template', metadata: { templateId } });
+  }, []);
+
+  const deleteTemplate = useCallback((templateId: string) => {
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        templates: prev.templates.filter((template) => template.id !== templateId)
+      };
+    });
+    logAuditEvent({ action: 'template.deleted', category: 'template', metadata: { templateId } });
   }, []);
 
   const ensureTwoFactor = useCallback(async (): Promise<'pending' | 'clear' | 'failed'> => {
@@ -577,6 +740,13 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     if (!twoFactorPending) {
       setTwoFactorPending(true);
       try {
+        if (state.settings.twoFactorMode === 'totp') {
+          if (!state.securityPrefs.totpSecret) {
+            setTwoFactorPending(false);
+            return 'failed';
+          }
+          return 'pending';
+        }
         await startTwoFactorChallenge(state.settings.twoFactorChannel, state.settings.twoFactorDestination);
       } catch {
         setTwoFactorPending(false);
@@ -584,7 +754,15 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     return 'pending';
-  }, [state?.settings.twoFactorChannel, state?.settings.twoFactorDestination, state?.settings.twoFactorEnabled, twoFactorPending, twoFactorVerified]);
+  }, [
+    state?.settings.twoFactorChannel,
+    state?.settings.twoFactorDestination,
+    state?.settings.twoFactorEnabled,
+    state?.settings.twoFactorMode,
+    state?.securityPrefs.totpSecret,
+    twoFactorPending,
+    twoFactorVerified
+  ]);
 
   const unlock = useCallback(
     async (secret?: string) => {
@@ -604,6 +782,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         }
         if (twoFactorStatus === 'clear') {
           setLocked(false);
+          logAuditEvent({ action: 'auth.unlocked', category: 'auth' });
         }
         return true;
       }
@@ -637,6 +816,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         }
         if (twoFactorStatus === 'clear') {
           setLocked(false);
+          logAuditEvent({ action: 'auth.unlocked', category: 'auth' });
         }
         updateSettings({
           activeProfileId: state.settings.primaryProfileId ?? state.settings.activeProfileId
@@ -650,6 +830,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         }
         if (twoFactorStatus === 'clear') {
           setLocked(false);
+          logAuditEvent({ action: 'auth.unlocked', category: 'auth' });
         }
         const decoyProfileId = state.settings.decoyProfileId ?? state.settings.activeProfileId;
         updateSettings({ activeProfileId: decoyProfileId });
@@ -672,6 +853,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         }
         if (twoFactorStatus === 'clear') {
           setLocked(false);
+          logAuditEvent({ action: 'auth.unlocked', category: 'auth' });
         }
         return true;
       }
@@ -693,6 +875,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         }
         if (twoFactorStatus === 'clear') {
           setLocked(false);
+          logAuditEvent({ action: 'auth.unlocked', category: 'auth' });
         }
       }
       return ok;
@@ -714,6 +897,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         }
         if (twoFactorStatus === 'clear') {
           setLocked(false);
+          logAuditEvent({ action: 'auth.unlocked', category: 'auth' });
         }
       }
       return ok;
@@ -724,23 +908,35 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
 
   const verifyTwoFactor = useCallback(
     async (code: string) => {
-      const ok = await verifyTwoFactorCode(code);
+      const ok =
+        state?.settings.twoFactorMode === 'totp' && state.securityPrefs.totpSecret
+          ? await verifyTotpCode(code, state.securityPrefs.totpSecret)
+          : await verifyTwoFactorCode(code);
       if (ok) {
         setTwoFactorPending(false);
         setTwoFactorVerified(true);
         setLocked(false);
+        logAuditEvent({ action: 'auth.mfa_verified', category: 'auth' });
       }
       return ok;
     },
-    []
+    [state?.securityPrefs.totpSecret, state?.settings.twoFactorMode]
   );
 
   const resendTwoFactor = useCallback(async () => {
     if (!state?.settings.twoFactorEnabled) {
       return;
     }
+    if (state.settings.twoFactorMode === 'totp') {
+      return;
+    }
     await startTwoFactorChallenge(state.settings.twoFactorChannel, state.settings.twoFactorDestination);
-  }, [state?.settings.twoFactorChannel, state?.settings.twoFactorDestination, state?.settings.twoFactorEnabled]);
+  }, [
+    state?.settings.twoFactorChannel,
+    state?.settings.twoFactorDestination,
+    state?.settings.twoFactorEnabled,
+    state?.settings.twoFactorMode
+  ]);
 
 
   const setPin = useCallback(
@@ -850,6 +1046,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       if (!decrypted.profiles || !decrypted.settings || !decrypted.securityPrefs) {
         throw new Error('Invalid backup');
       }
+      decrypted.templates = decrypted.templates ?? [];
       const activeProfileExists = decrypted.profiles.some(
         (profile) => profile.id === decrypted.settings.activeProfileId
       );
@@ -920,6 +1117,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       createDecoyProfile,
       resetProfile,
       updateProfileName,
+      updateProfileDetails,
       createCalendar,
       renameCalendar,
       recolorCalendar,
@@ -927,6 +1125,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       toggleCalendarVisibility,
       upsertEvent,
       deleteEvent,
+      createTemplate,
+      updateTemplate,
+      deleteTemplate,
       replaceState,
       panicWipe,
       setPin,
@@ -954,6 +1155,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       createDecoyProfile,
       resetProfile,
       updateProfileName,
+      updateProfileDetails,
       createCalendar,
       renameCalendar,
       recolorCalendar,
@@ -961,6 +1163,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       toggleCalendarVisibility,
       upsertEvent,
       deleteEvent,
+      createTemplate,
+      updateTemplate,
+      deleteTemplate,
       replaceState,
       panicWipe,
       setPin,
