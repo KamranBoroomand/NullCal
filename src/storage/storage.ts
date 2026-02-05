@@ -38,8 +38,11 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     privacyScreenHotkeyEnabled: true,
     syncStrategy: 'offline',
     syncTrustedDevices: false,
+    syncShareToken: undefined,
     tamperProofLog: false,
     twoFactorEnabled: false,
+    twoFactorChannel: 'email',
+    twoFactorDestination: undefined,
     biometricEnabled: false,
     encryptedNotes: false,
     encryptedAttachments: false,
@@ -47,6 +50,9 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     eventObfuscation: false,
     reminderChannel: 'local',
     remindersEnabled: false,
+    telegramBotToken: undefined,
+    telegramChatId: undefined,
+    signalWebhookUrl: undefined,
     collaborationMode: 'private',
     collaborationEnabled: false,
     notesShareToken: undefined
@@ -58,7 +64,8 @@ const defaultSecurityPrefs: SecurityPrefs = {
   pinEnabled: false,
   decoyPinEnabled: false,
   localAuthEnabled: false,
-  webAuthnEnabled: false
+  webAuthnEnabled: false,
+  biometricCredentialId: undefined
 };
 
 const normalizeCalendars = (calendars: Calendar[]): Calendar[] =>
@@ -181,8 +188,11 @@ export const loadAppState = async (): Promise<AppState> => {
       privacyScreenHotkeyEnabled: resolvedSettings.privacyScreenHotkeyEnabled ?? true,
       syncStrategy: resolvedSettings.syncStrategy ?? 'offline',
       syncTrustedDevices: resolvedSettings.syncTrustedDevices ?? false,
+      syncShareToken: resolvedSettings.syncShareToken ?? undefined,
       tamperProofLog: resolvedSettings.tamperProofLog ?? false,
       twoFactorEnabled: resolvedSettings.twoFactorEnabled ?? false,
+      twoFactorChannel: resolvedSettings.twoFactorChannel ?? 'email',
+      twoFactorDestination: resolvedSettings.twoFactorDestination ?? undefined,
       biometricEnabled: resolvedSettings.biometricEnabled ?? false,
       encryptedNotes: resolvedSettings.encryptedNotes ?? false,
       encryptedAttachments: resolvedSettings.encryptedAttachments ?? false,
@@ -190,6 +200,9 @@ export const loadAppState = async (): Promise<AppState> => {
       eventObfuscation: resolvedSettings.eventObfuscation ?? false,
       reminderChannel: resolvedSettings.reminderChannel ?? 'local',
       remindersEnabled: resolvedSettings.remindersEnabled ?? false,
+      telegramBotToken: resolvedSettings.telegramBotToken ?? undefined,
+      telegramChatId: resolvedSettings.telegramChatId ?? undefined,
+      signalWebhookUrl: resolvedSettings.signalWebhookUrl ?? undefined,
       collaborationMode: resolvedSettings.collaborationMode ?? 'private',
       collaborationEnabled: resolvedSettings.collaborationEnabled ?? false,
       notesShareToken: resolvedSettings.notesShareToken ?? undefined
