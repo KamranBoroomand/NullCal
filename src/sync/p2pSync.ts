@@ -21,9 +21,11 @@ export type SyncHandle = {
 
 export const createP2PSync = (
   senderId: string,
-  onReceive: (payload: SyncPayload) => void
+  onReceive: (payload: SyncPayload) => void,
+  shareToken?: string
 ): SyncHandle => {
-  const channel = new BroadcastChannel(CHANNEL);
+  const channelName = shareToken ? `${CHANNEL}:${shareToken}` : CHANNEL;
+  const channel = new BroadcastChannel(channelName);
   channel.addEventListener('message', (event) => {
     const message = event.data as SyncMessage;
     if (!message || message.senderId === senderId) {

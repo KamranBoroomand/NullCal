@@ -24,6 +24,13 @@ import { hashPin, verifyPin } from '../security/pin';
 import { decryptPayload, encryptPayload, type EncryptedPayload } from '../security/encryption';
 import { verifyLocalSecret } from '../security/localAuth';
 import { authenticatePasskey } from '../security/webauthn';
+import { authenticateBiometricCredential } from '../security/biometric';
+import {
+  clearTwoFactorSession,
+  isTwoFactorVerified,
+  startTwoFactorChallenge,
+  verifyTwoFactorCode
+} from '../security/twoFactor';
 import { createP2PSync } from '../sync/p2pSync';
 import { scheduleReminders } from '../reminders/reminderScheduler';
 
@@ -34,6 +41,10 @@ type AppStoreContextValue = {
   lockNow: () => void;
   unlock: (pin?: string) => Promise<boolean>;
   unlockWithWebAuthn: () => Promise<boolean>;
+  unlockWithBiometric: () => Promise<boolean>;
+  twoFactorPending: boolean;
+  verifyTwoFactor: (code: string) => Promise<boolean>;
+  resendTwoFactor: () => Promise<void>;
   updateSettings: (updates: Partial<AppSettings>) => void;
   updateSecurityPrefs: (updates: Partial<SecurityPrefs>) => void;
   setActiveProfile: (id: string) => void;
@@ -64,13 +75,16 @@ const baseSecurityPrefs: SecurityPrefs = {
   pinEnabled: false,
   decoyPinEnabled: false,
   localAuthEnabled: false,
-  webAuthnEnabled: false
+  webAuthnEnabled: false,
+  biometricCredentialId: undefined
 };
 
 export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<AppState | null>(null);
   const [loading, setLoading] = useState(true);
   const [locked, setLocked] = useState(false);
+  const [twoFactorPending, setTwoFactorPending] = useState(false);
+  const [twoFactorVerified, setTwoFactorVerified] = useState(false);
   const syncHandleRef = useRef<ReturnType<typeof createP2PSync> | null>(null);
   const syncSenderId = useRef(crypto.randomUUID());
   const reminderHandleRef = useRef<ReturnType<typeof scheduleReminders> | null>(null);
@@ -78,6 +92,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   const blurLockTimer = useRef<number | null>(null);
   const lockNow = useCallback(() => {
     setLocked(true);
+    setTwoFactorPending(false);
+    setTwoFactorVerified(false);
+    clearTwoFactorSession();
   }, []);
   const updateSettings = useCallback((updates: Partial<AppSettings>) => {
     setState((prev) => {
@@ -114,12 +131,15 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     loadAppState()
       .then((data) => {
         setState(data);
+        setTwoFactorVerified(isTwoFactorVerified());
         setLocked(
           Boolean(
             data.securityPrefs.pinEnabled ||
               data.securityPrefs.decoyPinEnabled ||
               data.securityPrefs.localAuthEnabled ||
-              data.securityPrefs.webAuthnEnabled
+              data.securityPrefs.webAuthnEnabled ||
+              data.settings.biometricEnabled ||
+              data.settings.twoFactorEnabled
           )
         );
       })
@@ -141,6 +161,19 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   }, [state]);
 
   useEffect(() => {
+    if (!state?.settings.syncTrustedDevices) {
+      return;
+    }
+    if (state.settings.syncShareToken) {
+      return;
+    }
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('');
+    updateSettings({ syncShareToken: token, syncTrustedDevices: true });
+  }, [state?.settings.syncShareToken, state?.settings.syncTrustedDevices, updateSettings]);
+
+  useEffect(() => {
     if (!state) {
       return;
     }
@@ -156,7 +189,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       !state.securityPrefs.pinEnabled &&
       !state.securityPrefs.decoyPinEnabled &&
       !state.securityPrefs.localAuthEnabled &&
-      !state.securityPrefs.webAuthnEnabled
+      !state.securityPrefs.webAuthnEnabled &&
+      !state.settings.biometricEnabled &&
+      !state.settings.twoFactorEnabled
     ) {
       setLocked(false);
     }
@@ -164,8 +199,18 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     state?.securityPrefs.pinEnabled,
     state?.securityPrefs.decoyPinEnabled,
     state?.securityPrefs.localAuthEnabled,
-    state?.securityPrefs.webAuthnEnabled
+    state?.securityPrefs.webAuthnEnabled,
+    state?.settings.biometricEnabled,
+    state?.settings.twoFactorEnabled
   ]);
+
+  useEffect(() => {
+    if (!state?.settings.twoFactorEnabled) {
+      setTwoFactorPending(false);
+      setTwoFactorVerified(false);
+      clearTwoFactorSession();
+    }
+  }, [state?.settings.twoFactorEnabled]);
 
   useEffect(() => {
     if (!state) {
@@ -176,25 +221,29 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       syncHandleRef.current = null;
       return;
     }
-    const handle = createP2PSync(syncSenderId.current, (payload) => {
-      setState((prev) => {
-        if (!prev) {
-          return prev;
-        }
-        return {
-          ...prev,
-          profiles: payload.profiles,
-          calendars: payload.calendars,
-          events: payload.events
-        };
-      });
-    });
+    const handle = createP2PSync(
+      syncSenderId.current,
+      (payload) => {
+        setState((prev) => {
+          if (!prev) {
+            return prev;
+          }
+          return {
+            ...prev,
+            profiles: payload.profiles,
+            calendars: payload.calendars,
+            events: payload.events
+          };
+        });
+      },
+      state.settings.syncTrustedDevices ? state.settings.syncShareToken : undefined
+    );
     syncHandleRef.current = handle;
     return () => {
       handle.close();
       syncHandleRef.current = null;
     };
-  }, [state?.settings.syncStrategy]);
+  }, [state?.settings.syncStrategy, state?.settings.syncTrustedDevices, state?.settings.syncShareToken]);
 
   useEffect(() => {
     if (!state || !syncHandleRef.current) {
@@ -212,14 +261,22 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     if (!state) {
       return;
     }
-    if (!state.settings.remindersEnabled || state.settings.reminderChannel !== 'local') {
+    if (!state.settings.remindersEnabled) {
       return;
     }
     const activeEvents = state.events.filter(
       (event) => event.profileId === state.settings.activeProfileId
     );
-    reminderHandleRef.current = scheduleReminders(activeEvents);
-  }, [state?.events, state?.settings.activeProfileId, state?.settings.remindersEnabled, state?.settings.reminderChannel]);
+    reminderHandleRef.current = scheduleReminders(activeEvents, state.settings);
+  }, [
+    state?.events,
+    state?.settings.activeProfileId,
+    state?.settings.remindersEnabled,
+    state?.settings.reminderChannel,
+    state?.settings.telegramBotToken,
+    state?.settings.telegramChatId,
+    state?.settings.signalWebhookUrl
+  ]);
 
   useEffect(() => {
     if (!state) {
@@ -510,6 +567,25 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  const ensureTwoFactor = useCallback(async (): Promise<'pending' | 'clear' | 'failed'> => {
+    if (!state?.settings.twoFactorEnabled) {
+      return 'clear';
+    }
+    if (twoFactorVerified) {
+      return 'clear';
+    }
+    if (!twoFactorPending) {
+      setTwoFactorPending(true);
+      try {
+        await startTwoFactorChallenge(state.settings.twoFactorChannel, state.settings.twoFactorDestination);
+      } catch {
+        setTwoFactorPending(false);
+        return 'failed';
+      }
+    }
+    return 'pending';
+  }, [state?.settings.twoFactorChannel, state?.settings.twoFactorDestination, state?.settings.twoFactorEnabled, twoFactorPending, twoFactorVerified]);
+
   const unlock = useCallback(
     async (secret?: string) => {
       if (!state) {
@@ -519,9 +595,16 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         !state.securityPrefs.pinEnabled &&
         !state.securityPrefs.decoyPinEnabled &&
         !state.securityPrefs.localAuthEnabled &&
-        !state.securityPrefs.webAuthnEnabled
+        !state.securityPrefs.webAuthnEnabled &&
+        !state.settings.biometricEnabled
       ) {
-        setLocked(false);
+        const twoFactorStatus = await ensureTwoFactor();
+        if (twoFactorStatus === 'failed') {
+          return false;
+        }
+        if (twoFactorStatus === 'clear') {
+          setLocked(false);
+        }
         return true;
       }
       if (!secret) {
@@ -548,14 +631,26 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
             })
           : false;
       if (matchesPrimary) {
-        setLocked(false);
+        const twoFactorStatus = await ensureTwoFactor();
+        if (twoFactorStatus === 'failed') {
+          return false;
+        }
+        if (twoFactorStatus === 'clear') {
+          setLocked(false);
+        }
         updateSettings({
           activeProfileId: state.settings.primaryProfileId ?? state.settings.activeProfileId
         });
         return true;
       }
       if (matchesDecoy) {
-        setLocked(false);
+        const twoFactorStatus = await ensureTwoFactor();
+        if (twoFactorStatus === 'failed') {
+          return false;
+        }
+        if (twoFactorStatus === 'clear') {
+          setLocked(false);
+        }
         const decoyProfileId = state.settings.decoyProfileId ?? state.settings.activeProfileId;
         updateSettings({ activeProfileId: decoyProfileId });
         return true;
@@ -571,12 +666,18 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
             })
           : false;
       if (matchesLocal) {
-        setLocked(false);
+        const twoFactorStatus = await ensureTwoFactor();
+        if (twoFactorStatus === 'failed') {
+          return false;
+        }
+        if (twoFactorStatus === 'clear') {
+          setLocked(false);
+        }
         return true;
       }
       return false;
     },
-    [state, updateSettings]
+    [ensureTwoFactor, state, updateSettings]
   );
 
   const unlockWithWebAuthn = useCallback(async () => {
@@ -586,13 +687,61 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     try {
       const ok = await authenticatePasskey(state.securityPrefs.webAuthnCredentialId);
       if (ok) {
-        setLocked(false);
+        const twoFactorStatus = await ensureTwoFactor();
+        if (twoFactorStatus === 'failed') {
+          return false;
+        }
+        if (twoFactorStatus === 'clear') {
+          setLocked(false);
+        }
       }
       return ok;
     } catch {
       return false;
     }
-  }, [state]);
+  }, [ensureTwoFactor, state]);
+
+  const unlockWithBiometric = useCallback(async () => {
+    if (!state?.settings.biometricEnabled || !state.securityPrefs.biometricCredentialId) {
+      return false;
+    }
+    try {
+      const ok = await authenticateBiometricCredential(state.securityPrefs.biometricCredentialId);
+      if (ok) {
+        const twoFactorStatus = await ensureTwoFactor();
+        if (twoFactorStatus === 'failed') {
+          return false;
+        }
+        if (twoFactorStatus === 'clear') {
+          setLocked(false);
+        }
+      }
+      return ok;
+    } catch {
+      return false;
+    }
+  }, [ensureTwoFactor, state]);
+
+  const verifyTwoFactor = useCallback(
+    async (code: string) => {
+      const ok = await verifyTwoFactorCode(code);
+      if (ok) {
+        setTwoFactorPending(false);
+        setTwoFactorVerified(true);
+        setLocked(false);
+      }
+      return ok;
+    },
+    []
+  );
+
+  const resendTwoFactor = useCallback(async () => {
+    if (!state?.settings.twoFactorEnabled) {
+      return;
+    }
+    await startTwoFactorChallenge(state.settings.twoFactorChannel, state.settings.twoFactorDestination);
+  }, [state?.settings.twoFactorChannel, state?.settings.twoFactorDestination, state?.settings.twoFactorEnabled]);
+
 
   const setPin = useCallback(
     async (pin: string) => {
@@ -604,6 +753,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         pinIterations: hashed.iterations
       });
       setLocked(true);
+      setTwoFactorPending(false);
     },
     [updateSecurityPrefs]
   );
@@ -631,10 +781,19 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     const stillLocked = Boolean(
       state?.securityPrefs.decoyPinEnabled ||
         state?.securityPrefs.localAuthEnabled ||
-        state?.securityPrefs.webAuthnEnabled
+        state?.securityPrefs.webAuthnEnabled ||
+        state?.settings.biometricEnabled ||
+        state?.settings.twoFactorEnabled
     );
     setLocked(stillLocked);
-  }, [state?.securityPrefs.decoyPinEnabled, state?.securityPrefs.localAuthEnabled, state?.securityPrefs.webAuthnEnabled, updateSecurityPrefs]);
+  }, [
+    state?.securityPrefs.decoyPinEnabled,
+    state?.securityPrefs.localAuthEnabled,
+    state?.securityPrefs.webAuthnEnabled,
+    state?.settings.biometricEnabled,
+    state?.settings.twoFactorEnabled,
+    updateSecurityPrefs
+  ]);
 
   const clearDecoyPin = useCallback(() => {
     updateSecurityPrefs({
@@ -646,10 +805,19 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     const stillLocked = Boolean(
       state?.securityPrefs.pinEnabled ||
         state?.securityPrefs.localAuthEnabled ||
-        state?.securityPrefs.webAuthnEnabled
+        state?.securityPrefs.webAuthnEnabled ||
+        state?.settings.biometricEnabled ||
+        state?.settings.twoFactorEnabled
     );
     setLocked(stillLocked);
-  }, [state?.securityPrefs.pinEnabled, state?.securityPrefs.localAuthEnabled, state?.securityPrefs.webAuthnEnabled, updateSecurityPrefs]);
+  }, [
+    state?.securityPrefs.pinEnabled,
+    state?.securityPrefs.localAuthEnabled,
+    state?.securityPrefs.webAuthnEnabled,
+    state?.settings.biometricEnabled,
+    state?.settings.twoFactorEnabled,
+    updateSecurityPrefs
+  ]);
 
   const replaceState = useCallback((next: AppState) => {
     setState(next);
@@ -715,7 +883,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
           decrypted.securityPrefs.pinEnabled ||
             decrypted.securityPrefs.decoyPinEnabled ||
             decrypted.securityPrefs.localAuthEnabled ||
-            decrypted.securityPrefs.webAuthnEnabled
+            decrypted.securityPrefs.webAuthnEnabled ||
+            decrypted.settings.biometricEnabled ||
+            decrypted.settings.twoFactorEnabled
         )
       );
     },
@@ -739,6 +909,10 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       lockNow,
       unlock,
       unlockWithWebAuthn,
+      unlockWithBiometric,
+      twoFactorPending,
+      verifyTwoFactor,
+      resendTwoFactor,
       updateSettings,
       updateSecurityPrefs,
       setActiveProfile,
@@ -769,6 +943,10 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       lockNow,
       unlock,
       unlockWithWebAuthn,
+      unlockWithBiometric,
+      twoFactorPending,
+      verifyTwoFactor,
+      resendTwoFactor,
       updateSettings,
       updateSecurityPrefs,
       setActiveProfile,

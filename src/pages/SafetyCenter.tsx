@@ -12,6 +12,8 @@ import ThemePicker from '../components/ThemePicker';
 import { encryptPayload } from '../security/encryption';
 import { hashLocalSecret } from '../security/localAuth';
 import { isWebAuthnSupported, registerPasskey } from '../security/webauthn';
+import { isBiometricSupported, registerBiometricCredential } from '../security/biometric';
+import { startTwoFactorChallenge, verifyTwoFactorCode } from '../security/twoFactor';
 import { buildExportPayload, type ExportMode, validateExportPayload } from '../security/exportUtils';
 import { usePrivacyScreen } from '../state/privacy';
 import type { AppSettings } from '../storage/types';
@@ -62,6 +64,11 @@ const SafetyCenter = () => {
   const [decoyPinConfirm, setDecoyPinConfirm] = useState('');
   const [localAuthDraft, setLocalAuthDraft] = useState('');
   const [localAuthConfirm, setLocalAuthConfirm] = useState('');
+  const [twoFactorChannel, setTwoFactorChannel] = useState<'email' | 'sms'>('email');
+  const [twoFactorDestination, setTwoFactorDestination] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [twoFactorSent, setTwoFactorSent] = useState(false);
+  const [biometricReady, setBiometricReady] = useState(false);
   const [panicOpen, setPanicOpen] = useState(false);
   const [themeBrowserOpen, setThemeBrowserOpen] = useState(false);
   const [wipedImportOpen, setWipedImportOpen] = useState(false);
@@ -75,6 +82,25 @@ const SafetyCenter = () => {
   useEffect(() => {
     document.title = 'NullCal — Safety Center';
   }, []);
+
+  useEffect(() => {
+    if (!state) {
+      return;
+    }
+    setTwoFactorChannel(state.settings.twoFactorChannel ?? 'email');
+    setTwoFactorDestination(state.settings.twoFactorDestination ?? '');
+  }, [state]);
+
+  useEffect(() => {
+    void isBiometricSupported().then((supported) => setBiometricReady(supported));
+  }, []);
+
+  useEffect(() => {
+    if (state?.settings.twoFactorEnabled) {
+      setTwoFactorSent(false);
+      setTwoFactorCode('');
+    }
+  }, [state?.settings.twoFactorEnabled]);
 
   const readSessionValue = (key: string) => {
     try {
@@ -493,9 +519,95 @@ const SafetyCenter = () => {
       .map((value) => value.toString(16).padStart(2, '0'))
       .join('');
 
+  const handleToggleBiometric = async (enabled: boolean) => {
+    if (!enabled) {
+      updateSettings({ biometricEnabled: false });
+      updateSecurityPrefs({ biometricCredentialId: undefined });
+      notify('Biometric unlock disabled.', 'info');
+      return;
+    }
+    try {
+      if (!biometricReady) {
+        notify('Biometric unlock is not supported on this device.', 'error');
+        return;
+      }
+      const credentialId = await registerBiometricCredential();
+      updateSecurityPrefs({ biometricCredentialId: credentialId });
+      updateSettings({ biometricEnabled: true });
+      lockNow();
+      notify('Biometric unlock enabled.', 'success');
+    } catch {
+      updateSettings({ biometricEnabled: false });
+      updateSecurityPrefs({ biometricCredentialId: undefined });
+      notify('Biometric setup failed.', 'error');
+    }
+  };
+
+  const handleStartTwoFactor = async () => {
+    if (!twoFactorDestination) {
+      notify('Add a destination for the verification code.', 'error');
+      return;
+    }
+    try {
+      await startTwoFactorChallenge(twoFactorChannel, twoFactorDestination);
+      setTwoFactorSent(true);
+      notify('Verification code sent.', 'success');
+    } catch {
+      notify('Unable to send verification code.', 'error');
+    }
+  };
+
+  const handleVerifyTwoFactorSetup = async () => {
+    try {
+      const ok = await verifyTwoFactorCode(twoFactorCode);
+      if (!ok) {
+        notify('Invalid or expired code.', 'error');
+        return;
+      }
+      updateSettings({
+        twoFactorEnabled: true,
+        twoFactorChannel,
+        twoFactorDestination
+      });
+      setTwoFactorCode('');
+      setTwoFactorSent(false);
+      lockNow();
+      notify('Two-factor authentication enabled.', 'success');
+    } catch {
+      notify('Two-factor setup failed.', 'error');
+    }
+  };
+
+  const handleDisableTwoFactor = () => {
+    updateSettings({ twoFactorEnabled: false });
+    setTwoFactorCode('');
+    setTwoFactorSent(false);
+    notify('Two-factor authentication disabled.', 'info');
+  };
+
   const handleToggleSyncEnabled = (enabled: boolean) => {
     updateSettings({ syncStrategy: enabled ? 'p2p' : 'offline' });
     notify(enabled ? 'Decentralized sync enabled.' : 'Decentralized sync disabled.', 'success');
+  };
+
+  const handleToggleTrustedDevices = (enabled: boolean) => {
+    updateSettings({
+      syncTrustedDevices: enabled,
+      syncShareToken: enabled ? state.settings.syncShareToken ?? createShareToken() : undefined
+    });
+    notify(enabled ? 'Trusted device sharing enabled.' : 'Trusted device sharing disabled.', 'success');
+  };
+
+  const handleCopySyncToken = async () => {
+    if (!state.settings.syncShareToken) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(state.settings.syncShareToken);
+      notify('Sync token copied.', 'success');
+    } catch {
+      notify('Unable to copy sync token.', 'error');
+    }
   };
 
   const handleToggleReminders = (enabled: boolean) => {
@@ -809,10 +921,36 @@ const SafetyCenter = () => {
                   <input
                     type="checkbox"
                     checked={state.settings.syncTrustedDevices}
-                    onChange={(event) => updateSettings({ syncTrustedDevices: event.target.checked })}
+                    onChange={(event) => handleToggleTrustedDevices(event.target.checked)}
                     className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
                   />
                 </label>
+                {state.settings.syncTrustedDevices && (
+                  <div className="rounded-2xl border border-grid bg-panel px-4 py-3 text-xs text-muted">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Trusted sync token</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-grid px-3 py-1 text-[11px] text-text">
+                        {state.settings.syncShareToken}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleCopySyncToken}
+                        className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                      >
+                        Copy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateSettings({ syncShareToken: createShareToken(), syncTrustedDevices: true })
+                        }
+                        className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                      >
+                        Regenerate
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
                   <div className="min-w-0">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Tamper-proof event log</p>
@@ -831,18 +969,96 @@ const SafetyCenter = () => {
             <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Authentication</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
-                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Two-factor authentication</p>
-                    <p className="mt-1 text-xs text-muted">Use an authenticator app or SMS backup.</p>
+                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="flex min-w-0 items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted">Two-factor authentication</p>
+                      <p className="mt-1 text-xs text-muted">
+                        Send one-time codes via email or SMS before unlocking.
+                      </p>
+                    </div>
+                    {state.settings.twoFactorEnabled ? (
+                      <span className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-accent">
+                        Enabled
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted">
+                        Disabled
+                      </span>
+                    )}
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={state.settings.twoFactorEnabled}
-                    onChange={(event) => updateSettings({ twoFactorEnabled: event.target.checked })}
-                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
-                  />
-                </label>
+                  {!state.settings.twoFactorEnabled && (
+                    <div className="mt-3 grid gap-3 text-xs text-muted">
+                      <label className="flex min-w-0 flex-col gap-2 text-[10px] uppercase tracking-[0.3em] text-muted">
+                        Delivery channel
+                        <select
+                          value={twoFactorChannel}
+                          onChange={(event) => setTwoFactorChannel(event.target.value as 'email' | 'sms')}
+                          className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                        >
+                          <option value="email" className="bg-panel2">
+                            Email
+                          </option>
+                          <option value="sms" className="bg-panel2">
+                            SMS
+                          </option>
+                        </select>
+                      </label>
+                      <input
+                        type={twoFactorChannel === 'email' ? 'email' : 'tel'}
+                        placeholder={twoFactorChannel === 'email' ? 'Email address' : 'Phone number'}
+                        value={twoFactorDestination}
+                        onChange={(event) => setTwoFactorDestination(event.target.value)}
+                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={handleStartTwoFactor}
+                          className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted"
+                        >
+                          Send code
+                        </button>
+                        {twoFactorSent && (
+                          <>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="Verification code"
+                              value={twoFactorCode}
+                              onChange={(event) => setTwoFactorCode(event.target.value)}
+                              className="min-w-0 flex-1 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleVerifyTwoFactorSetup}
+                              className="rounded-full bg-accent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                            >
+                              Verify & enable
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {state.settings.twoFactorEnabled && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
+                      <span className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted">
+                        {state.settings.twoFactorChannel.toUpperCase()}
+                      </span>
+                      {state.settings.twoFactorDestination && (
+                        <span className="text-[11px] text-text">{state.settings.twoFactorDestination}</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleDisableTwoFactor}
+                        className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                      >
+                        Disable 2FA
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
                   <div className="min-w-0">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Biometric unlock</p>
@@ -851,7 +1067,8 @@ const SafetyCenter = () => {
                   <input
                     type="checkbox"
                     checked={state.settings.biometricEnabled}
-                    onChange={(event) => updateSettings({ biometricEnabled: event.target.checked })}
+                    onChange={(event) => handleToggleBiometric(event.target.checked)}
+                    disabled={!biometricReady}
                     className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
                   />
                 </label>
@@ -1061,6 +1278,36 @@ const SafetyCenter = () => {
                     </option>
                   </select>
                 </label>
+                {state.settings.reminderChannel === 'telegram' && (
+                  <div className="grid gap-2">
+                    <input
+                      type="password"
+                      placeholder="Telegram bot token"
+                      value={state.settings.telegramBotToken ?? ''}
+                      onChange={(event) => updateSettings({ telegramBotToken: event.target.value })}
+                      className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                      disabled={!state.settings.remindersEnabled}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Telegram chat ID"
+                      value={state.settings.telegramChatId ?? ''}
+                      onChange={(event) => updateSettings({ telegramChatId: event.target.value })}
+                      className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                      disabled={!state.settings.remindersEnabled}
+                    />
+                  </div>
+                )}
+                {state.settings.reminderChannel === 'signal' && (
+                  <input
+                    type="url"
+                    placeholder="Signal webhook URL"
+                    value={state.settings.signalWebhookUrl ?? ''}
+                    onChange={(event) => updateSettings({ signalWebhookUrl: event.target.value })}
+                    className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                    disabled={!state.settings.remindersEnabled}
+                  />
+                )}
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
                   <div className="min-w-0">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Collaboration</p>

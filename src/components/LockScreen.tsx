@@ -6,8 +6,13 @@ type LockScreenProps = {
   pinEnabled: boolean;
   passwordEnabled: boolean;
   webAuthnEnabled: boolean;
+  biometricEnabled: boolean;
+  twoFactorPending: boolean;
   onUnlock: (pin?: string) => Promise<boolean>;
   onUnlockWithWebAuthn: () => Promise<boolean>;
+  onUnlockWithBiometric: () => Promise<boolean>;
+  onVerifyTwoFactor: (code: string) => Promise<boolean>;
+  onResendTwoFactor: () => Promise<void>;
 };
 
 const LockScreen = ({
@@ -15,10 +20,16 @@ const LockScreen = ({
   pinEnabled,
   passwordEnabled,
   webAuthnEnabled,
+  biometricEnabled,
+  twoFactorPending,
   onUnlock,
-  onUnlockWithWebAuthn
+  onUnlockWithWebAuthn,
+  onUnlockWithBiometric,
+  onVerifyTwoFactor,
+  onResendTwoFactor
 }: LockScreenProps) => {
   const [pin, setPin] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
   const [error, setError] = useState('');
   const reduceMotion = useReducedMotion();
 
@@ -40,6 +51,26 @@ const LockScreen = ({
       setError('');
       setPin('');
     }
+  };
+
+  const handleBiometric = async () => {
+    const ok = await onUnlockWithBiometric();
+    if (!ok) {
+      setError('Biometric authentication failed.');
+    } else {
+      setError('');
+      setPin('');
+    }
+  };
+
+  const handleVerifyTwoFactor = async () => {
+    const ok = await onVerifyTwoFactor(twoFactorCode);
+    if (!ok) {
+      setError('Invalid verification code.');
+      return;
+    }
+    setError('');
+    setTwoFactorCode('');
   };
 
   const showSecretInput = pinEnabled || passwordEnabled;
@@ -65,13 +96,15 @@ const LockScreen = ({
             <p className="text-xs uppercase tracking-[0.4em] text-muted">Secure Lock</p>
             <h2 className="mt-2 text-lg font-semibold text-text">NullCAL Locked</h2>
             <p className="mt-2 text-sm text-muted">
-              {pinEnabled
-                ? 'Enter your PIN to continue.'
-                : passwordEnabled
-                  ? 'Enter your passphrase to continue.'
-                  : 'Tap unlock to resume.'}
+              {twoFactorPending
+                ? 'Enter your verification code to finish unlocking.'
+                : pinEnabled
+                  ? 'Enter your PIN to continue.'
+                  : passwordEnabled
+                    ? 'Enter your passphrase to continue.'
+                    : 'Tap unlock to resume.'}
             </p>
-            {showSecretInput && (
+            {showSecretInput && !twoFactorPending && (
               <input
                 type="password"
                 inputMode={pinEnabled ? 'numeric' : 'text'}
@@ -81,21 +114,60 @@ const LockScreen = ({
                 placeholder={secretLabel}
               />
             )}
+            {twoFactorPending && (
+              <input
+                type="text"
+                inputMode="numeric"
+                value={twoFactorCode}
+                onChange={(event) => setTwoFactorCode(event.target.value)}
+                className="mt-4 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                placeholder="Verification code"
+              />
+            )}
             {error && <p className="mt-2 text-xs text-danger">{error}</p>}
-            <button
-              type="button"
-              onClick={handleUnlock}
-              className="mt-4 w-full rounded-xl bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
-            >
-              Unlock
-            </button>
-            {webAuthnEnabled && (
+            {!twoFactorPending && (
+              <button
+                type="button"
+                onClick={handleUnlock}
+                className="mt-4 w-full rounded-xl bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+              >
+                Unlock
+              </button>
+            )}
+            {twoFactorPending && (
+              <button
+                type="button"
+                onClick={handleVerifyTwoFactor}
+                className="mt-4 w-full rounded-xl bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+              >
+                Verify code
+              </button>
+            )}
+            {webAuthnEnabled && !twoFactorPending && (
               <button
                 type="button"
                 onClick={handleWebAuthn}
                 className="mt-2 w-full rounded-xl border border-grid px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted"
               >
                 Use passkey
+              </button>
+            )}
+            {biometricEnabled && !twoFactorPending && (
+              <button
+                type="button"
+                onClick={handleBiometric}
+                className="mt-2 w-full rounded-xl border border-grid px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted"
+              >
+                Use biometric unlock
+              </button>
+            )}
+            {twoFactorPending && (
+              <button
+                type="button"
+                onClick={onResendTwoFactor}
+                className="mt-2 w-full rounded-xl border border-grid px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted"
+              >
+                Resend code
               </button>
             )}
           </motion.div>

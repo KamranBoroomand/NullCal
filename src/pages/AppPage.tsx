@@ -695,6 +695,36 @@ const AppPage = () => {
               </option>
             </select>
           </label>
+          {state.settings.reminderChannel === 'telegram' && (
+            <div className="grid gap-2">
+              <input
+                type="password"
+                placeholder="Telegram bot token"
+                value={state.settings.telegramBotToken ?? ''}
+                onChange={(event) => updateSettings({ telegramBotToken: event.target.value })}
+                className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                disabled={!state.settings.remindersEnabled}
+              />
+              <input
+                type="text"
+                placeholder="Telegram chat ID"
+                value={state.settings.telegramChatId ?? ''}
+                onChange={(event) => updateSettings({ telegramChatId: event.target.value })}
+                className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                disabled={!state.settings.remindersEnabled}
+              />
+            </div>
+          )}
+          {state.settings.reminderChannel === 'signal' && (
+            <input
+              type="url"
+              placeholder="Signal webhook URL"
+              value={state.settings.signalWebhookUrl ?? ''}
+              onChange={(event) => updateSettings({ signalWebhookUrl: event.target.value })}
+              className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+              disabled={!state.settings.remindersEnabled}
+            />
+          )}
         </div>
       </Modal>
       <Modal title="Notes" open={notesOpen} onClose={() => setNotesOpen(false)}>
