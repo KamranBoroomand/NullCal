@@ -34,6 +34,7 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     id: 'app',
     theme,
     palette,
+    language: 'en',
     activeProfileId,
     primaryProfileId: activeProfileId,
     decoyProfileId: undefined,
@@ -73,7 +74,8 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     textScale: 1,
     keyboardNavigation: true,
     cacheEnabled: true,
-    cacheTtlMinutes: 30
+    cacheTtlMinutes: 30,
+    additionalTimeZones: []
   };
 };
 
@@ -252,7 +254,9 @@ export const loadAppState = async (): Promise<AppState> => {
       textScale: resolvedSettings.textScale ?? 1,
       keyboardNavigation: resolvedSettings.keyboardNavigation ?? true,
       cacheEnabled: resolvedSettings.cacheEnabled ?? true,
-      cacheTtlMinutes: resolvedSettings.cacheTtlMinutes ?? 30
+      cacheTtlMinutes: resolvedSettings.cacheTtlMinutes ?? 30,
+      language: resolvedSettings.language ?? 'en',
+      additionalTimeZones: resolvedSettings.additionalTimeZones ?? []
     };
     const activeProfileExists = profiles.some((profile) => profile.id === resolvedSettings.activeProfileId);
     const decoyProfileExists = profiles.some((profile) => profile.id === resolvedSettings.decoyProfileId);

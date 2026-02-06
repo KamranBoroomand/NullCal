@@ -4,7 +4,11 @@ export type Profile = {
   displayName?: string;
   avatarEmoji?: string;
   avatarColor?: string;
+  avatarUrl?: string;
   bio?: string;
+  phone?: string;
+  location?: string;
+  preferredNotification?: 'sms' | 'email';
   createdAt: string;
 };
 
@@ -29,6 +33,8 @@ export type CalendarEvent = {
   label?: string;
   icon?: string;
   reminderRule?: string;
+  recurrenceRule?: string;
+  attendees?: string[];
 };
 
 export type EventTemplate = {
@@ -42,6 +48,8 @@ export type EventTemplate = {
   label?: string;
   icon?: string;
   reminderRule?: string;
+  recurrenceRule?: string;
+  attendees?: string[];
   defaultCalendarId?: string;
   createdAt: string;
 };
@@ -50,6 +58,7 @@ export type AppSettings = {
   id: 'app';
   theme: 'dark' | 'light';
   palette: string;
+  language: 'en' | 'ru' | 'fa';
   activeProfileId: string;
   primaryProfileId: string;
   decoyProfileId?: string;
@@ -91,6 +100,7 @@ export type AppSettings = {
   keyboardNavigation?: boolean;
   cacheEnabled?: boolean;
   cacheTtlMinutes?: number;
+  additionalTimeZones?: string[];
 };
 
 export type SecurityPrefs = {
