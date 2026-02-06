@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
@@ -10,12 +10,15 @@ type ModalProps = {
 };
 
 const Modal = ({ title, open, onClose, children }: ModalProps) => {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     if (!open) {
       return;
     }
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    dialogRef.current?.focus();
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
@@ -45,6 +48,8 @@ const Modal = ({ title, open, onClose, children }: ModalProps) => {
             role="dialog"
             aria-modal="true"
             aria-label={title}
+            tabIndex={-1}
+            ref={dialogRef}
             initial={reduceMotion ? false : { opacity: 0, scale: 0.97 }}
             animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}

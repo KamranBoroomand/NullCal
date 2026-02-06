@@ -1,5 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { useTranslations } from '../i18n/useTranslations';
 
 type AppShellProps = {
   topBar: ReactNode;
@@ -12,6 +14,8 @@ type AppShellProps = {
 
 const AppShell = ({ topBar, sidebar, children, mobileNav, navOpen, onNavClose }: AppShellProps) => {
   const reduceMotion = useReducedMotion();
+  const { isOnline } = useNetworkStatus();
+  const { t } = useTranslations();
 
   useEffect(() => {
     if (!navOpen) {
@@ -39,6 +43,21 @@ const AppShell = ({ topBar, sidebar, children, mobileNav, navOpen, onNavClose }:
       <div className="flex min-h-[100dvh] flex-col md:pl-[250px]">
         <header className="sticky top-0 z-20 border-b border-grid bg-panel/95 backdrop-blur">
           {topBar}
+          <AnimatePresence>
+            {!isOnline && (
+              <motion.div
+                initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+                transition={{ duration: 0.2 }}
+                className="border-t border-grid bg-panel2 px-4 py-2 text-center text-[11px] uppercase tracking-[0.25em] text-accent"
+                role="status"
+                aria-live="polite"
+              >
+                {t('app.offline')}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </header>
         <div className="flex-1 px-4 py-4 sm:px-6">
           <div className="mx-auto w-full max-w-[1500px]">{children}</div>

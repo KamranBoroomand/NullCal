@@ -13,7 +13,9 @@ export const buildCsv = (events: CalendarEvent[], calendars: Calendar[]) => {
     'notes',
     'label',
     'icon',
-    'reminderRule'
+    'reminderRule',
+    'recurrenceRule',
+    'attendees'
   ];
   const rows = events.map((event) => [
     event.title,
@@ -24,7 +26,9 @@ export const buildCsv = (events: CalendarEvent[], calendars: Calendar[]) => {
     event.notes ?? '',
     event.label ?? '',
     event.icon ?? '',
-    event.reminderRule ?? ''
+    event.reminderRule ?? '',
+    event.recurrenceRule ?? '',
+    event.attendees?.join(';') ?? ''
   ]);
   return [header.map(escapeCsv).join(','), ...rows.map((row) => row.map(escapeCsv).join(','))].join('\n');
 };
@@ -49,6 +53,9 @@ export const buildIcs = (events: CalendarEvent[], profile: Profile | null) => {
     }
     if (event.notes) {
       lines.push(`DESCRIPTION:${event.notes.replace(/\n/g, '\\n')}`);
+    }
+    if (event.recurrenceRule) {
+      lines.push(`RRULE:${event.recurrenceRule}`);
     }
     lines.push('END:VEVENT');
   });

@@ -20,6 +20,28 @@ export default defineConfig({
         'android-chrome-192.png',
         'android-chrome-512.png'
       ],
+      workbox: {
+        navigateFallback: 'index.html',
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.destination === 'document',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'nullcal-pages',
+              expiration: { maxEntries: 25 }
+            }
+          },
+          {
+            urlPattern: ({ request }) =>
+              ['script', 'style', 'image', 'font'].includes(request.destination),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'nullcal-assets',
+              expiration: { maxEntries: 60 }
+            }
+          }
+        ]
+      },
       manifest: {
         name: 'NullCal',
         short_name: 'NullCal',

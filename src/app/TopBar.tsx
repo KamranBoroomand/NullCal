@@ -3,6 +3,9 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import Clock from '../components/Clock';
 import Segmented from '../components/Segmented';
 import HotkeysModal from './HotkeysModal';
+import { useInstallPrompt } from '../hooks/useInstallPrompt';
+import { useTranslations } from '../i18n/useTranslations';
+import type { Language } from '../i18n/translations';
 
 const base = import.meta.env.BASE_URL;
 const mark1x = `${base}mark-128.png?v=3`;
@@ -80,6 +83,7 @@ type ProfileOption = {
   name: string;
   avatarEmoji?: string;
   avatarColor?: string;
+  avatarUrl?: string;
 };
 
 type ProfileMenuProps = {
@@ -140,11 +144,15 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
         aria-expanded={open}
       >
         <span
-          className="flex h-6 w-6 items-center justify-center rounded-full text-xs"
+          className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full text-xs"
           style={{ backgroundColor: activeProfile?.avatarColor ?? 'var(--panel2)' }}
           aria-hidden="true"
         >
-          {activeEmoji}
+          {activeProfile?.avatarUrl ? (
+            <img src={activeProfile.avatarUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            activeEmoji
+          )}
         </span>
         Agent
         <span className="text-[10px]">▾</span>
@@ -176,11 +184,15 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
                 }`}
               >
                 <span
-                  className="flex h-6 w-6 items-center justify-center rounded-full text-xs"
+                  className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full text-xs"
                   style={{ backgroundColor: option.avatarColor ?? 'var(--panel2)' }}
                   aria-hidden="true"
                 >
-                  {option.avatarEmoji ?? '🛰️'}
+                  {option.avatarUrl ? (
+                    <img src={option.avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    option.avatarEmoji ?? '🛰️'
+                  )}
                 </span>
                 {option.name}
               </button>
@@ -197,6 +209,213 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
                 + Profile
               </button>
             )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+type LanguageMenuProps = {
+  language: Language;
+  onChange: (language: Language) => void;
+  label: string;
+  options: Array<{ value: Language; label: string }>;
+};
+
+const LanguageMenu = ({ language, onChange, label, options }: LanguageMenuProps) => {
+  const reduceMotion = useReducedMotion();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handleClick = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('click', handleClick);
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('click', handleClick);
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, [open]);
+
+  const activeLabel = options.find((option) => option.value === language)?.label ?? label;
+
+  return (
+    <div className="relative" ref={ref}>
+      <motion.button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        whileHover={reduceMotion ? undefined : { y: -1, boxShadow: '0 8px 16px rgba(244, 255, 0, 0.14)' }}
+        whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+        className={`${pillBase} gap-2 px-3 text-muted hover:text-text`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        {label}
+        <span className="text-[10px] text-text">{activeLabel}</span>
+        <span className="text-[10px]">▾</span>
+      </motion.button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="menu"
+            initial={reduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.98, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 6 }}
+            transition={{ duration: 0.18 }}
+            className="absolute right-0 z-40 mt-2 w-44 rounded-2xl border border-grid bg-panel p-2 shadow-2xl"
+          >
+            {options.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                className={`mt-1 w-full rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.2em] transition hover:text-text ${
+                  option.value === language ? 'text-text' : 'text-muted'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+type TimeZoneMenuProps = {
+  timeZones: string[];
+  label: string;
+  onAdd: (zone: string) => void;
+  onRemove: (zone: string) => void;
+  addLabel: string;
+  removeLabel: string;
+  customLabel: string;
+};
+
+const TimeZoneMenu = ({ timeZones, label, onAdd, onRemove, addLabel, removeLabel, customLabel }: TimeZoneMenuProps) => {
+  const reduceMotion = useReducedMotion();
+  const [open, setOpen] = useState(false);
+  const [customZone, setCustomZone] = useState('');
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handleClick = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('click', handleClick);
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('click', handleClick);
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, [open]);
+
+  const formatTime = (zone: string) =>
+    new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', timeZone: zone }).format(new Date());
+
+  const handleAdd = () => {
+    const value = customZone.trim();
+    if (!value) {
+      return;
+    }
+    try {
+      new Intl.DateTimeFormat(undefined, { timeZone: value }).format(new Date());
+      onAdd(value);
+      setCustomZone('');
+    } catch {
+      // ignore invalid time zones
+    }
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <motion.button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        whileHover={reduceMotion ? undefined : { y: -1, boxShadow: '0 8px 16px rgba(244, 255, 0, 0.14)' }}
+        whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+        className={`${pillBase} gap-2 px-3 text-muted hover:text-text`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        {label}
+        <span className="text-[10px] text-text">{formatTime(timeZones[0])}</span>
+        <span className="text-[10px]">▾</span>
+      </motion.button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="menu"
+            initial={reduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.98, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 6 }}
+            transition={{ duration: 0.18 }}
+            className="absolute right-0 z-40 mt-2 w-64 rounded-2xl border border-grid bg-panel p-3 text-xs text-muted shadow-2xl"
+          >
+            <div className="space-y-2">
+              {timeZones.map((zone, index) => (
+                <div key={zone} className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-muted">{zone}</div>
+                    <div className="text-sm text-text">{formatTime(zone)}</div>
+                  </div>
+                  {index > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onRemove(zone)}
+                      className="rounded-full border border-grid px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                    >
+                      {removeLabel}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 border-t border-grid pt-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted">{addLabel}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  value={customZone}
+                  onChange={(event) => setCustomZone(event.target.value)}
+                  placeholder={customLabel}
+                  className="w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-xs text-text"
+                />
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted"
+                >
+                  +
+                </button>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -297,11 +516,15 @@ const OverflowMenu = ({
                       }`}
                     >
                       <span
-                        className="flex h-6 w-6 items-center justify-center rounded-full text-xs"
+                        className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full text-xs"
                         style={{ backgroundColor: profile.avatarColor ?? 'var(--panel2)' }}
                         aria-hidden="true"
                       >
-                        {profile.avatarEmoji ?? '🛰️'}
+                        {profile.avatarUrl ? (
+                          <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          profile.avatarEmoji ?? '🛰️'
+                        )}
                       </span>
                       {profile.name}
                     </button>
@@ -364,6 +587,12 @@ type TopBarProps = {
   onCommandAdd?: () => void;
   onCommandDecoy?: () => void;
   onCommandExport?: (mode: 'clean' | 'full') => void;
+  language: Language;
+  onLanguageChange: (language: Language) => void;
+  highContrast: boolean;
+  onToggleHighContrast: () => void;
+  additionalTimeZones: string[];
+  onUpdateTimeZones: (zones: string[]) => void;
   secureMode: boolean;
   eventObfuscation: boolean;
   encryptedNotes: boolean;
@@ -395,6 +624,12 @@ const TopBar = ({
   onCommandAdd,
   onCommandDecoy,
   onCommandExport,
+  language,
+  onLanguageChange,
+  highContrast,
+  onToggleHighContrast,
+  additionalTimeZones,
+  onUpdateTimeZones,
   secureMode,
   eventObfuscation,
   encryptedNotes,
@@ -406,6 +641,8 @@ const TopBar = ({
 }: TopBarProps) => {
   const reduceMotion = useReducedMotion();
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
+  const { canInstall, promptInstall, isIOS } = useInstallPrompt();
+  const { t } = useTranslations();
   const desktopSearchInputRef = useRef<HTMLInputElement | null>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
   const pillMotion = reduceMotion
@@ -417,6 +654,34 @@ const TopBar = ({
       };
 
   const [showSearchInput, setShowSearchInput] = useState(false);
+  const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC';
+  const normalizedAdditionalZones = useMemo(
+    () => additionalTimeZones.filter((zone) => zone && zone !== localTimeZone),
+    [additionalTimeZones, localTimeZone]
+  );
+  const timeZones = useMemo(() => [localTimeZone, ...normalizedAdditionalZones], [localTimeZone, normalizedAdditionalZones]);
+  const languageOptions = [
+    { value: 'en' as const, label: t('language.english') },
+    { value: 'ru' as const, label: t('language.russian') },
+    { value: 'fa' as const, label: t('language.persian') }
+  ];
+
+  const handleAddTimeZone = useCallback(
+    (zone: string) => {
+      if (!zone || timeZones.includes(zone)) {
+        return;
+      }
+      onUpdateTimeZones([...normalizedAdditionalZones, zone]);
+    },
+    [onUpdateTimeZones, normalizedAdditionalZones, timeZones]
+  );
+
+  const handleRemoveTimeZone = useCallback(
+    (zone: string) => {
+      onUpdateTimeZones(normalizedAdditionalZones.filter((value) => value !== zone));
+    },
+    [onUpdateTimeZones, normalizedAdditionalZones]
+  );
 
   const focusInput = useCallback(() => {
     if (!(showSearch && Boolean(onSearchChange))) {
@@ -666,6 +931,42 @@ const TopBar = ({
                   New event
                 </motion.button>
               )}
+              <div className="hidden lg:flex items-center gap-2">
+                <TimeZoneMenu
+                  timeZones={timeZones}
+                  label={t('topbar.timeZone')}
+                  onAdd={handleAddTimeZone}
+                  onRemove={handleRemoveTimeZone}
+                  addLabel={t('topbar.addTimeZone')}
+                  removeLabel={t('topbar.removeTimeZone')}
+                  customLabel={t('topbar.customTimeZone')}
+                />
+                <LanguageMenu
+                  language={language}
+                  onChange={onLanguageChange}
+                  label={t('topbar.language')}
+                  options={languageOptions}
+                />
+                <motion.button
+                  type="button"
+                  onClick={onToggleHighContrast}
+                  className={`${pillBase} px-3 ${highContrast ? 'text-text' : 'text-muted'}`}
+                  {...pillMotion}
+                  aria-pressed={highContrast}
+                >
+                  {t('topbar.highContrast')}
+                </motion.button>
+                {canInstall && !isIOS && (
+                  <motion.button
+                    type="button"
+                    onClick={() => void promptInstall()}
+                    className={`${pillBase} px-3 text-muted hover:text-text`}
+                    {...pillMotion}
+                  >
+                    {t('topbar.install')}
+                  </motion.button>
+                )}
+              </div>
               <div className="hidden sm:flex justify-end">
                 <div className={clockClass}>
                   <Clock />
@@ -783,6 +1084,40 @@ const TopBar = ({
                         +
                       </span>
                       New event
+                    </motion.button>
+                  )}
+                  <TimeZoneMenu
+                    timeZones={timeZones}
+                    label={t('topbar.timeZone')}
+                    onAdd={handleAddTimeZone}
+                    onRemove={handleRemoveTimeZone}
+                    addLabel={t('topbar.addTimeZone')}
+                    removeLabel={t('topbar.removeTimeZone')}
+                    customLabel={t('topbar.customTimeZone')}
+                  />
+                  <LanguageMenu
+                    language={language}
+                    onChange={onLanguageChange}
+                    label={t('topbar.language')}
+                    options={languageOptions}
+                  />
+                  <motion.button
+                    type="button"
+                    onClick={onToggleHighContrast}
+                    className={`${pillBase} px-3 ${highContrast ? 'text-text' : 'text-muted'}`}
+                    {...pillMotion}
+                    aria-pressed={highContrast}
+                  >
+                    {t('topbar.highContrast')}
+                  </motion.button>
+                  {canInstall && !isIOS && (
+                    <motion.button
+                      type="button"
+                      onClick={() => void promptInstall()}
+                      className={`${pillBase} px-3 text-muted hover:text-text`}
+                      {...pillMotion}
+                    >
+                      {t('topbar.install')}
                     </motion.button>
                   )}
                   <motion.button
@@ -1026,6 +1361,30 @@ const TopBar = ({
               {...pillMotion}
             >
               <InfoIcon />
+            </motion.button>
+            <TimeZoneMenu
+              timeZones={timeZones}
+              label={t('topbar.timeZone')}
+              onAdd={handleAddTimeZone}
+              onRemove={handleRemoveTimeZone}
+              addLabel={t('topbar.addTimeZone')}
+              removeLabel={t('topbar.removeTimeZone')}
+              customLabel={t('topbar.customTimeZone')}
+            />
+            <LanguageMenu
+              language={language}
+              onChange={onLanguageChange}
+              label={t('topbar.language')}
+              options={languageOptions}
+            />
+            <motion.button
+              type="button"
+              onClick={onToggleHighContrast}
+              className={`${pillBase} px-3 ${highContrast ? 'text-text' : 'text-muted'}`}
+              {...pillMotion}
+              aria-pressed={highContrast}
+            >
+              {t('topbar.highContrast')}
             </motion.button>
             {showSearchPill && (
               <div className="w-full min-w-0">
