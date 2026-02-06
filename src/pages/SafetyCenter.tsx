@@ -990,8 +990,6 @@ const SafetyCenter = () => {
           onCommandExport={handleCommandExport}
           language={state.settings.language}
           onLanguageChange={(language) => updateSettings({ language })}
-          highContrast={Boolean(state.settings.highContrast)}
-          onToggleHighContrast={() => updateSettings({ highContrast: !state.settings.highContrast })}
           additionalTimeZones={state.settings.additionalTimeZones ?? []}
           onUpdateTimeZones={(zones) => updateSettings({ additionalTimeZones: zones })}
           secureMode={state.settings.secureMode}

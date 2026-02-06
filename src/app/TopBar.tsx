@@ -589,8 +589,6 @@ type TopBarProps = {
   onCommandExport?: (mode: 'clean' | 'full') => void;
   language: Language;
   onLanguageChange: (language: Language) => void;
-  highContrast: boolean;
-  onToggleHighContrast: () => void;
   additionalTimeZones: string[];
   onUpdateTimeZones: (zones: string[]) => void;
   secureMode: boolean;
@@ -626,8 +624,6 @@ const TopBar = ({
   onCommandExport,
   language,
   onLanguageChange,
-  highContrast,
-  onToggleHighContrast,
   additionalTimeZones,
   onUpdateTimeZones,
   secureMode,
@@ -947,15 +943,6 @@ const TopBar = ({
                   label={t('topbar.language')}
                   options={languageOptions}
                 />
-                <motion.button
-                  type="button"
-                  onClick={onToggleHighContrast}
-                  className={`${pillBase} px-3 ${highContrast ? 'text-text' : 'text-muted'}`}
-                  {...pillMotion}
-                  aria-pressed={highContrast}
-                >
-                  {t('topbar.highContrast')}
-                </motion.button>
                 {canInstall && !isIOS && (
                   <motion.button
                     type="button"
@@ -1101,15 +1088,6 @@ const TopBar = ({
                     label={t('topbar.language')}
                     options={languageOptions}
                   />
-                  <motion.button
-                    type="button"
-                    onClick={onToggleHighContrast}
-                    className={`${pillBase} px-3 ${highContrast ? 'text-text' : 'text-muted'}`}
-                    {...pillMotion}
-                    aria-pressed={highContrast}
-                  >
-                    {t('topbar.highContrast')}
-                  </motion.button>
                   {canInstall && !isIOS && (
                     <motion.button
                       type="button"
@@ -1377,15 +1355,6 @@ const TopBar = ({
               label={t('topbar.language')}
               options={languageOptions}
             />
-            <motion.button
-              type="button"
-              onClick={onToggleHighContrast}
-              className={`${pillBase} px-3 ${highContrast ? 'text-text' : 'text-muted'}`}
-              {...pillMotion}
-              aria-pressed={highContrast}
-            >
-              {t('topbar.highContrast')}
-            </motion.button>
             {showSearchPill && (
               <div className="w-full min-w-0">
                 {renderSearchInput(mobileSearchInputRef)}

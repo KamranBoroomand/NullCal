@@ -5,7 +5,6 @@ export type TranslationKey =
   | 'app.syncing'
   | 'app.online'
   | 'topbar.install'
-  | 'topbar.highContrast'
   | 'topbar.language'
   | 'topbar.timeZone'
   | 'topbar.addTimeZone'
@@ -54,7 +53,6 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'app.syncing': 'Syncing updates…',
     'app.online': 'Back online.',
     'topbar.install': 'Install app',
-    'topbar.highContrast': 'High contrast',
     'topbar.language': 'Language',
     'topbar.timeZone': 'Local time',
     'topbar.addTimeZone': 'Add time zone',
@@ -102,7 +100,6 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'app.syncing': 'Синхронизация обновлений…',
     'app.online': 'Снова онлайн.',
     'topbar.install': 'Установить приложение',
-    'topbar.highContrast': 'Высокий контраст',
     'topbar.language': 'Язык',
     'topbar.timeZone': 'Местное время',
     'topbar.addTimeZone': 'Добавить часовой пояс',
@@ -150,7 +147,6 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'app.syncing': 'در حال همگام‌سازی…',
     'app.online': 'آنلاین شد.',
     'topbar.install': 'نصب برنامه',
-    'topbar.highContrast': 'کنتراست بالا',
     'topbar.language': 'زبان',
     'topbar.timeZone': 'زمان محلی',
     'topbar.addTimeZone': 'افزودن منطقه زمانی',
