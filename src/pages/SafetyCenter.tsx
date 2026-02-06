@@ -18,6 +18,7 @@ import { buildTotpUri, generateTotpSecret, verifyTotpCode } from '../security/to
 import { buildCsv, buildIcs, buildJson } from '../security/eventExport';
 import { buildExportPayload, type ExportMode, validateExportPayload } from '../security/exportUtils';
 import { usePrivacyScreen } from '../state/privacy';
+import { useTranslations } from '../i18n/useTranslations';
 import type { AppSettings } from '../storage/types';
 import { DEFAULT_THEME_BY_MODE, THEME_PACKS } from '../theme/themePacks';
 import { clearAuditLog, readAuditLog } from '../storage/auditLog';
@@ -35,6 +36,7 @@ const avatarColors = ['#f4ff00', '#9bff00', '#6b7cff', '#38f5c8', '#ff6b3d', '#f
 
 const SafetyCenter = () => {
   const reduceMotion = useReducedMotion();
+  const { t } = useTranslations();
   const {
     state,
     lockNow,
@@ -89,6 +91,10 @@ const SafetyCenter = () => {
   const [profileDisplayName, setProfileDisplayName] = useState('');
   const [profileAvatarEmoji, setProfileAvatarEmoji] = useState('');
   const [profileAvatarColor, setProfileAvatarColor] = useState('');
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileLocation, setProfileLocation] = useState('');
+  const [profilePreferredNotification, setProfilePreferredNotification] = useState<'email' | 'sms'>('email');
   const holdTimer = useRef<number | null>(null);
   const profileRecoveryRef = useRef(false);
   const [searchParams] = useSearchParams();
@@ -151,6 +157,10 @@ const SafetyCenter = () => {
     setProfileDisplayName(activeProfile.displayName ?? activeProfile.name ?? '');
     setProfileAvatarEmoji(activeProfile.avatarEmoji ?? '🛰️');
     setProfileAvatarColor(activeProfile.avatarColor ?? '#f4ff00');
+    setProfileAvatarUrl(activeProfile.avatarUrl ?? '');
+    setProfilePhone(activeProfile.phone ?? '');
+    setProfileLocation(activeProfile.location ?? '');
+    setProfilePreferredNotification(activeProfile.preferredNotification ?? 'email');
   }, [activeProfile]);
 
   useEffect(() => {
@@ -684,8 +694,20 @@ const SafetyCenter = () => {
     }
   };
 
-  const handleToggleReminders = (enabled: boolean) => {
+  const handleToggleReminders = async (enabled: boolean) => {
     updateSettings({ remindersEnabled: enabled });
+    if (
+      enabled &&
+      (state?.settings.reminderChannel === 'local' || state?.settings.reminderChannel === 'push')
+    ) {
+      if (Notification.permission === 'default') {
+        try {
+          await Notification.requestPermission();
+        } catch {
+          // Ignore permission failures.
+        }
+      }
+    }
     notify(enabled ? 'Reminders enabled.' : 'Reminders disabled.', 'success');
   };
 
@@ -698,9 +720,34 @@ const SafetyCenter = () => {
       name: nextName,
       displayName: nextName,
       avatarEmoji: profileAvatarEmoji,
-      avatarColor: profileAvatarColor
+      avatarColor: profileAvatarColor,
+      avatarUrl: profileAvatarUrl || undefined,
+      phone: profilePhone || undefined,
+      location: profileLocation || undefined,
+      preferredNotification: profilePreferredNotification
     });
     notify('Profile updated.', 'success');
+  };
+
+  const handleAvatarUpload = (file: File | null) => {
+    if (!file) {
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      notify('Please upload an image file.', 'error');
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      notify('Avatar image must be under 1MB.', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setProfileAvatarUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleEventExport = () => {
@@ -926,7 +973,8 @@ const SafetyCenter = () => {
             id: profile.id,
             name: profile.displayName ?? profile.name,
             avatarEmoji: profile.avatarEmoji,
-            avatarColor: profile.avatarColor
+            avatarColor: profile.avatarColor,
+            avatarUrl: profile.avatarUrl
           }))}
           activeProfileId={activeProfile?.id ?? ''}
           onProfileChange={handleManualProfileSwitch}
@@ -940,6 +988,12 @@ const SafetyCenter = () => {
           onCommandAdd={handleCommandAdd}
           onCommandDecoy={handleSwitchToDecoy}
           onCommandExport={handleCommandExport}
+          language={state.settings.language}
+          onLanguageChange={(language) => updateSettings({ language })}
+          highContrast={Boolean(state.settings.highContrast)}
+          onToggleHighContrast={() => updateSettings({ highContrast: !state.settings.highContrast })}
+          additionalTimeZones={state.settings.additionalTimeZones ?? []}
+          onUpdateTimeZones={(zones) => updateSettings({ additionalTimeZones: zones })}
           secureMode={state.settings.secureMode}
           eventObfuscation={state.settings.eventObfuscation}
           encryptedNotes={state.settings.encryptedNotes}
@@ -1387,7 +1441,7 @@ const SafetyCenter = () => {
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Profile customization</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
-                  Display name
+                  {t('profile.displayName')}
                   <input
                     value={profileDisplayName}
                     onChange={(event) => setProfileDisplayName(event.target.value)}
@@ -1415,6 +1469,24 @@ const SafetyCenter = () => {
                   </div>
                 </div>
                 <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                  {t('profile.avatarUpload')}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => handleAvatarUpload(event.target.files?.[0] ?? null)}
+                      className="min-w-0 flex-1 rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                    />
+                    {profileAvatarUrl && (
+                      <img
+                        src={profileAvatarUrl}
+                        alt="Profile avatar preview"
+                        className="h-12 w-12 rounded-full border border-grid object-cover"
+                      />
+                    )}
+                  </div>
+                </label>
+                <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
                   Avatar color
                   <div className="flex flex-wrap items-center gap-2">
                     <input
@@ -1435,12 +1507,46 @@ const SafetyCenter = () => {
                     ))}
                   </div>
                 </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                    {t('profile.phone')}
+                    <input
+                      type="tel"
+                      value={profilePhone}
+                      onChange={(event) => setProfilePhone(event.target.value)}
+                      className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                    />
+                  </label>
+                  <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                    {t('profile.location')}
+                    <input
+                      value={profileLocation}
+                      onChange={(event) => setProfileLocation(event.target.value)}
+                      className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                    />
+                  </label>
+                </div>
+                <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                  {t('profile.preferredNotification')}
+                  <select
+                    value={profilePreferredNotification}
+                    onChange={(event) => setProfilePreferredNotification(event.target.value as 'email' | 'sms')}
+                    className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                  >
+                    <option value="email" className="bg-panel2">
+                      {t('profile.preferredNotification.email')}
+                    </option>
+                    <option value="sms" className="bg-panel2">
+                      {t('profile.preferredNotification.sms')}
+                    </option>
+                  </select>
+                </label>
                 <button
                   type="button"
                   onClick={handleProfileSave}
                   className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
                 >
-                  Save profile
+                  {t('profile.save')}
                 </button>
               </div>
             </div>
@@ -2185,11 +2291,11 @@ const SafetyCenter = () => {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2.5 text-center text-[11px] leading-snug">
                         <div className="uppercase tracking-[0.2em] text-muted">Active profile</div>
-                        <div className="mt-1 break-words text-text">{activeProfile?.name ?? 'Unknown'}</div>
+                        <div className="mt-1 truncate text-text">{activeProfile?.name ?? 'Unknown'}</div>
                       </div>
                       <div className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2.5 text-center text-[11px] leading-snug">
                         <div className="uppercase tracking-[0.2em] text-muted">Decoy profile</div>
-                        <div className="mt-1 break-words text-text">
+                        <div className="mt-1 truncate text-text">
                           {state.settings.decoyProfileId ? 'Configured' : 'Not created'}
                         </div>
                       </div>

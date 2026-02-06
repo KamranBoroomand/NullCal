@@ -63,7 +63,11 @@ type AppStoreContextValue = {
       displayName: string;
       avatarEmoji: string;
       avatarColor: string;
+      avatarUrl: string;
       bio: string;
+      phone: string;
+      location: string;
+      preferredNotification: 'sms' | 'email';
     }>
   ) => void;
   createCalendar: (profileId: string, payload: { name: string; color: string }) => void;
@@ -104,9 +108,11 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   const [locked, setLocked] = useState(false);
   const [twoFactorPending, setTwoFactorPending] = useState(false);
   const [twoFactorVerified, setTwoFactorVerified] = useState(false);
+  const stateRef = useRef<AppState | null>(null);
   const syncHandleRef = useRef<ReturnType<typeof createP2PSync> | null>(null);
   const syncSenderId = useRef(crypto.randomUUID());
   const syncHashRef = useRef<string | null>(null);
+  const persistHashRef = useRef<string | null>(null);
   const reminderHandleRef = useRef<ReturnType<typeof scheduleReminders> | null>(null);
   const autoLockTimer = useRef<number | null>(null);
   const blurLockTimer = useRef<number | null>(null);
@@ -172,13 +178,60 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      const current = stateRef.current;
+      if (!current) {
+        return;
+      }
+      syncHashRef.current = null;
+      if (syncHandleRef.current) {
+        syncHandleRef.current.broadcast({
+          profiles: current.profiles,
+          calendars: current.calendars,
+          events: current.events,
+          templates: current.templates
+        });
+      }
+      if (current.settings.cacheEnabled) {
+        writeCachedState(current, current.settings.cacheTtlMinutes);
+      }
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
+
+  useEffect(() => {
     if (!state) {
       return;
     }
-    saveAppState(state);
-    if (state.settings.cacheEnabled) {
-      writeCachedState(state, state.settings.cacheTtlMinutes);
-    }
+    let cancelled = false;
+    const persist = async () => {
+      const snapshot = JSON.stringify({
+        profiles: state.profiles,
+        calendars: state.calendars,
+        events: state.events,
+        templates: state.templates,
+        settings: state.settings,
+        securityPrefs: state.securityPrefs
+      });
+      const hash = await hashSnapshot(snapshot);
+      if (cancelled || persistHashRef.current === hash) {
+        return;
+      }
+      persistHashRef.current = hash;
+      saveAppState(state);
+      if (state.settings.cacheEnabled) {
+        writeCachedState(state, state.settings.cacheTtlMinutes);
+      }
+    };
+    void persist();
+    return () => {
+      cancelled = true;
+    };
   }, [state]);
 
   useEffect(() => {
@@ -225,7 +278,14 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     } else {
       document.body.removeAttribute('data-keyboard-nav');
     }
-  }, [state?.settings.highContrast, state?.settings.keyboardNavigation, state?.settings.textScale]);
+    document.documentElement.lang = state.settings.language ?? 'en';
+    document.documentElement.dir = state.settings.language === 'fa' ? 'rtl' : 'ltr';
+  }, [
+    state?.settings.highContrast,
+    state?.settings.keyboardNavigation,
+    state?.settings.textScale,
+    state?.settings.language
+  ]);
 
   useEffect(() => {
     if (!state) {

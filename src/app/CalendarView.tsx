@@ -70,6 +70,7 @@ const CalendarView = ({
         headerToolbar={false}
         height="auto"
         events={events}
+        timeZone="local"
         nowIndicator
         selectable
         editable
