@@ -3,6 +3,8 @@ import { NavLink } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import ColorDot from '../components/ColorDot';
 import Modal from '../components/Modal';
+import { useTranslations } from '../i18n/useTranslations';
+import type { Language } from '../i18n/translations';
 import type { Calendar } from '../storage/types';
 
 const base = import.meta.env.BASE_URL;
@@ -45,6 +47,174 @@ const colorPalette = [
   '#ffd166',
   '#7b5cff'
 ];
+
+type SideBarCopy = {
+  logoAlt: string;
+  operationsSuite: string;
+  navigation: string;
+  calendar: string;
+  reminders: string;
+  notes: string;
+  calendars: string;
+  newTopic: string;
+  topic: string;
+  hideCalendar: string;
+  showCalendar: string;
+  calendarOptions: string;
+  renameColor: string;
+  delete: string;
+  deleteCalendarConfirm: string;
+  profile: string;
+  lockNow: string;
+  system: string;
+  safetyCenter: string;
+  import: string;
+  export: string;
+  resetProfile: string;
+  logout: string;
+  newEvent: string;
+  clipboardWarning: string;
+  clipboardSensitive: string;
+  clear: string;
+  copySanitized: string;
+  ignore: string;
+  editTopic: string;
+  modalNewTopic: string;
+  name: string;
+  namePlaceholder: string;
+  color: string;
+  selectColorPrefix: string;
+  pickCustomColor: string;
+  custom: string;
+  saveChanges: string;
+  createTopic: string;
+};
+
+const sideBarCopy: Record<Language, SideBarCopy> = {
+  en: {
+    logoAlt: 'NullCal logo',
+    operationsSuite: 'Operations Suite',
+    navigation: 'Navigation',
+    calendar: 'Calendar',
+    reminders: 'Reminders',
+    notes: 'Notes',
+    calendars: 'Calendars',
+    newTopic: '+ New topic',
+    topic: 'Topic',
+    hideCalendar: 'Hide calendar',
+    showCalendar: 'Show calendar',
+    calendarOptions: 'Calendar options',
+    renameColor: 'Rename / color',
+    delete: 'Delete',
+    deleteCalendarConfirm: 'Delete {name} and its events?',
+    profile: 'Profile',
+    lockNow: 'Lock now',
+    system: 'System',
+    safetyCenter: 'Safety Center',
+    import: 'Import',
+    export: 'Export',
+    resetProfile: 'Reset profile',
+    logout: 'Logout',
+    newEvent: 'New event',
+    clipboardWarning: 'Clipboard warning',
+    clipboardSensitive: 'Clipboard contains sensitive data. Clear now?',
+    clear: 'Clear',
+    copySanitized: 'Copy sanitized',
+    ignore: 'Ignore',
+    editTopic: 'Edit topic',
+    modalNewTopic: 'New topic',
+    name: 'Name',
+    namePlaceholder: '2–30 characters',
+    color: 'Color',
+    selectColorPrefix: 'Select',
+    pickCustomColor: 'Pick custom color',
+    custom: 'Custom',
+    saveChanges: 'Save changes',
+    createTopic: 'Create topic'
+  },
+  ru: {
+    logoAlt: 'Логотип NullCal',
+    operationsSuite: 'Операционный центр',
+    navigation: 'Навигация',
+    calendar: 'Календарь',
+    reminders: 'Напоминания',
+    notes: 'Заметки',
+    calendars: 'Календари',
+    newTopic: '+ Новая тема',
+    topic: 'Тема',
+    hideCalendar: 'Скрыть календарь',
+    showCalendar: 'Показать календарь',
+    calendarOptions: 'Параметры календаря',
+    renameColor: 'Переименовать / цвет',
+    delete: 'Удалить',
+    deleteCalendarConfirm: 'Удалить {name} и все его события?',
+    profile: 'Профиль',
+    lockNow: 'Заблокировать',
+    system: 'Система',
+    safetyCenter: 'Центр безопасности',
+    import: 'Импорт',
+    export: 'Экспорт',
+    resetProfile: 'Сбросить профиль',
+    logout: 'Выход',
+    newEvent: 'Новое событие',
+    clipboardWarning: 'Предупреждение буфера',
+    clipboardSensitive: 'Буфер содержит чувствительные данные. Очистить сейчас?',
+    clear: 'Очистить',
+    copySanitized: 'Копия без данных',
+    ignore: 'Игнорировать',
+    editTopic: 'Изменить тему',
+    modalNewTopic: 'Новая тема',
+    name: 'Название',
+    namePlaceholder: '2–30 символов',
+    color: 'Цвет',
+    selectColorPrefix: 'Выбрать',
+    pickCustomColor: 'Выбрать свой цвет',
+    custom: 'Свой',
+    saveChanges: 'Сохранить',
+    createTopic: 'Создать тему'
+  },
+  fa: {
+    logoAlt: 'لوگوی NullCal',
+    operationsSuite: 'مجموعه عملیات',
+    navigation: 'ناوبری',
+    calendar: 'تقویم',
+    reminders: 'یادآوری‌ها',
+    notes: 'یادداشت‌ها',
+    calendars: 'تقویم‌ها',
+    newTopic: '+ موضوع جدید',
+    topic: 'موضوع',
+    hideCalendar: 'پنهان‌کردن تقویم',
+    showCalendar: 'نمایش تقویم',
+    calendarOptions: 'گزینه‌های تقویم',
+    renameColor: 'تغییر نام / رنگ',
+    delete: 'حذف',
+    deleteCalendarConfirm: 'تقویم {name} و همه رویدادهای آن حذف شود؟',
+    profile: 'نمایه',
+    lockNow: 'قفل فوری',
+    system: 'سیستم',
+    safetyCenter: 'مرکز امنیت',
+    import: 'درون‌ریزی',
+    export: 'برون‌ریزی',
+    resetProfile: 'بازنشانی نمایه',
+    logout: 'خروج',
+    newEvent: 'رویداد جدید',
+    clipboardWarning: 'هشدار کلیپ‌بورد',
+    clipboardSensitive: 'کلیپ‌بورد داده حساس دارد. الان پاک شود؟',
+    clear: 'پاک‌کردن',
+    copySanitized: 'کپی امن',
+    ignore: 'نادیده‌گرفتن',
+    editTopic: 'ویرایش موضوع',
+    modalNewTopic: 'موضوع جدید',
+    name: 'نام',
+    namePlaceholder: '۲ تا ۳۰ نویسه',
+    color: 'رنگ',
+    selectColorPrefix: 'انتخاب',
+    pickCustomColor: 'انتخاب رنگ سفارشی',
+    custom: 'سفارشی',
+    saveChanges: 'ذخیره تغییرات',
+    createTopic: 'ایجاد موضوع'
+  }
+};
 
 type SideBarProps = {
   calendars: Calendar[];
@@ -89,6 +259,8 @@ const SideBar = ({
 }: SideBarProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const reduceMotion = useReducedMotion();
+  const { language } = useTranslations();
+  const copy = sideBarCopy[language] ?? sideBarCopy.en;
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Calendar | null>(null);
@@ -162,7 +334,7 @@ const SideBar = ({
     if (!activeProfileId) {
       return;
     }
-    const confirmed = window.confirm(`Delete ${calendar.name} and its events?`);
+    const confirmed = window.confirm(copy.deleteCalendarConfirm.replace('{name}', calendar.name));
     if (!confirmed) {
       return;
     }
@@ -176,19 +348,19 @@ const SideBar = ({
           <img
             src={mark2x}
             srcSet={`${mark1x} 1x, ${mark2x} 2x`}
-            alt="NullCal logo"
+            alt={copy.logoAlt}
             className="h-full w-full object-cover"
             draggable={false}
           />
         </div>
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-muted">NullCal</p>
-          <p className="text-sm font-semibold text-text">Operations Suite</p>
+          <p className="text-sm font-semibold text-text">{copy.operationsSuite}</p>
         </div>
       </div>
 
       <div className="space-y-2">
-        <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Navigation</p>
+        <p className="text-[10px] uppercase tracking-[0.3em] text-muted">{copy.navigation}</p>
         <div className="grid gap-2 text-xs">
           <NavLink
             to="/"
@@ -202,7 +374,7 @@ const SideBar = ({
             }
           >
             <NavIcon path="M4 8.5 10 3l6 5.5V16H4V8.5Z" />
-            Calendar
+            {copy.calendar}
           </NavLink>
           <button
             type="button"
@@ -210,7 +382,7 @@ const SideBar = ({
             className="flex items-center gap-3 rounded-xl border border-grid bg-panel px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:border-accent/60 hover:text-text"
           >
             <NavIcon path="M10 3.5a4.5 4.5 0 0 1 4.5 4.5v2.5l1.5 2.5H4l1.5-2.5V8A4.5 4.5 0 0 1 10 3.5Z" />
-            Reminders
+            {copy.reminders}
           </button>
           <button
             type="button"
@@ -218,14 +390,14 @@ const SideBar = ({
             className="flex items-center gap-3 rounded-xl border border-grid bg-panel px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:border-accent/60 hover:text-text"
           >
             <NavIcon path="M5 4h10v12H5zM7.5 8h5M7.5 11h5" />
-            Notes
+            {copy.notes}
           </button>
         </div>
       </div>
 
       <div className="space-y-3 rounded-2xl border border-grid bg-panel px-3 py-4">
         <div className="flex items-center justify-between">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Calendars</p>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-muted">{copy.calendars}</p>
           <span className="text-[10px] text-muted">{calendars.length}</span>
         </div>
         <button
@@ -233,7 +405,7 @@ const SideBar = ({
           onClick={() => setCreateOpen(true)}
           className="w-full rounded-xl border border-accent/40 bg-[color-mix(in srgb,var(--accent) 16%, transparent)] px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text"
         >
-          + New topic
+          {copy.newTopic}
         </button>
         <div className="flex flex-col gap-3">
           {calendars.map((calendar) => (
@@ -253,7 +425,7 @@ const SideBar = ({
                 <ColorDot color={calendar.color} active={calendar.isVisible} />
                 <div className="min-w-0">
                   <span className="block truncate uppercase tracking-[0.2em]">{calendar.name}</span>
-                  <span className="block text-[9px] uppercase tracking-[0.3em] text-muted">Topic</span>
+                  <span className="block text-[9px] uppercase tracking-[0.3em] text-muted">{copy.topic}</span>
                 </div>
               </button>
               <div className="flex items-center gap-2">
@@ -261,7 +433,7 @@ const SideBar = ({
                   type="button"
                   onClick={() => onToggleCalendar(calendar.id)}
                   className="rounded-full border border-grid px-2 py-1 text-[10px] text-muted transition hover:text-text"
-                  aria-label={calendar.isVisible ? 'Hide calendar' : 'Show calendar'}
+                  aria-label={calendar.isVisible ? copy.hideCalendar : copy.showCalendar}
                 >
                   <EyeIcon hidden={!calendar.isVisible} />
                 </button>
@@ -272,7 +444,7 @@ const SideBar = ({
                       setMenuOpenId((current) => (current === calendar.id ? null : calendar.id))
                     }
                     className="rounded-full border border-grid px-2 py-1 text-[10px] text-muted transition hover:text-text"
-                    aria-label="Calendar options"
+                    aria-label={copy.calendarOptions}
                   >
                     <MoreIcon />
                   </button>
@@ -286,7 +458,7 @@ const SideBar = ({
                         }}
                         className="w-full rounded-lg px-2 py-1 text-left text-muted transition hover:text-text"
                       >
-                        Rename / color
+                        {copy.renameColor}
                       </button>
                       <button
                         type="button"
@@ -296,7 +468,7 @@ const SideBar = ({
                         }}
                         className="mt-1 w-full rounded-lg px-2 py-1 text-left text-danger transition hover:text-text"
                       >
-                        Delete
+                        {copy.delete}
                       </button>
                     </div>
                   )}
@@ -311,7 +483,7 @@ const SideBar = ({
         <div className="rounded-2xl border border-grid bg-panel px-3 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Profile</p>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-muted">{copy.profile}</p>
               <p className="text-sm font-semibold text-text">{activeProfileName ?? 'KamranBroomand'}</p>
             </div>
             {onLockNow && (
@@ -322,14 +494,14 @@ const SideBar = ({
                 whileTap={reduceMotion ? undefined : { scale: 0.98 }}
                 className="rounded-full border border-accent bg-[color-mix(in srgb,var(--accent) 18%, transparent)] px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-accent"
               >
-                Lock now
+                {copy.lockNow}
               </motion.button>
             )}
           </div>
         </div>
 
         <div className="rounded-2xl border border-grid bg-panel px-3 py-4">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-muted">System</p>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-muted">{copy.system}</p>
           <div className="mt-3 grid gap-2 text-xs">
             <NavLink
               to="/safety"
@@ -342,7 +514,7 @@ const SideBar = ({
                 }`
               }
             >
-              Safety Center
+              {copy.safetyCenter}
               <NavIcon path="M10 3.5 15 5.5V9c0 3.2-2.2 5.7-5 6.6-2.8-.9-5-3.4-5-6.6V5.5L10 3.5Z" />
             </NavLink>
             <button
@@ -350,7 +522,7 @@ const SideBar = ({
               onClick={() => fileInputRef.current?.click()}
               className="flex items-center justify-between rounded-xl border border-grid bg-panel2 px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:text-text"
             >
-              Import
+              {copy.import}
               <NavIcon path="M10 4v8M6.5 7.5 10 4l3.5 3.5M5 16h10" />
             </button>
             {onExport && (
@@ -359,7 +531,7 @@ const SideBar = ({
                 onClick={onExport}
                 className="flex items-center justify-between rounded-xl border border-grid bg-panel2 px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:text-text"
               >
-                Export
+                {copy.export}
                 <NavIcon path="M10 16V8M6.5 11.5 10 16l3.5-4.5M5 4h10" />
               </button>
             )}
@@ -369,7 +541,7 @@ const SideBar = ({
                 onClick={onResetProfile}
                 className="flex items-center justify-between rounded-xl border border-grid bg-panel2 px-3 py-2 uppercase tracking-[0.2em] text-muted transition hover:text-text"
               >
-                Reset profile
+                {copy.resetProfile}
                 <NavIcon path="M6 6h8M6 10h8M6 14h5" />
               </button>
             )}
@@ -379,7 +551,7 @@ const SideBar = ({
                 onClick={onLockNow}
                 className="flex items-center justify-between rounded-xl border border-danger bg-[color-mix(in srgb,var(--danger) 12%, transparent)] px-3 py-2 uppercase tracking-[0.2em] text-danger transition hover:text-text"
               >
-                Logout
+                {copy.logout}
                 <NavIcon path="M7 5h6a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7M9 7l-3 3 3 3" />
               </button>
             )}
@@ -405,13 +577,13 @@ const SideBar = ({
             whileTap={reduceMotion ? undefined : { scale: 0.98 }}
             className="w-full rounded-xl bg-accent px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow transition"
           >
-            New event
+            {copy.newEvent}
           </motion.button>
         )}
         {showClipboardWarning && !clipboardDismissed && (
           <div className="rounded-2xl border border-danger bg-[color-mix(in srgb,var(--danger) 8%, transparent)] px-3 py-2 text-[11px] text-muted">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-danger">Clipboard warning</p>
-            <p className="mt-1 text-[11px] text-muted">Clipboard contains sensitive data. Clear now?</p>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-danger">{copy.clipboardWarning}</p>
+            <p className="mt-1 text-[11px] text-muted">{copy.clipboardSensitive}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               <button
                 type="button"
@@ -426,7 +598,7 @@ const SideBar = ({
                 }}
                 className="rounded-xl border border-danger px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-danger"
               >
-                Clear
+                {copy.clear}
               </button>
               <button
                 type="button"
@@ -441,14 +613,14 @@ const SideBar = ({
                 }}
                 className="rounded-xl border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
               >
-                Copy sanitized
+                {copy.copySanitized}
               </button>
               <button
                 type="button"
                 onClick={() => setClipboardDismissed(true)}
                 className="rounded-xl border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
               >
-                Ignore
+                {copy.ignore}
               </button>
             </div>
           </div>
@@ -456,7 +628,7 @@ const SideBar = ({
       </div>
 
       <Modal
-        title={editTarget ? 'Edit topic' : 'New topic'}
+        title={editTarget ? copy.editTopic : copy.modalNewTopic}
         open={createOpen || Boolean(editTarget)}
         onClose={() => {
           setCreateOpen(false);
@@ -465,16 +637,16 @@ const SideBar = ({
       >
         <div className="grid gap-3">
           <label className="text-xs text-muted">
-            Name
+            {copy.name}
             <input
               value={topicName}
               onChange={(event) => setTopicName(event.target.value)}
-              placeholder="2–30 characters"
+              placeholder={copy.namePlaceholder}
               className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
             />
           </label>
           <div className="space-y-2">
-            <p className="text-xs text-muted">Color</p>
+            <p className="text-xs text-muted">{copy.color}</p>
             <div className="flex flex-wrap gap-2">
               {colorPalette.map((swatch) => (
                 <button
@@ -488,7 +660,7 @@ const SideBar = ({
                     previewColor === swatch ? 'border-accent' : 'border-grid'
                   }`}
                   style={{ backgroundColor: swatch }}
-                  aria-label={`Select ${swatch}`}
+                  aria-label={`${copy.selectColorPrefix} ${swatch}`}
                 />
               ))}
             </div>
@@ -501,9 +673,9 @@ const SideBar = ({
                     setCustomColor(event.target.value);
                   }}
                   className="h-9 w-9 cursor-pointer rounded-md border border-grid bg-panel2"
-                  aria-label="Pick custom color"
+                  aria-label={copy.pickCustomColor}
                 />
-                <span className="uppercase tracking-[0.2em] text-[10px] text-muted">Custom</span>
+                <span className="uppercase tracking-[0.2em] text-[10px] text-muted">{copy.custom}</span>
               </label>
               <input
                 value={customColor}
@@ -519,7 +691,7 @@ const SideBar = ({
             disabled={topicName.trim().length < 2 || topicName.trim().length > 30}
             className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {editTarget ? 'Save changes' : 'Create topic'}
+            {editTarget ? copy.saveChanges : copy.createTopic}
           </button>
         </div>
       </Modal>

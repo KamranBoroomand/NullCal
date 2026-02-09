@@ -4,7 +4,6 @@ import Clock from '../components/Clock';
 import Segmented from '../components/Segmented';
 import HotkeysModal from './HotkeysModal';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
-import { useTranslations } from '../i18n/useTranslations';
 import type { Language } from '../i18n/translations';
 
 const base = import.meta.env.BASE_URL;
@@ -78,6 +77,166 @@ const LockIcon = () => (
   </svg>
 );
 
+type TopBarCopy = {
+  agent: string;
+  activeAgent: string;
+  addProfile: string;
+  hotkey: string;
+  openOverflowMenu: string;
+  openNavigation: string;
+  goToCalendar: string;
+  today: string;
+  calendarView: string;
+  week: string;
+  weekShort: string;
+  month: string;
+  monthShort: string;
+  navigateCalendar: string;
+  previous: string;
+  next: string;
+  searchEvents: string;
+  closeSearch: string;
+  openSearch: string;
+  newEvent: string;
+  sync: string;
+  syncOffline: string;
+  syncIpfs: string;
+  syncP2p: string;
+  syncLocalOnly: string;
+  syncTrustedDevices: string;
+  syncManualPairing: string;
+  notifications: string;
+  helpShortcuts: string;
+  lockNow: string;
+  securitySecureMode: string;
+  securityObfuscated: string;
+  securityEncryptedNotes: string;
+  securityTwoFactorReady: string;
+  securityStandard: string;
+  languageLabel: string;
+  installApp: string;
+};
+
+const topBarCopy: Record<Language, TopBarCopy> = {
+  en: {
+    agent: 'Agent',
+    activeAgent: 'Active agent',
+    addProfile: '+ Profile',
+    hotkey: 'Hotkey',
+    openOverflowMenu: 'Open overflow menu',
+    openNavigation: 'Open navigation',
+    goToCalendar: 'Go to calendar',
+    today: 'Today',
+    calendarView: 'Calendar view',
+    week: 'Week',
+    weekShort: 'Wk',
+    month: 'Month',
+    monthShort: 'Mo',
+    navigateCalendar: 'Navigate calendar',
+    previous: 'Previous',
+    next: 'Next',
+    searchEvents: 'Search events',
+    closeSearch: 'Close search',
+    openSearch: 'Open search',
+    newEvent: 'New event',
+    sync: 'SYNC',
+    syncOffline: 'Offline',
+    syncIpfs: 'IPFS sync',
+    syncP2p: 'P2P sync',
+    syncLocalOnly: 'Local only',
+    syncTrustedDevices: 'Trusted devices',
+    syncManualPairing: 'Manual pairing',
+    notifications: 'Notifications',
+    helpShortcuts: 'Help & shortcuts',
+    lockNow: 'Lock now',
+    securitySecureMode: 'Secure mode',
+    securityObfuscated: 'Obfuscated',
+    securityEncryptedNotes: 'Encrypted notes',
+    securityTwoFactorReady: '2FA ready',
+    securityStandard: 'Standard',
+    languageLabel: 'Language',
+    installApp: 'Install app'
+  },
+  ru: {
+    agent: 'Агент',
+    activeAgent: 'Активный агент',
+    addProfile: '+ Профиль',
+    hotkey: 'Хоткей',
+    openOverflowMenu: 'Открыть меню',
+    openNavigation: 'Открыть навигацию',
+    goToCalendar: 'Открыть календарь',
+    today: 'Сегодня',
+    calendarView: 'Вид календаря',
+    week: 'Неделя',
+    weekShort: 'Нед',
+    month: 'Месяц',
+    monthShort: 'Мес',
+    navigateCalendar: 'Навигация календаря',
+    previous: 'Назад',
+    next: 'Вперед',
+    searchEvents: 'Поиск событий',
+    closeSearch: 'Закрыть поиск',
+    openSearch: 'Открыть поиск',
+    newEvent: 'Новое событие',
+    sync: 'СИНХ',
+    syncOffline: 'Офлайн',
+    syncIpfs: 'Синхр. IPFS',
+    syncP2p: 'Синхр. P2P',
+    syncLocalOnly: 'Только локально',
+    syncTrustedDevices: 'Доверенные устройства',
+    syncManualPairing: 'Ручное сопряжение',
+    notifications: 'Уведомления',
+    helpShortcuts: 'Справка и хоткеи',
+    lockNow: 'Заблокировать',
+    securitySecureMode: 'Безопасный режим',
+    securityObfuscated: 'Обфускация',
+    securityEncryptedNotes: 'Зашифрованные заметки',
+    securityTwoFactorReady: '2FA готово',
+    securityStandard: 'Стандарт',
+    languageLabel: 'Язык',
+    installApp: 'Установить'
+  },
+  fa: {
+    agent: 'نمایه',
+    activeAgent: 'نمایه فعال',
+    addProfile: '+ نمایه',
+    hotkey: 'میانبر',
+    openOverflowMenu: 'باز کردن منو',
+    openNavigation: 'باز کردن ناوبری',
+    goToCalendar: 'رفتن به تقویم',
+    today: 'امروز',
+    calendarView: 'نمای تقویم',
+    week: 'هفته',
+    weekShort: 'هف',
+    month: 'ماه',
+    monthShort: 'ماه',
+    navigateCalendar: 'پیمایش تقویم',
+    previous: 'قبلی',
+    next: 'بعدی',
+    searchEvents: 'جست‌وجوی رویدادها',
+    closeSearch: 'بستن جست‌وجو',
+    openSearch: 'باز کردن جست‌وجو',
+    newEvent: 'رویداد جدید',
+    sync: 'همگام',
+    syncOffline: 'آفلاین',
+    syncIpfs: 'همگام IPFS',
+    syncP2p: 'همگام P2P',
+    syncLocalOnly: 'فقط محلی',
+    syncTrustedDevices: 'دستگاه‌های مورد اعتماد',
+    syncManualPairing: 'جفت‌سازی دستی',
+    notifications: 'اعلان‌ها',
+    helpShortcuts: 'راهنما و میانبرها',
+    lockNow: 'قفل فوری',
+    securitySecureMode: 'حالت امن',
+    securityObfuscated: 'مخفی‌سازی',
+    securityEncryptedNotes: 'یادداشت رمزگذاری‌شده',
+    securityTwoFactorReady: 'آماده ۲FA',
+    securityStandard: 'استاندارد',
+    languageLabel: 'زبان',
+    installApp: 'نصب برنامه'
+  }
+};
+
 type ProfileOption = {
   id: string;
   name: string;
@@ -89,17 +248,29 @@ type ProfileOption = {
 type ProfileMenuProps = {
   options: ProfileOption[];
   activeId: string;
+  label: string;
+  activeLabel: string;
+  addProfileLabel: string;
   onChange?: (id: string) => void;
   onCreateProfile?: () => void;
   disabled?: boolean;
 };
 
-const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }: ProfileMenuProps) => {
+const ProfileMenu = ({
+  options,
+  activeId,
+  label,
+  activeLabel,
+  addProfileLabel,
+  onChange,
+  onCreateProfile,
+  disabled
+}: ProfileMenuProps) => {
   const reduceMotion = useReducedMotion();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   const activeProfile = options.find((option) => option.id === activeId);
-  const activeLabel = activeProfile?.name ?? 'Profile';
+  const activeProfileLabel = activeProfile?.name ?? label;
   const activeEmoji = activeProfile?.avatarEmoji ?? '🛰️';
 
   useEffect(() => {
@@ -127,7 +298,9 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
   if (disabled) {
     return (
       <div className={`${pillBase} min-w-0 px-3 text-muted`}>
-        <span className="truncate">Agent: {activeLabel}</span>
+        <span className="truncate">
+          {label}: {activeProfileLabel}
+        </span>
       </div>
     );
   }
@@ -154,7 +327,7 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
             activeEmoji
           )}
         </span>
-        Agent
+        {label}
         <span className="text-[10px]">▾</span>
       </motion.button>
       <AnimatePresence>
@@ -168,7 +341,7 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
             className="absolute right-0 z-40 mt-2 w-56 rounded-2xl border border-grid bg-panel p-2 shadow-2xl"
           >
             <div className="px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-muted">
-              Active agent: <span className="text-text">{activeLabel}</span>
+              {activeLabel}: <span className="text-text">{activeProfileLabel}</span>
             </div>
             {options.map((option) => (
               <button
@@ -206,7 +379,7 @@ const ProfileMenu = ({ options, activeId, onChange, onCreateProfile, disabled }:
                 }}
                 className="mt-1 w-full rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
               >
-                + Profile
+                {addProfileLabel}
               </button>
             )}
           </motion.div>
@@ -220,7 +393,7 @@ type LanguageMenuProps = {
   language: Language;
   onChange: (language: Language) => void;
   label: string;
-  options: Array<{ value: Language; label: string }>;
+  options: Array<{ value: Language; code: string }>;
 };
 
 const LanguageMenu = ({ language, onChange, label, options }: LanguageMenuProps) => {
@@ -250,7 +423,7 @@ const LanguageMenu = ({ language, onChange, label, options }: LanguageMenuProps)
     };
   }, [open]);
 
-  const activeLabel = options.find((option) => option.value === language)?.label ?? label;
+  const activeCode = options.find((option) => option.value === language)?.code ?? 'ENG';
 
   return (
     <div className="relative" ref={ref}>
@@ -259,12 +432,12 @@ const LanguageMenu = ({ language, onChange, label, options }: LanguageMenuProps)
         onClick={() => setOpen((value) => !value)}
         whileHover={reduceMotion ? undefined : { y: -1, boxShadow: '0 8px 16px rgba(244, 255, 0, 0.14)' }}
         whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-        className={`${pillBase} gap-2 px-3 text-muted hover:text-text`}
+        className={`${pillBase} h-8 gap-1 px-2.5 text-[10px] tracking-[0.16em] text-muted hover:text-text`}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={`${label}: ${activeCode}`}
       >
-        {label}
-        <span className="text-[10px] text-text">{activeLabel}</span>
+        <span className="text-text">{activeCode}</span>
         <span className="text-[10px]">▾</span>
       </motion.button>
       <AnimatePresence>
@@ -275,7 +448,7 @@ const LanguageMenu = ({ language, onChange, label, options }: LanguageMenuProps)
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 6 }}
             transition={{ duration: 0.18 }}
-            className="absolute right-0 z-40 mt-2 w-44 rounded-2xl border border-grid bg-panel p-2 shadow-2xl"
+            className="absolute right-0 z-40 mt-2 w-28 rounded-2xl border border-grid bg-panel p-2 shadow-2xl"
           >
             {options.map((option) => (
               <button
@@ -285,137 +458,13 @@ const LanguageMenu = ({ language, onChange, label, options }: LanguageMenuProps)
                   onChange(option.value);
                   setOpen(false);
                 }}
-                className={`mt-1 w-full rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.2em] transition hover:text-text ${
+                className={`mt-1 w-full rounded-xl px-3 py-2 text-left text-[10px] uppercase tracking-[0.16em] transition hover:text-text ${
                   option.value === language ? 'text-text' : 'text-muted'
                 }`}
               >
-                {option.label}
+                {option.code}
               </button>
             ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-type TimeZoneMenuProps = {
-  timeZones: string[];
-  label: string;
-  onAdd: (zone: string) => void;
-  onRemove: (zone: string) => void;
-  addLabel: string;
-  removeLabel: string;
-  customLabel: string;
-};
-
-const TimeZoneMenu = ({ timeZones, label, onAdd, onRemove, addLabel, removeLabel, customLabel }: TimeZoneMenuProps) => {
-  const reduceMotion = useReducedMotion();
-  const [open, setOpen] = useState(false);
-  const [customZone, setCustomZone] = useState('');
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const handleClick = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpen(false);
-      }
-    };
-    window.addEventListener('click', handleClick);
-    window.addEventListener('keydown', handleKey);
-    return () => {
-      window.removeEventListener('click', handleClick);
-      window.removeEventListener('keydown', handleKey);
-    };
-  }, [open]);
-
-  const formatTime = (zone: string) =>
-    new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', timeZone: zone }).format(new Date());
-
-  const handleAdd = () => {
-    const value = customZone.trim();
-    if (!value) {
-      return;
-    }
-    try {
-      new Intl.DateTimeFormat(undefined, { timeZone: value }).format(new Date());
-      onAdd(value);
-      setCustomZone('');
-    } catch {
-      // ignore invalid time zones
-    }
-  };
-
-  return (
-    <div className="relative" ref={ref}>
-      <motion.button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        whileHover={reduceMotion ? undefined : { y: -1, boxShadow: '0 8px 16px rgba(244, 255, 0, 0.14)' }}
-        whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-        className={`${pillBase} gap-2 px-3 text-muted hover:text-text`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-      >
-        {label}
-        <span className="text-[10px] text-text">{formatTime(timeZones[0])}</span>
-        <span className="text-[10px]">▾</span>
-      </motion.button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            role="menu"
-            initial={reduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.98, y: 6 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 6 }}
-            transition={{ duration: 0.18 }}
-            className="absolute right-0 z-40 mt-2 w-64 rounded-2xl border border-grid bg-panel p-3 text-xs text-muted shadow-2xl"
-          >
-            <div className="space-y-2">
-              {timeZones.map((zone, index) => (
-                <div key={zone} className="flex items-center justify-between gap-2">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.2em] text-muted">{zone}</div>
-                    <div className="text-sm text-text">{formatTime(zone)}</div>
-                  </div>
-                  {index > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => onRemove(zone)}
-                      className="rounded-full border border-grid px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
-                    >
-                      {removeLabel}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 border-t border-grid pt-3">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted">{addLabel}</p>
-              <div className="mt-2 flex items-center gap-2">
-                <input
-                  value={customZone}
-                  onChange={(event) => setCustomZone(event.target.value)}
-                  placeholder={customLabel}
-                  className="w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-xs text-text"
-                />
-                <button
-                  type="button"
-                  onClick={handleAdd}
-                  className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted"
-                >
-                  +
-                </button>
-              </div>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -434,6 +483,8 @@ type OverflowMenuProps = {
   actions: OverflowAction[];
   showProfileList: boolean;
   showCreateProfileItem: boolean;
+  openLabel: string;
+  addProfileLabel: string;
   profiles: ProfileOption[];
   activeProfileId: string;
   onProfileChange: (id: string) => void;
@@ -444,6 +495,8 @@ const OverflowMenu = ({
   actions,
   showProfileList,
   showCreateProfileItem,
+  openLabel,
+  addProfileLabel,
   profiles,
   activeProfileId,
   onProfileChange,
@@ -487,7 +540,7 @@ const OverflowMenu = ({
         aria-expanded={open}
       >
         ⋯
-        <span className="sr-only">Open overflow menu</span>
+        <span className="sr-only">{openLabel}</span>
       </motion.button>
       <AnimatePresence>
         {open && (
@@ -538,7 +591,7 @@ const OverflowMenu = ({
                     }}
                     className="mt-1 w-full rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
                   >
-                    + Profile
+                    {addProfileLabel}
                   </button>
                 )}
               </div>
@@ -589,8 +642,6 @@ type TopBarProps = {
   onCommandExport?: (mode: 'clean' | 'full') => void;
   language: Language;
   onLanguageChange: (language: Language) => void;
-  additionalTimeZones: string[];
-  onUpdateTimeZones: (zones: string[]) => void;
   secureMode: boolean;
   eventObfuscation: boolean;
   encryptedNotes: boolean;
@@ -624,8 +675,6 @@ const TopBar = ({
   onCommandExport,
   language,
   onLanguageChange,
-  additionalTimeZones,
-  onUpdateTimeZones,
   secureMode,
   eventObfuscation,
   encryptedNotes,
@@ -638,9 +687,9 @@ const TopBar = ({
   const reduceMotion = useReducedMotion();
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const { canInstall, promptInstall, isIOS } = useInstallPrompt();
-  const { t } = useTranslations();
   const desktopSearchInputRef = useRef<HTMLInputElement | null>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const copy = topBarCopy[language] ?? topBarCopy.en;
   const pillMotion = reduceMotion
     ? {}
     : {
@@ -650,34 +699,11 @@ const TopBar = ({
       };
 
   const [showSearchInput, setShowSearchInput] = useState(false);
-  const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC';
-  const normalizedAdditionalZones = useMemo(
-    () => additionalTimeZones.filter((zone) => zone && zone !== localTimeZone),
-    [additionalTimeZones, localTimeZone]
-  );
-  const timeZones = useMemo(() => [localTimeZone, ...normalizedAdditionalZones], [localTimeZone, normalizedAdditionalZones]);
   const languageOptions = [
-    { value: 'en' as const, label: t('language.english') },
-    { value: 'ru' as const, label: t('language.russian') },
-    { value: 'fa' as const, label: t('language.persian') }
+    { value: 'ru' as const, code: 'RU' },
+    { value: 'en' as const, code: 'ENG' },
+    { value: 'fa' as const, code: 'PER' }
   ];
-
-  const handleAddTimeZone = useCallback(
-    (zone: string) => {
-      if (!zone || timeZones.includes(zone)) {
-        return;
-      }
-      onUpdateTimeZones([...normalizedAdditionalZones, zone]);
-    },
-    [onUpdateTimeZones, normalizedAdditionalZones, timeZones]
-  );
-
-  const handleRemoveTimeZone = useCallback(
-    (zone: string) => {
-      onUpdateTimeZones(normalizedAdditionalZones.filter((value) => value !== zone));
-    },
-    [onUpdateTimeZones, normalizedAdditionalZones]
-  );
 
   const focusInput = useCallback(() => {
     if (!(showSearch && Boolean(onSearchChange))) {
@@ -796,33 +822,33 @@ const TopBar = ({
     'flex h-10 items-center justify-center gap-2 rounded-full border border-accent/50 bg-[color-mix(in srgb,var(--accent) 26%, transparent)] px-5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accentText)] shadow-[0_12px_26px_rgba(0,0,0,0.28)] backdrop-blur transition hover:border-accent hover:bg-[color-mix(in srgb,var(--accent) 34%, transparent)] active:translate-y-px active:shadow-[0_6px_18px_rgba(0,0,0,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60';
   const clockClass = 'flex min-w-[120px] items-center justify-center px-3 py-1 text-xs text-muted';
   const securityLabel = secureMode
-    ? 'Secure mode'
+    ? copy.securitySecureMode
     : eventObfuscation
-      ? 'Obfuscated'
+      ? copy.securityObfuscated
       : encryptedNotes
-        ? 'Encrypted notes'
+        ? copy.securityEncryptedNotes
         : twoFactorEnabled
-          ? '2FA ready'
-          : 'Standard';
-  const syncLabel = syncStrategy === 'offline' ? 'Offline' : syncStrategy === 'ipfs' ? 'IPFS sync' : 'P2P sync';
+          ? copy.securityTwoFactorReady
+          : copy.securityStandard;
+  const syncLabel = syncStrategy === 'offline' ? copy.syncOffline : syncStrategy === 'ipfs' ? copy.syncIpfs : copy.syncP2p;
   const syncDetail =
-    syncStrategy === 'offline' ? 'Local only' : syncTrustedDevices ? 'Trusted devices' : 'Manual pairing';
+    syncStrategy === 'offline' ? copy.syncLocalOnly : syncTrustedDevices ? copy.syncTrustedDevices : copy.syncManualPairing;
   const desktopOverflowActions = useMemo<OverflowAction[]>(() => {
     const actions: OverflowAction[] = [];
     if (allowCreateProfile) {
-      actions.push({ key: 'profile', label: '+ Profile', onClick: onCreateProfile });
+      actions.push({ key: 'profile', label: copy.addProfile, onClick: onCreateProfile });
     }
-    actions.push({ key: 'hotkeys', label: 'Hotkey', onClick: () => setHotkeysOpen(true) });
+    actions.push({ key: 'hotkeys', label: copy.hotkey, onClick: () => setHotkeysOpen(true) });
     return actions;
-  }, [allowCreateProfile, onCreateProfile, setHotkeysOpen]);
+  }, [allowCreateProfile, copy.addProfile, copy.hotkey, onCreateProfile, setHotkeysOpen]);
   const mobileOverflowActions = useMemo<OverflowAction[]>(() => {
     const actions: OverflowAction[] = [];
     if (allowCreateProfile) {
-      actions.push({ key: 'profile', label: '+ Profile', onClick: onCreateProfile });
+      actions.push({ key: 'profile', label: copy.addProfile, onClick: onCreateProfile });
     }
-    actions.push({ key: 'hotkeys', label: 'Hotkey', onClick: () => setHotkeysOpen(true) });
+    actions.push({ key: 'hotkeys', label: copy.hotkey, onClick: () => setHotkeysOpen(true) });
     return actions;
-  }, [allowCreateProfile, onCreateProfile, setHotkeysOpen]);
+  }, [allowCreateProfile, copy.addProfile, copy.hotkey, onCreateProfile, setHotkeysOpen]);
   const showDesktopOverflow = allowProfileSwitch || desktopOverflowActions.length > 0;
 
   const renderSearchInput = (inputRef: React.RefObject<HTMLInputElement>) => (
@@ -843,7 +869,7 @@ const TopBar = ({
         ref={inputRef}
         value={search ?? ''}
         onChange={(event) => onSearchChange?.(event.target.value)}
-        placeholder="Search events"
+        placeholder={copy.searchEvents}
         readOnly={!showSearchInput}
         aria-disabled={!showSearchInput}
         onFocus={() => setShowSearchInput(true)}
@@ -863,7 +889,7 @@ const TopBar = ({
                   type="button"
                   onClick={onOpenNav}
                   className={`${pillBase} flex-none px-3 text-muted hover:text-text md:hidden`}
-                  aria-label="Open navigation"
+                  aria-label={copy.openNavigation}
                   {...pillMotion}
                 >
                   <HamburgerIcon />
@@ -873,7 +899,7 @@ const TopBar = ({
                 type="button"
                 onClick={onHome}
                 className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
-                aria-label="Go to calendar"
+                aria-label={copy.goToCalendar}
                 {...pillMotion}
               >
                 <span className="h-6 w-6">
@@ -898,22 +924,22 @@ const TopBar = ({
                   className={`${pillBase} px-3 text-muted hover:text-text`}
                   {...pillMotion}
                 >
-                  Today
+                  {copy.today}
                 </motion.button>
               )}
               {showViewControls && (
                 <Segmented
-                  ariaLabel="Calendar view"
+                  ariaLabel={copy.calendarView}
                   items={[
                     {
                       key: 'week',
-                      label: 'Week',
+                      label: copy.week,
                       onClick: () => onViewChange('timeGridWeek'),
                       active: view === 'timeGridWeek'
                     },
                     {
                       key: 'month',
-                      label: 'Month',
+                      label: copy.month,
                       onClick: () => onViewChange('dayGridMonth'),
                       active: view === 'dayGridMonth'
                     }
@@ -935,23 +961,14 @@ const TopBar = ({
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color-mix(in srgb,var(--accentText) 25%, transparent)] text-[12px]">
                     +
                   </span>
-                  New event
+                  {copy.newEvent}
                 </motion.button>
               )}
               <div className="hidden lg:flex items-center gap-2">
-                <TimeZoneMenu
-                  timeZones={timeZones}
-                  label={t('topbar.timeZone')}
-                  onAdd={handleAddTimeZone}
-                  onRemove={handleRemoveTimeZone}
-                  addLabel={t('topbar.addTimeZone')}
-                  removeLabel={t('topbar.removeTimeZone')}
-                  customLabel={t('topbar.customTimeZone')}
-                />
                 <LanguageMenu
                   language={language}
                   onChange={onLanguageChange}
-                  label={t('topbar.language')}
+                  label={copy.languageLabel}
                   options={languageOptions}
                 />
                 {canInstall && !isIOS && (
@@ -961,7 +978,7 @@ const TopBar = ({
                     className={`${pillBase} px-3 text-muted hover:text-text`}
                     {...pillMotion}
                   >
-                    {t('topbar.install')}
+                    {copy.installApp}
                   </motion.button>
                 )}
               </div>
@@ -994,7 +1011,7 @@ const TopBar = ({
                     type="button"
                     onClick={onHome}
                     className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
-                    aria-label="Go to calendar"
+                    aria-label={copy.goToCalendar}
                     {...pillMotion}
                   >
                     <span className="h-6 w-6">
@@ -1012,7 +1029,7 @@ const TopBar = ({
                     </span>
                   </motion.button>
                   <motion.div className={`${pillBase} gap-2 px-3 text-muted`} {...pillMotion}>
-                    <span className="text-[10px] tracking-[0.3em]">SYNC</span>
+                    <span className="text-[10px] tracking-[0.3em]">{copy.sync}</span>
                     <span className="text-text">{syncLabel}</span>
                     <span className="text-[10px] uppercase tracking-[0.2em] text-muted">{syncDetail}</span>
                   </motion.div>
@@ -1020,14 +1037,14 @@ const TopBar = ({
                 <div className="flex min-w-0 items-center justify-center">
                   {showViewControls && (
                     <Segmented
-                      ariaLabel="Calendar view"
+                      ariaLabel={copy.calendarView}
                       items={[
                         {
                           key: 'week',
                           label: (
                             <>
-                              <span className="hidden xl:inline">Week</span>
-                              <span className="xl:hidden">Wk</span>
+                              <span className="hidden xl:inline">{copy.week}</span>
+                              <span className="xl:hidden">{copy.weekShort}</span>
                             </>
                           ),
                           onClick: () => onViewChange('timeGridWeek'),
@@ -1037,8 +1054,8 @@ const TopBar = ({
                           key: 'month',
                           label: (
                             <>
-                              <span className="hidden xl:inline">Month</span>
-                              <span className="xl:hidden">Mo</span>
+                              <span className="hidden xl:inline">{copy.month}</span>
+                              <span className="xl:hidden">{copy.monthShort}</span>
                             </>
                           ),
                           onClick: () => onViewChange('dayGridMonth'),
@@ -1064,7 +1081,7 @@ const TopBar = ({
                         openSearchInput();
                       }}
                       className={iconButtonBase}
-                      aria-label={showSearchInput ? 'Close search' : 'Open search'}
+                      aria-label={showSearchInput ? copy.closeSearch : copy.openSearch}
                       {...pillMotion}
                     >
                       <SearchIcon />
@@ -1080,22 +1097,13 @@ const TopBar = ({
                       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color-mix(in srgb,var(--accentText) 25%, transparent)] text-[12px]">
                         +
                       </span>
-                      New event
+                      {copy.newEvent}
                     </motion.button>
                   )}
-                  <TimeZoneMenu
-                    timeZones={timeZones}
-                    label={t('topbar.timeZone')}
-                    onAdd={handleAddTimeZone}
-                    onRemove={handleRemoveTimeZone}
-                    addLabel={t('topbar.addTimeZone')}
-                    removeLabel={t('topbar.removeTimeZone')}
-                    customLabel={t('topbar.customTimeZone')}
-                  />
                   <LanguageMenu
                     language={language}
                     onChange={onLanguageChange}
-                    label={t('topbar.language')}
+                    label={copy.languageLabel}
                     options={languageOptions}
                   />
                   {canInstall && !isIOS && (
@@ -1105,13 +1113,13 @@ const TopBar = ({
                       className={`${pillBase} px-3 text-muted hover:text-text`}
                       {...pillMotion}
                     >
-                      {t('topbar.install')}
+                      {copy.installApp}
                     </motion.button>
                   )}
                   <motion.button
                     type="button"
                     className={iconButtonBase}
-                    aria-label="Notifications"
+                    aria-label={copy.notifications}
                     {...pillMotion}
                   >
                     <span className="relative">
@@ -1125,7 +1133,7 @@ const TopBar = ({
                     type="button"
                     onClick={() => setHotkeysOpen(true)}
                     className={iconButtonBase}
-                    aria-label="Help & shortcuts"
+                    aria-label={copy.helpShortcuts}
                     {...pillMotion}
                   >
                     <InfoIcon />
@@ -1138,7 +1146,7 @@ const TopBar = ({
                     type="button"
                     onClick={onLockNow}
                     className={iconButtonBase}
-                    aria-label="Lock now"
+                    aria-label={copy.lockNow}
                     {...pillMotion}
                   >
                     <LockIcon />
@@ -1146,6 +1154,9 @@ const TopBar = ({
                   <ProfileMenu
                     options={profiles}
                     activeId={activeProfileId}
+                    label={copy.agent}
+                    activeLabel={copy.activeAgent}
+                    addProfileLabel={copy.addProfile}
                     onChange={allowProfileSwitch ? onProfileChange : undefined}
                     disabled={!allowProfileSwitch}
                   />
@@ -1154,6 +1165,8 @@ const TopBar = ({
                       actions={desktopOverflowActions}
                       showProfileList={false}
                       showCreateProfileItem={false}
+                      openLabel={copy.openOverflowMenu}
+                      addProfileLabel={copy.addProfile}
                       profiles={profiles}
                       activeProfileId={activeProfileId}
                       onProfileChange={onProfileChange}
@@ -1167,24 +1180,24 @@ const TopBar = ({
                 <div className="flex min-w-0 items-center gap-2">
                   {onToday && (
                     <motion.button onClick={onToday} className={`${pillBase} px-3 text-muted`} {...pillMotion}>
-                      Today
+                      {copy.today}
                     </motion.button>
                   )}
                 </div>
                 <div className="flex min-w-0 items-center justify-center">
                   {showNavControls && (
                     <Segmented
-                      ariaLabel="Navigate calendar"
+                      ariaLabel={copy.navigateCalendar}
                       items={[
                         {
                           key: 'prev',
-                          label: 'Previous',
+                          label: copy.previous,
                           onClick: onPrev,
                           icon: <ChevronIcon direction="left" />
                         },
                         {
                           key: 'next',
-                          label: 'Next',
+                          label: copy.next,
                           onClick: onNext,
                           icon: <ChevronIcon direction="right" />
                         }
@@ -1207,7 +1220,7 @@ const TopBar = ({
                   type="button"
                   onClick={onOpenNav}
                   className={`${pillBase} flex-none px-3 text-muted hover:text-text`}
-                  aria-label="Open navigation"
+                  aria-label={copy.openNavigation}
                   {...pillMotion}
                 >
                   <HamburgerIcon />
@@ -1217,7 +1230,7 @@ const TopBar = ({
                 type="button"
                 onClick={onHome}
                 className="flex h-9 flex-none items-center gap-2 rounded-full border border-grid bg-panel px-3 text-text transition hover:border-accent/60"
-                aria-label="Go to calendar"
+                aria-label={copy.goToCalendar}
                 {...pillMotion}
               >
                 <span className="h-6 w-6">
@@ -1247,7 +1260,7 @@ const TopBar = ({
                     openSearchInput();
                   }}
                   className={iconButtonBase}
-                  aria-label={showSearchInput ? 'Close search' : 'Open search'}
+                  aria-label={showSearchInput ? copy.closeSearch : copy.openSearch}
                   {...pillMotion}
                 >
                   <SearchIcon />
@@ -1263,12 +1276,15 @@ const TopBar = ({
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color-mix(in srgb,var(--accentText) 25%, transparent)] text-[12px]">
                     +
                   </span>
-                  New event
+                  {copy.newEvent}
                 </motion.button>
               )}
               <ProfileMenu
                 options={profiles}
                 activeId={activeProfileId}
+                label={copy.agent}
+                activeLabel={copy.activeAgent}
+                addProfileLabel={copy.addProfile}
                 onChange={allowProfileSwitch ? onProfileChange : undefined}
                 disabled={!allowProfileSwitch}
               />
@@ -1276,6 +1292,8 @@ const TopBar = ({
                 actions={mobileOverflowActions}
                 showProfileList={false}
                 showCreateProfileItem={false}
+                openLabel={copy.openOverflowMenu}
+                addProfileLabel={copy.addProfile}
                 profiles={profiles}
                 activeProfileId={activeProfileId}
                 onProfileChange={onProfileChange}
@@ -1287,22 +1305,22 @@ const TopBar = ({
           <div className="mt-2 flex flex-wrap items-center gap-3 lg:hidden">
             {onToday && (
               <motion.button onClick={onToday} className={`${pillBase} px-3 text-muted`} {...pillMotion}>
-                Today
+                {copy.today}
               </motion.button>
             )}
             {showViewControls && (
               <Segmented
-                ariaLabel="Calendar view"
+                ariaLabel={copy.calendarView}
                 items={[
                   {
                     key: 'week',
-                    label: 'Week',
+                    label: copy.week,
                     onClick: () => onViewChange('timeGridWeek'),
                     active: view === 'timeGridWeek'
                   },
                   {
                     key: 'month',
-                    label: 'Month',
+                    label: copy.month,
                     onClick: () => onViewChange('dayGridMonth'),
                     active: view === 'dayGridMonth'
                   }
@@ -1311,17 +1329,17 @@ const TopBar = ({
             )}
             {showNavControls && (
               <Segmented
-                ariaLabel="Navigate calendar"
+                ariaLabel={copy.navigateCalendar}
                 items={[
                   {
                     key: 'prev',
-                    label: 'Previous',
+                    label: copy.previous,
                     onClick: onPrev,
                     icon: <ChevronIcon direction="left" />
                   },
                   {
                     key: 'next',
-                    label: 'Next',
+                    label: copy.next,
                     onClick: onNext,
                     icon: <ChevronIcon direction="right" />
                   }
@@ -1335,7 +1353,7 @@ const TopBar = ({
             <motion.button
               onClick={onLockNow}
               className={iconButtonBase}
-              aria-label="Lock now"
+              aria-label={copy.lockNow}
               {...pillMotion}
             >
               <LockIcon />
@@ -1344,24 +1362,15 @@ const TopBar = ({
               type="button"
               onClick={() => setHotkeysOpen(true)}
               className={iconButtonBase}
-              aria-label="Help & shortcuts"
+              aria-label={copy.helpShortcuts}
               {...pillMotion}
             >
               <InfoIcon />
             </motion.button>
-            <TimeZoneMenu
-              timeZones={timeZones}
-              label={t('topbar.timeZone')}
-              onAdd={handleAddTimeZone}
-              onRemove={handleRemoveTimeZone}
-              addLabel={t('topbar.addTimeZone')}
-              removeLabel={t('topbar.removeTimeZone')}
-              customLabel={t('topbar.customTimeZone')}
-            />
             <LanguageMenu
               language={language}
               onChange={onLanguageChange}
-              label={t('topbar.language')}
+              label={copy.languageLabel}
               options={languageOptions}
             />
             {showSearchPill && (

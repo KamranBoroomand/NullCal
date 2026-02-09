@@ -19,6 +19,7 @@ import { buildCsv, buildIcs, buildJson } from '../security/eventExport';
 import { buildExportPayload, type ExportMode, validateExportPayload } from '../security/exportUtils';
 import { usePrivacyScreen } from '../state/privacy';
 import { useTranslations } from '../i18n/useTranslations';
+import { translateLiteral } from '../i18n/literalTranslations';
 import type { AppSettings } from '../storage/types';
 import { DEFAULT_THEME_BY_MODE, THEME_PACKS } from '../theme/themePacks';
 import { clearAuditLog, readAuditLog } from '../storage/auditLog';
@@ -36,7 +37,7 @@ const avatarColors = ['#f4ff00', '#9bff00', '#6b7cff', '#38f5c8', '#ff6b3d', '#f
 
 const SafetyCenter = () => {
   const reduceMotion = useReducedMotion();
-  const { t } = useTranslations();
+  const { t, language } = useTranslations();
   const {
     state,
     lockNow,
@@ -100,8 +101,8 @@ const SafetyCenter = () => {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    document.title = 'NullCal — Safety Center';
-  }, []);
+    document.title = translateLiteral('NullCal — Safety Center', language);
+  }, [language]);
 
   useEffect(() => {
     if (!state) {
@@ -997,8 +998,6 @@ const SafetyCenter = () => {
           onCommandExport={handleCommandExport}
           language={state.settings.language}
           onLanguageChange={(language) => updateSettings({ language })}
-          additionalTimeZones={state.settings.additionalTimeZones ?? []}
-          onUpdateTimeZones={(zones) => updateSettings({ additionalTimeZones: zones })}
           secureMode={state.settings.secureMode}
           eventObfuscation={state.settings.eventObfuscation}
           encryptedNotes={state.settings.encryptedNotes}

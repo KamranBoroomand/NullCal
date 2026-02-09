@@ -17,6 +17,7 @@ import { buildExportPayload, validateExportPayload } from '../security/exportUti
 import type { AppSettings } from '../storage/types';
 import { formatReminderRule, parseReminderRule } from '../reminders/reminderRules';
 import { useTranslations } from '../i18n/useTranslations';
+import { translateLiteral } from '../i18n/literalTranslations';
 
 const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 const fromInputValue = (value: string) => new Date(value).toISOString();
@@ -60,13 +61,13 @@ const AppPage = () => {
   const [templateName, setTemplateName] = useState('');
   const [templateApplyId, setTemplateApplyId] = useState('');
   const [wizardStep, setWizardStep] = useState(0);
-  const { t } = useTranslations();
+  const { t, language } = useTranslations();
   const reduceMotion = useReducedMotion();
   const noteEncrypted = isEncryptedNote(draft?.notes);
 
   useEffect(() => {
-    document.title = 'NullCal — Calendar';
-  }, []);
+    document.title = translateLiteral('NullCal — Calendar', language);
+  }, [language]);
 
   useEffect(() => {
     if (!draft) {
@@ -559,8 +560,6 @@ const AppPage = () => {
             onCommandExport={handleCommandExport}
             language={state.settings.language}
             onLanguageChange={(language) => updateSettings({ language })}
-            additionalTimeZones={state.settings.additionalTimeZones ?? []}
-            onUpdateTimeZones={(zones) => updateSettings({ additionalTimeZones: zones })}
             secureMode={state.settings.secureMode}
             eventObfuscation={state.settings.eventObfuscation}
             encryptedNotes={state.settings.encryptedNotes}
