@@ -29,18 +29,31 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Resolve base path
+        id: resolve-base
+        run: |
+          if [ -f public/CNAME ]; then
+            echo "vite_base=/" >> "$GITHUB_OUTPUT"
+          else
+            echo "vite_base=/${{ github.event.repository.name }}/" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Echo base path
-        run: echo "VITE_BASE=/${{ github.event.repository.name }}/"
+        run: echo "VITE_BASE=${{ steps.resolve-base.outputs.vite_base }}"
 
       - name: Build
         run: npm run build
         env:
-          VITE_BASE: "/${{ github.event.repository.name }}/"
+          VITE_BASE: "${{ steps.resolve-base.outputs.vite_base }}"
 
       - name: Sanity check build base
         run: |
           ls -la dist/assets
-          grep -q "/${{ github.event.repository.name }}/assets/" dist/index.html
+          if [ "${{ steps.resolve-base.outputs.vite_base }}" = "/" ]; then
+            grep -q '"/assets/' dist/index.html
+          else
+            grep -q "/${{ github.event.repository.name }}/assets/" dist/index.html
+          fi
 
       - name: Configure Pages
         id: pages
