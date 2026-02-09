@@ -78,9 +78,14 @@ export const startTwoFactorChallenge = async (channel: TwoFactorChannel, destina
   const expiresAt = Date.now() + 10 * 60 * 1000;
   saveChallenge({ hash, salt: toBase64(salt), expiresAt });
 
-  const { sendTwoFactorCode } = await import('./notifications');
-  await sendTwoFactorCode(channel, destination, code);
-  notifyFallback(code);
+  try {
+    const { sendTwoFactorCode } = await import('./notifications');
+    await sendTwoFactorCode(channel, destination, code);
+    notifyFallback(code);
+  } catch (error) {
+    clearTwoFactorChallenge();
+    throw error;
+  }
 };
 
 export const verifyTwoFactorCode = async (input: string) => {

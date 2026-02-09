@@ -210,22 +210,26 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     }
     let cancelled = false;
     const persist = async () => {
-      const snapshot = JSON.stringify({
-        profiles: state.profiles,
-        calendars: state.calendars,
-        events: state.events,
-        templates: state.templates,
-        settings: state.settings,
-        securityPrefs: state.securityPrefs
-      });
-      const hash = await hashSnapshot(snapshot);
-      if (cancelled || persistHashRef.current === hash) {
-        return;
-      }
-      persistHashRef.current = hash;
-      saveAppState(state);
-      if (state.settings.cacheEnabled) {
-        writeCachedState(state, state.settings.cacheTtlMinutes);
+      try {
+        const snapshot = JSON.stringify({
+          profiles: state.profiles,
+          calendars: state.calendars,
+          events: state.events,
+          templates: state.templates,
+          settings: state.settings,
+          securityPrefs: state.securityPrefs
+        });
+        const hash = await hashSnapshot(snapshot);
+        if (cancelled || persistHashRef.current === hash) {
+          return;
+        }
+        persistHashRef.current = hash;
+        await saveAppState(state);
+        if (state.settings.cacheEnabled) {
+          writeCachedState(state, state.settings.cacheTtlMinutes);
+        }
+      } catch {
+        // Ignore transient persistence failures; next state change retries.
       }
     };
     void persist();
@@ -1129,6 +1133,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         profiles: decrypted.profiles,
         calendars: decrypted.calendars ?? [],
         events: decrypted.events ?? [],
+        templates: decrypted.templates,
         settings,
         securityPrefs: {
           ...baseSecurityPrefs,

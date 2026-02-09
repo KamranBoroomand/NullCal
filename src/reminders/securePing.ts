@@ -14,7 +14,7 @@ export const sendSecurePing = async (event: CalendarEvent, settings: AppSettings
     if (!settings.telegramBotToken || !settings.telegramChatId) {
       throw new Error('Telegram settings missing.');
     }
-    await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, {
+    const response = await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -22,6 +22,9 @@ export const sendSecurePing = async (event: CalendarEvent, settings: AppSettings
         text: message
       })
     });
+    if (!response.ok) {
+      throw new Error('Telegram reminder delivery failed.');
+    }
     return;
   }
 
@@ -29,10 +32,13 @@ export const sendSecurePing = async (event: CalendarEvent, settings: AppSettings
     if (!settings.signalWebhookUrl) {
       throw new Error('Signal webhook missing.');
     }
-    await fetch(settings.signalWebhookUrl, {
+    const response = await fetch(settings.signalWebhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message })
     });
+    if (!response.ok) {
+      throw new Error('Signal reminder delivery failed.');
+    }
   }
 };

@@ -25,6 +25,12 @@ export const createP2PSync = (
   onReceive: (payload: SyncPayload) => void,
   shareToken?: string
 ): SyncHandle => {
+  if (typeof BroadcastChannel === 'undefined') {
+    return {
+      broadcast: () => {},
+      close: () => {}
+    };
+  }
   const channelName = shareToken ? `${CHANNEL}:${shareToken}` : CHANNEL;
   const channel = new BroadcastChannel(channelName);
   channel.addEventListener('message', (event) => {

@@ -1,6 +1,8 @@
 import type { Calendar, CalendarEvent, Profile } from '../storage/types';
 
 const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
+const escapeIcsText = (value: string) =>
+  value.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
 
 export const buildCsv = (events: CalendarEvent[], calendars: Calendar[]) => {
   const calendarLookup = new Map(calendars.map((calendar) => [calendar.id, calendar.name]));
@@ -40,19 +42,19 @@ export const buildIcs = (events: CalendarEvent[], profile: Profile | null) => {
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//NullCal//EN',
-    `X-WR-CALNAME:${profile?.displayName ?? profile?.name ?? 'NullCal Calendar'}`
+    `X-WR-CALNAME:${escapeIcsText(profile?.displayName ?? profile?.name ?? 'NullCal Calendar')}`
   ];
   events.forEach((event) => {
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${event.id}@nullcal`);
     lines.push(`DTSTART:${formatIcsDate(event.start)}`);
     lines.push(`DTEND:${formatIcsDate(event.end)}`);
-    lines.push(`SUMMARY:${event.title || 'Untitled event'}`);
+    lines.push(`SUMMARY:${escapeIcsText(event.title || 'Untitled event')}`);
     if (event.location) {
-      lines.push(`LOCATION:${event.location}`);
+      lines.push(`LOCATION:${escapeIcsText(event.location)}`);
     }
     if (event.notes) {
-      lines.push(`DESCRIPTION:${event.notes.replace(/\n/g, '\\n')}`);
+      lines.push(`DESCRIPTION:${escapeIcsText(event.notes)}`);
     }
     if (event.recurrenceRule) {
       lines.push(`RRULE:${event.recurrenceRule}`);

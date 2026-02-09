@@ -36,8 +36,8 @@ const MiniMonth = ({ selectedDate, onSelect }: MiniMonthProps) => {
         <span>{format(selectedDate, 'yyyy')}</span>
       </div>
       <div className="mt-3 grid grid-cols-7 gap-1 text-[10px] text-muted">
-        {weekLabels.map((label) => (
-          <div key={label} className="text-center">
+        {weekLabels.map((label, index) => (
+          <div key={`${label}-${index}`} className="text-center">
             {label}
           </div>
         ))}

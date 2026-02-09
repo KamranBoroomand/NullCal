@@ -15,11 +15,14 @@ export const scheduleReminders = (
   const timeouts: number[] = [];
 
   if (settings.reminderChannel === 'local' || settings.reminderChannel === 'push') {
+    if (typeof Notification === 'undefined') {
+      return { stop: () => {} };
+    }
     if (Notification.permission === 'default') {
       void Notification.requestPermission();
     }
 
-    if (Notification.permission !== 'granted') {
+    if (Notification.permission === 'denied') {
       return { stop: () => {} };
     }
   }
@@ -35,9 +38,11 @@ export const scheduleReminders = (
     }
     const timeout = window.setTimeout(() => {
       if (settings.reminderChannel === 'local' || settings.reminderChannel === 'push') {
-        new Notification(event.title || 'Upcoming event', {
-          body: event.location ? `${event.location}` : 'Event starting now'
-        });
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification(event.title || 'Upcoming event', {
+            body: event.location ? `${event.location}` : 'Event starting now'
+          });
+        }
         return;
       }
       if (settings.reminderChannel === 'email' || settings.reminderChannel === 'sms') {

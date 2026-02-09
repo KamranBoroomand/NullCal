@@ -688,6 +688,18 @@ const TopBar = ({
     input?.focus();
   }, [showSearch, onSearchChange]);
 
+  const openSearchInput = useCallback(() => {
+    if (!(showSearch && Boolean(onSearchChange))) {
+      return;
+    }
+    if (!showSearchInput) {
+      setShowSearchInput(true);
+    }
+    window.requestAnimationFrame(() => {
+      focusInput();
+    });
+  }, [focusInput, onSearchChange, showSearch, showSearchInput]);
+
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -713,7 +725,7 @@ const TopBar = ({
         const key = event.key.toLowerCase();
         if (key === 'k') {
           event.preventDefault();
-          focusInput();
+          openSearchInput();
           return;
         }
         if (key === 'n') {
@@ -766,7 +778,7 @@ const TopBar = ({
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [focusInput, onCommandAdd, onCommandDecoy, onCommandExport, onLockNow, onPrev, onNext]);
+  }, [onCommandAdd, onCommandDecoy, onCommandExport, onLockNow, onPrev, onNext, openSearchInput]);
 
   useEffect(() => {
     if (search) {
@@ -820,8 +832,7 @@ const TopBar = ({
         if (showSearchInput) {
           return;
         }
-        setShowSearchInput(true);
-        focusInput();
+        openSearchInput();
       }}
       {...pillMotion}
     >
@@ -1050,8 +1061,7 @@ const TopBar = ({
                           onSearchChange?.('');
                           return;
                         }
-                        setShowSearchInput(true);
-                        focusInput();
+                        openSearchInput();
                       }}
                       className={iconButtonBase}
                       aria-label={showSearchInput ? 'Close search' : 'Open search'}
@@ -1234,8 +1244,7 @@ const TopBar = ({
                       onSearchChange?.('');
                       return;
                     }
-                    setShowSearchInput(true);
-                    focusInput();
+                    openSearchInput();
                   }}
                   className={iconButtonBase}
                   aria-label={showSearchInput ? 'Close search' : 'Open search'}

@@ -112,7 +112,12 @@ const SafetyCenter = () => {
     setTwoFactorMode(state.settings.twoFactorMode ?? 'otp');
     setTotpSecret(state.securityPrefs.totpSecret ?? '');
     setTotpDraftSecret('');
-  }, [state]);
+  }, [
+    state?.securityPrefs.totpSecret,
+    state?.settings.twoFactorChannel,
+    state?.settings.twoFactorDestination,
+    state?.settings.twoFactorMode
+  ]);
 
   useEffect(() => {
     void isBiometricSupported().then((supported) => setBiometricReady(supported));
@@ -700,7 +705,9 @@ const SafetyCenter = () => {
       enabled &&
       (state?.settings.reminderChannel === 'local' || state?.settings.reminderChannel === 'push')
     ) {
-      if (Notification.permission === 'default') {
+      if (typeof Notification === 'undefined') {
+        notify('Notifications are not supported on this device.', 'error');
+      } else if (Notification.permission === 'default') {
         try {
           await Notification.requestPermission();
         } catch {

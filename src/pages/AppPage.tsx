@@ -174,6 +174,9 @@ const AppPage = () => {
       state?.settings.reminderChannel === 'local' ||
       state?.settings.reminderChannel === 'push'
     ) {
+      if (typeof Notification === 'undefined') {
+        return;
+      }
       if (Notification.permission === 'default') {
         try {
           await Notification.requestPermission();
@@ -454,7 +457,7 @@ const AppPage = () => {
       const haystack = `${event.title} ${event.location ?? ''} ${event.notes ?? ''}`.toLowerCase();
       return haystack.includes(term);
     });
-  }, [activeProfile, search, visibleCalendarIds]);
+  }, [activeProfile, events, search, visibleCalendarIds]);
 
   const calendarEvents: EventInput[] = useMemo(() => {
     if (!activeProfile) {
