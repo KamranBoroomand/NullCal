@@ -18,7 +18,6 @@ Local-first operations calendar with privacy-first controls, profile isolation, 
 - [Deployment](#deployment)
 - [Security Notes](#security-notes)
 - [Roadmap](#roadmap)
-- [Repo Family README Format](#repo-family-readme-format)
 
 ## Overview
 
