@@ -1,72 +1,142 @@
-# NullCAL
+# NullCal
 
-NullCAL is a local-first, Photon-inspired calendar built with React, Vite, and TypeScript. It ships with multiple profiles, themed calendars, and a dark glass UI designed for focus.
+<p align="left">
+  <img src="public/logo-lockup-256.png" alt="NullCal logo" width="160" />
+</p>
 
-## Features
+Local-first operations calendar with privacy-first controls, profile isolation, encrypted backups, and a dedicated Safety Center.
 
-- Week + month calendar views powered by FullCalendar
-- Local-only profiles with independent calendars and events
-- Drag, drop, resize, and modal editing for events
-- Import/export profile data as JSON
-- TailwindCSS-based Photon UI styling
+## Table of Contents
 
-## Getting Started
+- [Overview](#overview)
+- [Core Features](#core-features)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Scripts](#scripts)
+- [Deployment](#deployment)
+- [Security Notes](#security-notes)
+- [Roadmap](#roadmap)
+- [Repo Family README Format](#repo-family-readme-format)
+
+## Overview
+
+NullCal is a React + TypeScript Progressive Web App for scheduling in high-privacy workflows.
+It is built to run offline-first, keep data local by default, and provide operational security controls without requiring a backend for core use.
+
+Current app routes:
+
+- `/` -> Calendar workspace
+- `/safety` -> Safety Center (security, export/import, audit, panic wipe, profile hardening)
+
+## Core Features
+
+- Multi-profile calendar workspaces with isolated events/calendars/templates
+- Week and month scheduling views (FullCalendar) with drag/drop and resize
+- Event creation wizard with reminders, recurrence, attendees, notes, and reusable templates
+- 47 theme packs with dark/light variants and instant palette switching
+- Local lock screen with PIN, decoy PIN, local passphrase, passkey, and biometric unlock options
+- Two-factor support (OTP/TOTP flows) plus privacy-screen hotkey (`Cmd/Ctrl+Shift+P`)
+- Encrypted export/import backups with export hygiene modes (`full`, `clean`, `minimal`)
+- Event export formats: CSV, ICS, and JSON
+- Audit log, auto-lock rules, decoy profile flow, and panic wipe
+- PWA install support with service worker caching and standalone mode
+- Built-in localization support: English (`en`), Russian (`ru`), Persian (`fa`)
+
+## Tech Stack
+
+- Frontend: React 18, TypeScript, Vite 5
+- UI/Animation: Tailwind CSS, Framer Motion
+- Calendar Engine: FullCalendar
+- Local Persistence: IndexedDB (`idb`) + localStorage cache/audit
+- Security Primitives: Web Crypto API (PBKDF2 + AES-GCM, hash-based verification)
+- PWA: `vite-plugin-pwa` + Workbox runtime caching
+
+## Architecture
+
+Key directories:
+
+- `src/app` -> app shell, store/provider wiring, top bar, sidebar, hotkeys
+- `src/pages` -> main calendar page and Safety Center
+- `src/storage` -> IndexedDB schema, persistence, cache, seed data, audit log
+- `src/security` -> encryption, auth flows, export hygiene, reminders integrations
+- `src/reminders` -> local reminder scheduler and secure ping adapters
+- `src/theme` -> theme provider and theme packs
+- `src/i18n` -> translations and localization helpers
+
+Persistence model:
+
+- IndexedDB database: `nullcal-db`
+- Object stores: `profiles`, `calendars`, `events`, `templates`, `settings`, `securityPrefs`
+- Local cache key: `nullcal:cache`
+- Audit log key: `nullcal:audit`
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 20+ recommended
+- npm 10+
+
+### Install and Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the URL printed by Vite to view the app.
+Open the local URL shown by Vite (typically `http://localhost:5173`).
 
-## Build for Production
+### Production Build
 
 ```bash
 npm run build
 npm run preview
 ```
 
-The production build output is generated in `dist/` and includes a `404.html` fallback for GitHub Pages routing.
+`npm run build` also generates `dist/404.html` for GitHub Pages SPA fallback support.
 
-## Deploy to GitHub Pages
+## Configuration
 
-This repo includes a GitHub Actions workflow that builds and deploys the site to GitHub Pages.
+Environment variables:
 
-1. In GitHub, go to **Settings → Pages**.
-2. Under **Source**, select **GitHub Actions**.
-3. Push to `main` (or `master`) and the workflow will publish `dist/`.
+- `VITE_BASE` -> base path for deployment (for example `/NullCal/` on GitHub Pages)
+- `VITE_NOTIFICATION_API` -> notification backend base URL (default: `/api`)
 
-The site will be available at:
+## Scripts
 
-```
-https://<user>.github.io/<REPO_NAME>/
-```
+- `npm run dev` -> ensure icons + start dev server
+- `npm run build` -> ensure icons, run hook-order guard, build, generate `404.html`
+- `npm run preview` -> preview built output locally
+- `npm run lint` -> run hook dependency order validator
+- `npm run typecheck` -> TypeScript compile check (`tsc --noEmit`)
 
-The repository name is case-sensitive in the URL, and the workflow derives the base path automatically from the repo name to avoid mismatches.
+## Deployment
 
-## Data Storage
+GitHub Actions workflow: `.github/workflows/deploy.yml`
 
-Profile data is stored locally in the browser under the `nullcal:v1` key. Use the Import/Export controls in the sidebar to back up or move profiles between devices.
+- Triggers on pushes to `main` or `master`
+- Resolves `VITE_BASE` automatically:
+  - Uses `/` when `public/CNAME` exists
+  - Otherwise uses `/<repo-name>/`
+- Publishes `dist/` to GitHub Pages
 
-## Fonts (Self-Hosted)
+Custom domain in this repo:
 
-1. Drop your `.woff2` files into `public/fonts/`.
-2. Update `src/styles/fonts.css` with the filenames and weights you want to use.
-3. Refresh the app to verify the font stack updates.
+- `public/CNAME` -> `nullcal.kamranboroomand.ir`
 
-## Useful Scripts
+## Security Notes
 
-```bash
-npm run lint
-npm run typecheck
-```
+- Export encryption and note encryption use Web Crypto with PBKDF2-derived AES-GCM keys.
+- PIN/local passphrase hashes are PBKDF2-derived and verified client-side.
+- TOTP is implemented client-side for offline-friendly MFA.
+- Panic wipe removes IndexedDB, localStorage state, caches, and service workers.
+- Network lock is enforced in current app state logic, so outbound network-dependent integrations (for example email/SMS reminder delivery APIs) are constrained unless that behavior is intentionally relaxed.
 
-## Release QA Checklist
+## Roadmap
 
-- [ ] `npm run build` completes without errors.
-- [ ] `npm run preview` boots and loads `/NullCal/` without the router error screen.
-- [ ] `/NullCal/safety` loads without console errors.
-- [ ] Resize from 320px → 1920px and confirm TopBar pills never overlap.
-- [ ] Command Strip Mode ON keeps the TopBar layout stable and hotkeys overlay stays onscreen.
-- [ ] Safety Center cards stay within borders and remain content-height.
-- [ ] Theme selector swaps full theme packs (including backgrounds, panels, borders, text, accents).
+- Add real multi-device sync transport beyond local BroadcastChannel exchange
+- Add robust backend adapters for remote notifications and OTP delivery
+- Add automated test suites (unit + integration + E2E)
+- Add role-based collaboration workflows for shared/team modes
