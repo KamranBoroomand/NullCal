@@ -6,7 +6,6 @@ import type {
   AppState,
   Calendar,
   CalendarEvent,
-  EventTemplate,
   Profile,
   SecurityPrefs
 } from './types';
@@ -91,11 +90,14 @@ const defaultSecurityPrefs: SecurityPrefs = {
 };
 
 const normalizeCalendars = (calendars: Calendar[]): Calendar[] =>
-  calendars.map((calendar) => ({
-    ...calendar,
-    isVisible: calendar.isVisible ?? calendar.visible ?? true,
-    createdAt: calendar.createdAt ?? new Date().toISOString()
-  }));
+  calendars.map((calendar) => {
+    const legacyVisible = (calendar as Calendar & { visible?: boolean }).visible;
+    return {
+      ...calendar,
+      isVisible: calendar.isVisible ?? legacyVisible ?? true,
+      createdAt: calendar.createdAt ?? new Date().toISOString()
+    };
+  });
 
 const pickAvatar = (name: string) => {
   const seed = name.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);

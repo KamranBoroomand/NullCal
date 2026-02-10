@@ -2,7 +2,13 @@ const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 const ISSUER = 'NullCal';
 const STEP_SECONDS = 30;
 
-const toBase32 = (bytes: Uint8Array) => {
+const randomBytes = (length: number): Uint8Array<ArrayBuffer> => {
+  const bytes = new Uint8Array(new ArrayBuffer(length));
+  crypto.getRandomValues(bytes);
+  return bytes;
+};
+
+const toBase32 = (bytes: Uint8Array<ArrayBuffer>) => {
   let bits = 0;
   let value = 0;
   let output = '';
@@ -20,7 +26,7 @@ const toBase32 = (bytes: Uint8Array) => {
   return output;
 };
 
-const fromBase32 = (input: string) => {
+const fromBase32 = (input: string): Uint8Array<ArrayBuffer> => {
   const normalized = input.replace(/=+$/g, '').toUpperCase();
   let bits = 0;
   let value = 0;
@@ -47,7 +53,7 @@ const toCounterBuffer = (counter: number) => {
   return buffer;
 };
 
-const hmacSha1 = async (secret: Uint8Array, counter: number) => {
+const hmacSha1 = async (secret: Uint8Array<ArrayBuffer>, counter: number) => {
   const key = await crypto.subtle.importKey('raw', secret, { name: 'HMAC', hash: 'SHA-1' }, false, [
     'sign'
   ]);
@@ -65,7 +71,7 @@ const truncate = (hmac: ArrayBuffer) => {
   return (code % 1_000_000).toString().padStart(6, '0');
 };
 
-export const generateTotpSecret = () => toBase32(crypto.getRandomValues(new Uint8Array(20)));
+export const generateTotpSecret = () => toBase32(randomBytes(20));
 
 export const buildTotpUri = (accountLabel: string, secret: string) =>
   `otpauth://totp/${encodeURIComponent(ISSUER)}:${encodeURIComponent(accountLabel)}?secret=${secret}&issuer=${encodeURIComponent(

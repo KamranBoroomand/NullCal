@@ -4,6 +4,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 const rawBase = process.env.VITE_BASE ?? '/';
 const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+const nodeMajor = Number(process.versions.node.split('.')[0] ?? 0);
+const workboxMode = nodeMajor >= 24 ? 'development' : 'production';
 
 export default defineConfig({
   base,
@@ -21,6 +23,7 @@ export default defineConfig({
         'android-chrome-512.png'
       ],
       workbox: {
+        mode: workboxMode,
         navigateFallback: 'index.html',
         runtimeCaching: [
           {

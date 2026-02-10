@@ -1,11 +1,25 @@
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
-const toBase64 = (data: ArrayBuffer) =>
-  btoa(String.fromCharCode(...new Uint8Array(data)));
+const toBase64 = (data: ArrayBuffer | ArrayBufferView) =>
+  btoa(
+    String.fromCharCode(
+      ...(
+        data instanceof ArrayBuffer
+          ? new Uint8Array(data)
+          : new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+      )
+    )
+  );
 
-const fromBase64 = (data: string) =>
+const fromBase64 = (data: string): Uint8Array<ArrayBuffer> =>
   Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+
+const randomBytes = (length: number): Uint8Array<ArrayBuffer> => {
+  const bytes = new Uint8Array(new ArrayBuffer(length));
+  crypto.getRandomValues(bytes);
+  return bytes;
+};
 
 export type EncryptedPayload = {
   version: 1;
@@ -14,7 +28,7 @@ export type EncryptedPayload = {
   ciphertext: string;
 };
 
-const deriveKey = async (passphrase: string, salt: Uint8Array) => {
+const deriveKey = async (passphrase: string, salt: Uint8Array<ArrayBuffer>) => {
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     textEncoder.encode(passphrase),
@@ -37,8 +51,8 @@ const deriveKey = async (passphrase: string, salt: Uint8Array) => {
 };
 
 export const encryptPayload = async (data: unknown, passphrase: string): Promise<EncryptedPayload> => {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const salt = randomBytes(16);
+  const iv = randomBytes(12);
   const key = await deriveKey(passphrase, salt);
   const encoded = textEncoder.encode(JSON.stringify(data));
   const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);

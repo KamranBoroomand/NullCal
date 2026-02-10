@@ -368,8 +368,6 @@ const ruLiterals: LiteralDictionary = {
   'Previous period': 'Предыдущий период',
   'Next period': 'Следующий период',
   'Privacy screen': 'Экран приватности',
-  'Decoy profile': 'Профиль-приманка',
-  'Quick export': 'Быстрый экспорт',
   'Open hotkeys': 'Открыть горячие клавиши',
   'Invalid credentials': 'Неверные учетные данные',
   'Passkey authentication failed.': 'Ошибка аутентификации ключом доступа.',

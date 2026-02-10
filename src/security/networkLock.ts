@@ -40,7 +40,7 @@ export const applyNetworkLock = (enabled: boolean) => {
       constructor() {
         throw networkError();
       }
-    } as typeof window.WebSocket;
+    } as unknown as typeof window.WebSocket;
     return;
   }
 

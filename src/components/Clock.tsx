@@ -5,8 +5,8 @@ import { useAppStore } from '../app/AppStore';
 
 const Clock = () => {
   const [now, setNow] = useState(() => new Date());
-  const [clickCount, setClickCount] = useState(0);
   const [neofetchOpen, setNeofetchOpen] = useState(false);
+  const clickCountRef = useRef(0);
   const resetTimer = useRef<number | null>(null);
   const { state } = useAppStore();
 
@@ -99,19 +99,16 @@ const Clock = () => {
   }, [now]);
 
   const handleClockClick = () => {
-    setClickCount((prev) => {
-      const next = prev + 1;
-      if (next >= 6) {
-        setNeofetchOpen(true);
-        return 0;
-      }
-      return next;
-    });
+    clickCountRef.current += 1;
+    if (clickCountRef.current >= 6) {
+      setNeofetchOpen(true);
+      clickCountRef.current = 0;
+    }
     if (resetTimer.current) {
       window.clearTimeout(resetTimer.current);
     }
     resetTimer.current = window.setTimeout(() => {
-      setClickCount(0);
+      clickCountRef.current = 0;
     }, 1500);
   };
 

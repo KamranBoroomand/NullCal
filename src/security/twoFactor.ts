@@ -10,13 +10,27 @@ type StoredChallenge = {
   expiresAt: number;
 };
 
-const toBase64 = (data: ArrayBuffer) =>
-  btoa(String.fromCharCode(...new Uint8Array(data)));
+const toBase64 = (data: ArrayBuffer | ArrayBufferView) =>
+  btoa(
+    String.fromCharCode(
+      ...(
+        data instanceof ArrayBuffer
+          ? new Uint8Array(data)
+          : new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+      )
+    )
+  );
 
-const fromBase64 = (data: string) =>
+const fromBase64 = (data: string): Uint8Array<ArrayBuffer> =>
   Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
 
-const hashCode = async (code: string, salt: Uint8Array) => {
+const randomBytes = (length: number): Uint8Array<ArrayBuffer> => {
+  const bytes = new Uint8Array(new ArrayBuffer(length));
+  crypto.getRandomValues(bytes);
+  return bytes;
+};
+
+const hashCode = async (code: string, salt: Uint8Array<ArrayBuffer>) => {
   const payload = `${code}:${toBase64(salt)}`;
   const digest = await crypto.subtle.digest('SHA-256', encoder.encode(payload));
   return toBase64(digest);
@@ -73,7 +87,7 @@ export const startTwoFactorChallenge = async (channel: TwoFactorChannel, destina
     throw new Error('Two-factor destination required.');
   }
   const code = `${crypto.getRandomValues(new Uint32Array(1))[0] % 1000000}`.padStart(6, '0');
-  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const salt = randomBytes(16);
   const hash = await hashCode(code, salt);
   const expiresAt = Date.now() + 10 * 60 * 1000;
   saveChallenge({ hash, salt: toBase64(salt), expiresAt });

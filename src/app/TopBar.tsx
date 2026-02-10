@@ -934,13 +934,13 @@ const TopBar = ({
                     {
                       key: 'week',
                       label: copy.week,
-                      onClick: () => onViewChange('timeGridWeek'),
+                      onClick: () => onViewChange?.('timeGridWeek'),
                       active: view === 'timeGridWeek'
                     },
                     {
                       key: 'month',
                       label: copy.month,
-                      onClick: () => onViewChange('dayGridMonth'),
+                      onClick: () => onViewChange?.('dayGridMonth'),
                       active: view === 'dayGridMonth'
                     }
                   ]}
@@ -1047,7 +1047,7 @@ const TopBar = ({
                               <span className="xl:hidden">{copy.weekShort}</span>
                             </>
                           ),
-                          onClick: () => onViewChange('timeGridWeek'),
+                          onClick: () => onViewChange?.('timeGridWeek'),
                           active: view === 'timeGridWeek'
                         },
                         {
@@ -1058,7 +1058,7 @@ const TopBar = ({
                               <span className="xl:hidden">{copy.monthShort}</span>
                             </>
                           ),
-                          onClick: () => onViewChange('dayGridMonth'),
+                          onClick: () => onViewChange?.('dayGridMonth'),
                           active: view === 'dayGridMonth'
                         }
                       ]}
@@ -1192,13 +1192,13 @@ const TopBar = ({
                         {
                           key: 'prev',
                           label: copy.previous,
-                          onClick: onPrev,
+                          onClick: () => onPrev?.(),
                           icon: <ChevronIcon direction="left" />
                         },
                         {
                           key: 'next',
                           label: copy.next,
-                          onClick: onNext,
+                          onClick: () => onNext?.(),
                           icon: <ChevronIcon direction="right" />
                         }
                       ]}
@@ -1315,13 +1315,13 @@ const TopBar = ({
                   {
                     key: 'week',
                     label: copy.week,
-                    onClick: () => onViewChange('timeGridWeek'),
+                    onClick: () => onViewChange?.('timeGridWeek'),
                     active: view === 'timeGridWeek'
                   },
                   {
                     key: 'month',
                     label: copy.month,
-                    onClick: () => onViewChange('dayGridMonth'),
+                    onClick: () => onViewChange?.('dayGridMonth'),
                     active: view === 'dayGridMonth'
                   }
                 ]}
@@ -1334,13 +1334,13 @@ const TopBar = ({
                   {
                     key: 'prev',
                     label: copy.previous,
-                    onClick: onPrev,
+                    onClick: () => onPrev?.(),
                     icon: <ChevronIcon direction="left" />
                   },
                   {
                     key: 'next',
                     label: copy.next,
-                    onClick: onNext,
+                    onClick: () => onNext?.(),
                     icon: <ChevronIcon direction="right" />
                   }
                 ]}
