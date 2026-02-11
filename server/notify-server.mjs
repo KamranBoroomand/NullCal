@@ -8,12 +8,24 @@ const MAX_MESSAGE_LENGTH = 1000;
 const MAX_METADATA_ENTRIES = 10;
 const MAX_METADATA_KEY_LENGTH = 64;
 const MAX_METADATA_VALUE_LENGTH = 200;
+const MAX_SYNC_TOKEN_LENGTH = 160;
+const MAX_SYNC_SENDER_LENGTH = 120;
 const DEFAULT_MAX_REQUEST_BYTES = 8 * 1024;
 const DEFAULT_RATE_LIMIT_WINDOW_SEC = 300;
 const DEFAULT_RATE_LIMIT_MAX = 20;
 const MAX_RATE_LIMIT_TRACKED_KEYS = 4096;
 const DEFAULT_DEV_CORS_ORIGINS = ['http://127.0.0.1:5173', 'http://localhost:5173'];
+const DEFAULT_QUEUE_RETRY_SEC = 30;
+const DEFAULT_QUEUE_MAX_ATTEMPTS = 5;
+const DEFAULT_QUEUE_MAX_ITEMS = 500;
+const DEFAULT_SYNC_TTL_SEC = 24 * 60 * 60;
+const DEFAULT_SYNC_MAX_MESSAGES = 250;
+const DEFAULT_SYNC_MAX_PULL = 100;
+const DEFAULT_MAX_SYNC_REQUEST_BYTES = 512 * 1024;
+
 const rateLimitStore = new Map();
+const deliveryQueue = [];
+const syncStore = new Map();
 
 const hasValue = (value) => typeof value === 'string' && value.trim().length > 0;
 
@@ -70,7 +82,7 @@ const json = (res, status, payload, corsOrigin) => {
     'Content-Length': Buffer.byteLength(body).toString(),
     'Access-Control-Allow-Origin': corsOrigin,
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Nullcal-Token',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
     Vary: 'Origin'
   });
   res.end(body);
@@ -211,12 +223,14 @@ const getClientKey = (req) => {
   return req.socket.remoteAddress ?? 'unknown';
 };
 
-const readJson = async (req) => {
+const readJson = async (req, maxBytesOverride) => {
   const chunks = [];
-  const maxBytes = parsePositiveInt(process.env.NOTIFY_MAX_REQUEST_BYTES, DEFAULT_MAX_REQUEST_BYTES, {
-    min: 256,
-    max: 1024 * 1024
-  });
+  const maxBytes =
+    maxBytesOverride ??
+    parsePositiveInt(process.env.NOTIFY_MAX_REQUEST_BYTES, DEFAULT_MAX_REQUEST_BYTES, {
+      min: 256,
+      max: 1024 * 1024
+    });
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
@@ -247,26 +261,19 @@ const postWebhook = async (url, payload) => {
   }
 };
 
-const sendEmail = async ({ to, subject, message, metadata }) => {
-  if (hasValue(process.env.EMAIL_WEBHOOK_URL)) {
-    await postWebhook(process.env.EMAIL_WEBHOOK_URL, { to, subject, message, metadata });
-    return;
-  }
+const sendEmailViaWebhook = async ({ to, subject, message, metadata }) => {
+  await postWebhook(process.env.EMAIL_WEBHOOK_URL, { to, subject, message, metadata });
+};
 
-  const resendKey = process.env.RESEND_API_KEY;
-  const resendFrom = process.env.NOTIFY_FROM_EMAIL;
-  if (!resendKey || !resendFrom) {
-    throw new Error('Email provider is not configured.');
-  }
-
+const sendEmailViaResend = async ({ to, subject, message }) => {
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${resendKey}`,
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      from: resendFrom,
+      from: process.env.NOTIFY_FROM_EMAIL,
       to: [to],
       subject: subject ?? 'NullCal notification',
       text: message
@@ -305,39 +312,26 @@ const sendSmsViaTextbelt = async ({ to, message, key }) => {
   }
 };
 
-const sendSms = async ({ to, message, metadata }) => {
-  if (hasValue(process.env.SMS_WEBHOOK_URL)) {
-    await postWebhook(process.env.SMS_WEBHOOK_URL, { to, message, metadata });
-    return;
-  }
-
-  const textbeltKey = process.env.TEXTBELT_API_KEY ?? (process.env.TEXTBELT_FREE === '1' ? 'textbelt' : undefined);
-  if (textbeltKey) {
-    await sendSmsViaTextbelt({ to, message, key: textbeltKey });
-    return;
-  }
-
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_FROM_NUMBER;
-  if (!accountSid || !authToken || !from) {
-    throw new Error('SMS provider is not configured.');
-  }
-
+const sendSmsViaTwilio = async ({ to, message }) => {
   const params = new URLSearchParams({
     To: to,
-    From: from,
+    From: process.env.TWILIO_FROM_NUMBER,
     Body: message
   });
-  const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
-  const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${basicAuth}`,
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: params.toString()
-  });
+  const basicAuth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString(
+    'base64'
+  );
+  const response = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${basicAuth}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params.toString()
+    }
+  );
 
   if (!response.ok) {
     const details = await response.text();
@@ -345,7 +339,131 @@ const sendSms = async ({ to, message, metadata }) => {
   }
 };
 
-const validatePayload = (body) => {
+const runProviderChain = async (providers) => {
+  const failures = [];
+  for (const provider of providers) {
+    try {
+      await provider.send();
+      return provider.name;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown provider error.';
+      failures.push(`${provider.name}: ${message}`);
+    }
+  }
+  throw new Error(failures.join(' | ') || 'No provider available.');
+};
+
+const buildEmailProviders = (payload) => {
+  const providers = [];
+  if (hasValue(process.env.EMAIL_WEBHOOK_URL)) {
+    providers.push({ name: 'email:webhook', send: () => sendEmailViaWebhook(payload) });
+  }
+  if (hasValue(process.env.RESEND_API_KEY) && hasValue(process.env.NOTIFY_FROM_EMAIL)) {
+    providers.push({ name: 'email:resend', send: () => sendEmailViaResend(payload) });
+  }
+  return providers;
+};
+
+const buildSmsProviders = (payload) => {
+  const providers = [];
+  if (hasValue(process.env.SMS_WEBHOOK_URL)) {
+    providers.push({ name: 'sms:webhook', send: () => postWebhook(process.env.SMS_WEBHOOK_URL, payload) });
+  }
+  const textbeltKey = hasValue(process.env.TEXTBELT_API_KEY)
+    ? process.env.TEXTBELT_API_KEY
+    : process.env.TEXTBELT_FREE === '1'
+      ? 'textbelt'
+      : undefined;
+  if (textbeltKey) {
+    providers.push({
+      name: 'sms:textbelt',
+      send: () => sendSmsViaTextbelt({ to: payload.to, message: payload.message, key: textbeltKey })
+    });
+  }
+  if (
+    hasValue(process.env.TWILIO_ACCOUNT_SID) &&
+    hasValue(process.env.TWILIO_AUTH_TOKEN) &&
+    hasValue(process.env.TWILIO_FROM_NUMBER)
+  ) {
+    providers.push({ name: 'sms:twilio', send: () => sendSmsViaTwilio(payload) });
+  }
+  return providers;
+};
+
+const deliverNotification = async (payload) => {
+  const providers = payload.channel === 'email' ? buildEmailProviders(payload) : buildSmsProviders(payload);
+  if (providers.length === 0) {
+    throw new Error(`${payload.channel.toUpperCase()} provider is not configured.`);
+  }
+  const provider = await runProviderChain(providers);
+  return { provider };
+};
+
+const queueEnabled = () => `${process.env.NOTIFY_QUEUE_DISABLE ?? ''}`.trim() !== '1';
+
+const queueMaxAttempts = () =>
+  parsePositiveInt(process.env.NOTIFY_QUEUE_MAX_ATTEMPTS, DEFAULT_QUEUE_MAX_ATTEMPTS, { min: 1, max: 20 });
+
+const queueRetrySeconds = () =>
+  parsePositiveInt(process.env.NOTIFY_QUEUE_RETRY_SEC, DEFAULT_QUEUE_RETRY_SEC, { min: 5, max: 3600 });
+
+const queueMaxItems = () =>
+  parsePositiveInt(process.env.NOTIFY_QUEUE_MAX_ITEMS, DEFAULT_QUEUE_MAX_ITEMS, { min: 10, max: 10000 });
+
+const enqueueDelivery = (payload, lastError) => {
+  const now = Date.now();
+  const item = {
+    id: randomUUID(),
+    payload,
+    attempts: 0,
+    createdAt: now,
+    nextAttemptAt: now + queueRetrySeconds() * 1000,
+    lastError: lastError ?? 'Queued'
+  };
+  deliveryQueue.push(item);
+  if (deliveryQueue.length > queueMaxItems()) {
+    deliveryQueue.splice(0, deliveryQueue.length - queueMaxItems());
+  }
+  return item;
+};
+
+const processDeliveryQueue = async () => {
+  if (!queueEnabled() || deliveryQueue.length === 0) {
+    return;
+  }
+  const now = Date.now();
+  const maxAttempts = queueMaxAttempts();
+  for (const item of [...deliveryQueue]) {
+    if (item.nextAttemptAt > now) {
+      continue;
+    }
+    try {
+      await deliverNotification(item.payload);
+      const index = deliveryQueue.findIndex((entry) => entry.id === item.id);
+      if (index >= 0) {
+        deliveryQueue.splice(index, 1);
+      }
+    } catch (error) {
+      item.attempts += 1;
+      item.lastError = error instanceof Error ? error.message : 'Unknown queue failure.';
+      if (item.attempts >= maxAttempts) {
+        const index = deliveryQueue.findIndex((entry) => entry.id === item.id);
+        if (index >= 0) {
+          deliveryQueue.splice(index, 1);
+        }
+        continue;
+      }
+      const backoffMs = queueRetrySeconds() * 1000 * Math.max(1, item.attempts);
+      item.nextAttemptAt = now + backoffMs;
+    }
+  }
+};
+
+setInterval(() => {
+  void processDeliveryQueue();
+}, 5000).unref();
+
+const validateNotificationPayload = (body) => {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw new HttpError(400, 'Payload must be an object.');
   }
@@ -422,6 +540,107 @@ const validatePayload = (body) => {
   };
 };
 
+const sanitizeSyncPayload = (payload) => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new HttpError(400, 'Sync payload must be an object.');
+  }
+  const profiles = Array.isArray(payload.profiles) ? payload.profiles : [];
+  const calendars = Array.isArray(payload.calendars) ? payload.calendars : [];
+  const events = Array.isArray(payload.events) ? payload.events : [];
+  const templates = Array.isArray(payload.templates) ? payload.templates : [];
+  return { profiles, calendars, events, templates };
+};
+
+const validateSyncWritePayload = (body) => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new HttpError(400, 'Payload must be an object.');
+  }
+  const token = `${body.token ?? ''}`.trim();
+  const senderId = `${body.senderId ?? ''}`.trim();
+  if (!hasValue(token)) {
+    throw new HttpError(400, 'Sync token is required.');
+  }
+  if (token.length > MAX_SYNC_TOKEN_LENGTH) {
+    throw new HttpError(400, 'Sync token is too long.');
+  }
+  if (!hasValue(senderId) || senderId.length > MAX_SYNC_SENDER_LENGTH) {
+    throw new HttpError(400, 'Sync senderId is invalid.');
+  }
+  const sentAt = Number(body.sentAt ?? Date.now());
+  if (!Number.isFinite(sentAt)) {
+    throw new HttpError(400, 'Sync sentAt is invalid.');
+  }
+  const payload = sanitizeSyncPayload(body.payload);
+  return { token, senderId, sentAt, payload };
+};
+
+const getSyncEntry = (token) => {
+  let entry = syncStore.get(token);
+  if (!entry) {
+    entry = { revision: 0, messages: [] };
+    syncStore.set(token, entry);
+  }
+  return entry;
+};
+
+const cleanupSyncEntry = (entry) => {
+  const now = Date.now();
+  const ttlMs = parsePositiveInt(process.env.NOTIFY_SYNC_TTL_SEC, DEFAULT_SYNC_TTL_SEC, {
+    min: 60,
+    max: 7 * 24 * 60 * 60
+  }) * 1000;
+  const maxMessages = parsePositiveInt(process.env.NOTIFY_SYNC_MAX_MESSAGES, DEFAULT_SYNC_MAX_MESSAGES, {
+    min: 10,
+    max: 5000
+  });
+  entry.messages = entry.messages.filter((message) => now - message.recordedAt <= ttlMs);
+  if (entry.messages.length > maxMessages) {
+    entry.messages.splice(0, entry.messages.length - maxMessages);
+  }
+};
+
+const writeSyncMessage = (token, message) => {
+  const entry = getSyncEntry(token);
+  entry.revision += 1;
+  const record = {
+    revision: entry.revision,
+    senderId: message.senderId,
+    sentAt: message.sentAt,
+    payload: message.payload,
+    recordedAt: Date.now()
+  };
+  entry.messages.push(record);
+  cleanupSyncEntry(entry);
+  return record.revision;
+};
+
+const readSyncMessages = (token, since) => {
+  const entry = getSyncEntry(token);
+  cleanupSyncEntry(entry);
+  const maxPull = parsePositiveInt(process.env.NOTIFY_SYNC_MAX_PULL, DEFAULT_SYNC_MAX_PULL, {
+    min: 1,
+    max: 500
+  });
+  const items = entry.messages.filter((item) => item.revision > since).slice(-maxPull);
+  return {
+    latestRevision: entry.revision,
+    items
+  };
+};
+
+const parseSyncReadParams = (url) => {
+  const token = `${url.searchParams.get('token') ?? ''}`.trim();
+  if (!hasValue(token)) {
+    throw new HttpError(400, 'Sync token is required.');
+  }
+  if (token.length > MAX_SYNC_TOKEN_LENGTH) {
+    throw new HttpError(400, 'Sync token is too long.');
+  }
+  const sinceRaw = Number(url.searchParams.get('since') ?? 0);
+  const since = Number.isFinite(sinceRaw) && sinceRaw > 0 ? Math.floor(sinceRaw) : 0;
+  return { token, since };
+};
+
 const server = http.createServer(async (req, res) => {
   const requestOrigin = req.headers.origin;
   const allowedOrigins = parseAllowedOrigins(process.env.NOTIFY_CORS_ORIGIN);
@@ -435,11 +654,22 @@ const server = http.createServer(async (req, res) => {
   }
 
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? `127.0.0.1:${PORT}`}`);
-  if (req.method === 'GET' && url.pathname === '/health') {
-    return json(res, 200, { ok: true, service: 'nullcal-notify' }, corsOrigin);
+  if (req.method === 'GET' && (url.pathname === '/health' || url.pathname === '/api/health')) {
+    return json(
+      res,
+      200,
+      {
+        ok: true,
+        service: 'nullcal-notify',
+        queueDepth: deliveryQueue.length
+      },
+      corsOrigin
+    );
   }
 
-  if (req.method !== 'POST' || url.pathname !== '/api/notify') {
+  const isNotifyRoute = url.pathname === '/api/notify';
+  const isSyncRoute = url.pathname === '/api/sync';
+  if (!isNotifyRoute && !isSyncRoute) {
     return json(res, 404, { ok: false, error: 'Not found.' }, corsOrigin);
   }
 
@@ -450,15 +680,50 @@ const server = http.createServer(async (req, res) => {
     assertRequestToken(req);
     enforceRateLimit(getClientKey(req));
 
-    const payload = validatePayload(await readJson(req));
-    assertAllowedRecipient(payload.channel, payload.to);
-
-    if (payload.channel === 'email') {
-      await sendEmail(payload);
-    } else {
-      await sendSms(payload);
+    if (isNotifyRoute) {
+      if (req.method !== 'POST') {
+        throw new HttpError(405, 'Method not allowed.');
+      }
+      const payload = validateNotificationPayload(await readJson(req));
+      assertAllowedRecipient(payload.channel, payload.to);
+      try {
+        const result = await deliverNotification(payload);
+        return json(res, 200, { ok: true, id: randomUUID(), provider: result.provider }, corsOrigin);
+      } catch (deliveryError) {
+        if (!queueEnabled()) {
+          throw deliveryError;
+        }
+        const queued = enqueueDelivery(
+          payload,
+          deliveryError instanceof Error ? deliveryError.message : 'Queued after failure.'
+        );
+        return json(
+          res,
+          202,
+          { ok: true, queued: true, queueId: queued.id, retryAfterSeconds: queueRetrySeconds() },
+          corsOrigin
+        );
+      }
     }
-    return json(res, 200, { ok: true, id: randomUUID() }, corsOrigin);
+
+    if (isSyncRoute && req.method === 'POST') {
+      const maxSyncBytes = parsePositiveInt(
+        process.env.NOTIFY_SYNC_MAX_REQUEST_BYTES,
+        DEFAULT_MAX_SYNC_REQUEST_BYTES,
+        { min: 1024, max: 4 * 1024 * 1024 }
+      );
+      const payload = validateSyncWritePayload(await readJson(req, maxSyncBytes));
+      const revision = writeSyncMessage(payload.token, payload);
+      return json(res, 200, { ok: true, revision }, corsOrigin);
+    }
+
+    if (isSyncRoute && req.method === 'GET') {
+      const params = parseSyncReadParams(url);
+      const data = readSyncMessages(params.token, params.since);
+      return json(res, 200, { ok: true, ...data }, corsOrigin);
+    }
+
+    throw new HttpError(405, 'Method not allowed.');
   } catch (error) {
     if (error instanceof HttpError) {
       return json(res, error.status, { ok: false, error: error.message }, corsOrigin);

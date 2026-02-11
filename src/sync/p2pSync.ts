@@ -1,28 +1,9 @@
-import type { Calendar, CalendarEvent, EventTemplate, Profile } from '../storage/types';
-
 const CHANNEL = 'nullcal-sync';
-
-type SyncMessage = {
-  senderId: string;
-  payload: SyncPayload;
-  sentAt: number;
-};
-
-export type SyncPayload = {
-  profiles: Profile[];
-  calendars: Calendar[];
-  events: CalendarEvent[];
-  templates: EventTemplate[];
-};
-
-export type SyncHandle = {
-  broadcast: (payload: SyncPayload) => void;
-  close: () => void;
-};
+import type { SyncHandle, SyncMessage, SyncPayload } from './types';
 
 export const createP2PSync = (
   senderId: string,
-  onReceive: (payload: SyncPayload) => void,
+  onReceive: (message: SyncMessage) => void,
   shareToken?: string
 ): SyncHandle => {
   if (typeof BroadcastChannel === 'undefined') {
@@ -38,7 +19,7 @@ export const createP2PSync = (
     if (!message || message.senderId === senderId) {
       return;
     }
-    onReceive(message.payload);
+    onReceive(message);
   });
 
   return {

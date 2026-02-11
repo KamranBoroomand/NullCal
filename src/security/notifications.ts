@@ -8,26 +8,116 @@ type NotificationPayload = {
   metadata?: Record<string, string>;
 };
 
+type SendNotificationOptions = {
+  queueOnFailure?: boolean;
+};
+
 const DEFAULT_NOTIFICATION_API = '/api';
 const configuredApiBase = import.meta.env.VITE_NOTIFICATION_API?.trim();
 const configuredRequestToken = import.meta.env.VITE_NOTIFICATION_TOKEN?.trim();
 const API_BASE = (
   configuredApiBase && configuredApiBase.length > 0 ? configuredApiBase : DEFAULT_NOTIFICATION_API
 ).replace(/\/+$/, '');
+const PENDING_QUEUE_KEY = 'nullcal:pendingNotifications';
+let queueListenerAttached = false;
 
-const sendNotification = async (payload: NotificationPayload) => {
+const canUseStorage = () => typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+
+const readPendingQueue = (): NotificationPayload[] => {
+  if (!canUseStorage()) {
+    return [];
+  }
+  try {
+    const raw = window.localStorage.getItem(PENDING_QUEUE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw) as NotificationPayload[];
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((item) => typeof item === 'object' && item !== null).slice(-50);
+  } catch {
+    return [];
+  }
+};
+
+const writePendingQueue = (items: NotificationPayload[]) => {
+  if (!canUseStorage()) {
+    return;
+  }
+  try {
+    window.localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(items.slice(-50)));
+  } catch {
+    // Ignore storage failures.
+  }
+};
+
+const enqueuePending = (payload: NotificationPayload) => {
+  const queue = readPendingQueue();
+  queue.push(payload);
+  writePendingQueue(queue);
+};
+
+const buildHeaders = () => {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (configuredRequestToken) {
     headers['X-Nullcal-Token'] = configuredRequestToken;
     headers.Authorization = `Bearer ${configuredRequestToken}`;
   }
-  const response = await fetch(`${API_BASE}/notify`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload)
+  return headers;
+};
+
+export const flushPendingNotifications = async () => {
+  const queue = readPendingQueue();
+  if (queue.length === 0) {
+    return;
+  }
+  const remaining: NotificationPayload[] = [];
+  for (const payload of queue) {
+    try {
+      const response = await fetch(`${API_BASE}/notify`, {
+        method: 'POST',
+        headers: buildHeaders(),
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        remaining.push(payload);
+      }
+    } catch {
+      remaining.push(payload);
+    }
+  }
+  writePendingQueue(remaining);
+};
+
+const attachQueueListener = () => {
+  if (queueListenerAttached || typeof window === 'undefined') {
+    return;
+  }
+  queueListenerAttached = true;
+  window.addEventListener('online', () => {
+    void flushPendingNotifications();
   });
-  if (!response.ok) {
-    throw new Error('Notification delivery failed.');
+};
+
+const sendNotification = async (payload: NotificationPayload, options: SendNotificationOptions = {}) => {
+  attachQueueListener();
+  try {
+    const response = await fetch(`${API_BASE}/notify`, {
+      method: 'POST',
+      headers: buildHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      throw new Error('Notification delivery failed.');
+    }
+  } catch (error) {
+    if (options.queueOnFailure) {
+      enqueuePending(payload);
+      return;
+    }
+    throw error;
   }
 };
 
@@ -47,5 +137,8 @@ export const sendReminder = async (
   message: string
 ) => {
   const subject = channel === 'email' ? 'NullCal event reminder' : undefined;
-  await sendNotification({ channel, to: destination, message, subject, metadata: { purpose: 'reminder' } });
+  await sendNotification(
+    { channel, to: destination, message, subject, metadata: { purpose: 'reminder' } },
+    { queueOnFailure: true }
+  );
 };

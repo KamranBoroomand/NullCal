@@ -4,7 +4,7 @@ import { safeLocalStorage } from './safeStorage';
 export type AuditLogEntry = {
   id: string;
   action: string;
-  category: 'auth' | 'profile' | 'event' | 'calendar' | 'template' | 'settings' | 'system';
+  category: 'auth' | 'profile' | 'event' | 'calendar' | 'template' | 'settings' | 'system' | 'collaboration';
   timestamp: string;
   metadata?: Record<string, string>;
 };

@@ -11,7 +11,11 @@
     "preview": "vite preview",
     "lint": "npm run lint:hooks",
     "lint:hooks": "node scripts/check-hook-deps-order.cjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "test:unit": "node --test tests/unit/*.test.mjs",
+    "test:integration": "node --test tests/integration/*.test.mjs",
+    "test:e2e": "node --test tests/e2e/*.test.mjs"
   },
   "dependencies": {
     "@fullcalendar/core": "6.1.15",

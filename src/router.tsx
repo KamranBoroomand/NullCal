@@ -1,8 +1,17 @@
 import { createBrowserRouter, Outlet, useLocation, useRouteError } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { useEffect } from 'react';
-import AppPage from './pages/AppPage';
-import SafetyCenter from './pages/SafetyCenter';
+import { Suspense, lazy, useEffect } from 'react';
+
+const AppPage = lazy(() => import('./pages/AppPage'));
+const SafetyCenter = lazy(() => import('./pages/SafetyCenter'));
+const HomePage = lazy(() => import('./pages/Home'));
+const AboutPage = lazy(() => import('./pages/About'));
+const PrivacyPage = lazy(() => import('./pages/Privacy'));
+const ContactPage = lazy(() => import('./pages/Contact'));
+
+const RouteLoading = () => (
+  <div className="flex min-h-screen items-center justify-center px-6 text-sm text-muted">Loading route…</div>
+);
 
 const RouteErrorScreen = () => {
   const error = useRouteError();
@@ -69,11 +78,51 @@ const router = createBrowserRouter(
       children: [
         {
           path: '/',
-          element: <AppPage />
+          element: (
+            <Suspense fallback={<RouteLoading />}>
+              <AppPage />
+            </Suspense>
+          )
         },
         {
           path: '/safety',
-          element: <SafetyCenter />
+          element: (
+            <Suspense fallback={<RouteLoading />}>
+              <SafetyCenter />
+            </Suspense>
+          )
+        },
+        {
+          path: '/home',
+          element: (
+            <Suspense fallback={<RouteLoading />}>
+              <HomePage />
+            </Suspense>
+          )
+        },
+        {
+          path: '/about',
+          element: (
+            <Suspense fallback={<RouteLoading />}>
+              <AboutPage />
+            </Suspense>
+          )
+        },
+        {
+          path: '/privacy',
+          element: (
+            <Suspense fallback={<RouteLoading />}>
+              <PrivacyPage />
+            </Suspense>
+          )
+        },
+        {
+          path: '/contact',
+          element: (
+            <Suspense fallback={<RouteLoading />}>
+              <ContactPage />
+            </Suspense>
+          )
         }
       ]
     }

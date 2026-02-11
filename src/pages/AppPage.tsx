@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { addHours, addMinutes, addMonths, addWeeks, format, startOfHour, subMonths, subWeeks } from 'date-fns';
 import { nanoid } from 'nanoid';
 import type { EventInput } from '@fullcalendar/core';
@@ -6,7 +6,6 @@ import { motion, useReducedMotion } from 'framer-motion';
 import AppShell from '../app/AppShell';
 import TopBar from '../app/TopBar';
 import SideBar from '../app/SideBar';
-import CalendarView from '../app/CalendarView';
 import Modal from '../components/Modal';
 import { useAppStore } from '../app/AppStore';
 import type { CalendarEvent } from '../storage/types';
@@ -19,6 +18,8 @@ import { formatReminderRule, parseReminderRule } from '../reminders/reminderRule
 import { useTranslations } from '../i18n/useTranslations';
 import { translateLiteral } from '../i18n/literalTranslations';
 
+const CalendarView = lazy(() => import('../app/CalendarView'));
+
 const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
 const fromInputValue = (value: string) => new Date(value).toISOString();
 
@@ -28,6 +29,7 @@ const AppPage = () => {
   const {
     state,
     loading,
+    canEditWorkspace,
     lockNow,
     updateSettings,
     setActiveProfile,
@@ -103,6 +105,10 @@ const AppPage = () => {
   }, [state]);
 
   const handleCreateProfile = () => {
+    if (!canEditWorkspace) {
+      notify('Viewer role cannot modify shared workspace data.', 'error');
+      return;
+    }
     const name = window.prompt('Profile name');
     if (!name) {
       return;
@@ -111,6 +117,10 @@ const AppPage = () => {
   };
 
   const handleResetProfile = () => {
+    if (!canEditWorkspace) {
+      notify('Viewer role cannot modify shared workspace data.', 'error');
+      return;
+    }
     const confirmed = window.confirm('Reset this profile back to default calendars (events removed)?');
     if (!confirmed) {
       return;
@@ -125,6 +135,10 @@ const AppPage = () => {
   };
 
   const handleSaveEvent = async () => {
+    if (!canEditWorkspace) {
+      notify('Viewer role cannot modify shared workspace data.', 'error');
+      return;
+    }
     if (!draft || !activeProfile) {
       return;
     }
@@ -158,6 +172,10 @@ const AppPage = () => {
   };
 
   const handleDeleteEvent = () => {
+    if (!canEditWorkspace) {
+      notify('Viewer role cannot modify shared workspace data.', 'error');
+      return;
+    }
     if (!draft?.id) {
       setDraft(null);
       return;
@@ -257,6 +275,10 @@ const AppPage = () => {
   };
 
   const handleSaveTemplate = () => {
+    if (!canEditWorkspace) {
+      notify('Viewer role cannot modify shared workspace data.', 'error');
+      return;
+    }
     if (!draft || !activeProfile) {
       return;
     }
@@ -620,19 +642,27 @@ const AppPage = () => {
           <div className="overflow-x-auto">
             <div className="min-w-[640px]">
               <RouteErrorBoundary>
-                <CalendarView
-                  events={calendarEvents}
-                  view={view}
-                  date={currentDate}
-                  secureMode={state.settings.secureMode}
-                  blurSensitive={state.settings.blurSensitive}
-                  obfuscateDetails={state.settings.eventObfuscation}
-                  onDateChange={handleCalendarDateChange}
-                  onSelectRange={handleSelectRange}
-                  onDateClick={handleDateClick}
-                  onEventClick={handleEventClick}
-                  onEventChange={handleEventChange}
-                />
+                <Suspense
+                  fallback={
+                    <div className="photon-panel rounded-3xl p-6 text-sm text-muted">
+                      Loading calendar workspace…
+                    </div>
+                  }
+                >
+                  <CalendarView
+                    events={calendarEvents}
+                    view={view}
+                    date={currentDate}
+                    secureMode={state.settings.secureMode}
+                    blurSensitive={state.settings.blurSensitive}
+                    obfuscateDetails={state.settings.eventObfuscation}
+                    onDateChange={handleCalendarDateChange}
+                    onSelectRange={handleSelectRange}
+                    onDateClick={handleDateClick}
+                    onEventClick={handleEventClick}
+                    onEventChange={handleEventChange}
+                  />
+                </Suspense>
               </RouteErrorBoundary>
             </div>
           </div>

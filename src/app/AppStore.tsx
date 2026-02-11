@@ -18,7 +18,15 @@ import {
   saveAppState,
   wipeAllData
 } from '../storage/storage';
-import type { AppSettings, AppState, CalendarEvent, EventTemplate, SecurityPrefs } from '../storage/types';
+import type {
+  AppSettings,
+  AppState,
+  CalendarEvent,
+  CollaborationMember,
+  CollaborationRole,
+  EventTemplate,
+  SecurityPrefs
+} from '../storage/types';
 import { applyNetworkLock } from '../security/networkLock';
 import { hashPin, verifyPin } from '../security/pin';
 import { decryptPayload, encryptPayload, type EncryptedPayload } from '../security/encryption';
@@ -33,10 +41,13 @@ import {
 } from '../security/twoFactor';
 import { verifyTotpCode } from '../security/totp';
 import { createP2PSync } from '../sync/p2pSync';
+import { createRelaySync } from '../sync/relaySync';
 import { scheduleReminders } from '../reminders/reminderScheduler';
 import { logAuditEvent } from '../storage/auditLog';
 import { clearCachedState, readCachedState, writeCachedState } from '../storage/cache';
 import { hashSnapshot } from '../security/fingerprint';
+import type { SyncMessage } from '../sync/types';
+import { hasCollaborationAdminAccess, hasCollaborationWriteAccess } from '../collaboration/access';
 
 type AppStoreContextValue = {
   state: AppState | null;
@@ -51,6 +62,8 @@ type AppStoreContextValue = {
   resendTwoFactor: () => Promise<void>;
   updateSettings: (updates: Partial<AppSettings>) => void;
   updateSecurityPrefs: (updates: Partial<SecurityPrefs>) => void;
+  canEditWorkspace: boolean;
+  canManageCollaboration: boolean;
   setActiveProfile: (id: string) => void;
   createProfile: (name: string) => void;
   createDecoyProfile: (name: string) => void;
@@ -80,6 +93,10 @@ type AppStoreContextValue = {
   createTemplate: (template: Omit<EventTemplate, 'id' | 'createdAt'>) => void;
   updateTemplate: (templateId: string, updates: Partial<EventTemplate>) => void;
   deleteTemplate: (templateId: string) => void;
+  inviteCollaborator: (name: string, contact: string, role: CollaborationRole) => void;
+  updateCollaborator: (memberId: string, updates: Partial<CollaborationMember>) => void;
+  removeCollaborator: (memberId: string) => void;
+  setCollaborationRole: (role: CollaborationRole) => void;
   replaceState: (next: AppState) => void;
   panicWipe: () => Promise<void>;
   setPin: (pin: string) => Promise<void>;
@@ -101,6 +118,16 @@ const baseSecurityPrefs: SecurityPrefs = {
   totpEnabled: false,
   totpSecret: undefined
 };
+const configuredSyncApi = import.meta.env.VITE_SYNC_API?.trim();
+const configuredNotificationApi = import.meta.env.VITE_NOTIFICATION_API?.trim();
+const configuredSyncToken = import.meta.env.VITE_SYNC_TOKEN?.trim() ?? import.meta.env.VITE_NOTIFICATION_TOKEN?.trim();
+const SYNC_API_BASE = (
+  configuredSyncApi && configuredSyncApi.length > 0
+    ? configuredSyncApi
+    : configuredNotificationApi && configuredNotificationApi.length > 0
+      ? configuredNotificationApi
+      : '/api'
+).replace(/\/+$/, '');
 
 export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<AppState | null>(null);
@@ -116,6 +143,14 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   const reminderHandleRef = useRef<ReturnType<typeof scheduleReminders> | null>(null);
   const autoLockTimer = useRef<number | null>(null);
   const blurLockTimer = useRef<number | null>(null);
+  const canEditWorkspace = useMemo(
+    () => (state ? hasCollaborationWriteAccess(state.settings) : true),
+    [state?.settings.collaborationEnabled, state?.settings.collaborationMode, state?.settings.collaborationRole]
+  );
+  const canManageCollaboration = useMemo(
+    () => (state ? hasCollaborationAdminAccess(state.settings) : true),
+    [state?.settings.collaborationEnabled, state?.settings.collaborationMode, state?.settings.collaborationRole]
+  );
   const lockNow = useCallback(() => {
     setLocked(true);
     setTwoFactorPending(false);
@@ -123,7 +158,37 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     clearTwoFactorSession();
     logAuditEvent({ action: 'auth.locked', category: 'auth' });
   }, []);
+  const guardWorkspaceWrite = useCallback((action: string) => {
+    const current = stateRef.current;
+    if (current && !hasCollaborationWriteAccess(current.settings)) {
+      logAuditEvent({ action: 'collaboration.write_blocked', category: 'collaboration', metadata: { action } });
+      return false;
+    }
+    return true;
+  }, []);
+  const guardCollaborationAdmin = useCallback((action: string) => {
+    const current = stateRef.current;
+    if (current && !hasCollaborationAdminAccess(current.settings)) {
+      logAuditEvent({ action: 'collaboration.admin_blocked', category: 'collaboration', metadata: { action } });
+      return false;
+    }
+    return true;
+  }, []);
   const updateSettings = useCallback((updates: Partial<AppSettings>) => {
+    const current = stateRef.current;
+    if (current && !hasCollaborationAdminAccess(current.settings)) {
+      const adminOnlyKeys: Array<keyof AppSettings> = [
+        'collaborationEnabled',
+        'collaborationMode',
+        'collaborationRole',
+        'collaborationMembers'
+      ];
+      const triedRestrictedUpdate = adminOnlyKeys.some((key) => key in updates);
+      if (triedRestrictedUpdate) {
+        logAuditEvent({ action: 'collaboration.settings_blocked', category: 'collaboration' });
+        return;
+      }
+    }
     setState((prev) => {
       if (!prev) {
         return prev;
@@ -250,17 +315,20 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   }, [state?.settings.networkLock]);
 
   useEffect(() => {
-    if (!state?.settings.syncTrustedDevices) {
+    if (!state) {
       return;
     }
     if (state.settings.syncShareToken) {
       return;
     }
+    if (state.settings.syncStrategy === 'offline' && !state.settings.syncTrustedDevices) {
+      return;
+    }
     const token = Array.from(crypto.getRandomValues(new Uint8Array(16)))
       .map((value) => value.toString(16).padStart(2, '0'))
       .join('');
-    updateSettings({ syncShareToken: token, syncTrustedDevices: true });
-  }, [state?.settings.syncShareToken, state?.settings.syncTrustedDevices, updateSettings]);
+    updateSettings({ syncShareToken: token });
+  }, [state?.settings.syncShareToken, state?.settings.syncStrategy, state?.settings.syncTrustedDevices, updateSettings]);
 
   useEffect(() => {
     if (!state) {
@@ -335,24 +403,29 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       syncHandleRef.current = null;
       return;
     }
-    const handle = createP2PSync(
-      syncSenderId.current,
-      (payload) => {
-        setState((prev) => {
-          if (!prev) {
-            return prev;
-          }
-          return {
-            ...prev,
-            profiles: payload.profiles,
-            calendars: payload.calendars,
-            events: payload.events,
-            templates: payload.templates ?? prev.templates
-          };
-        });
-      },
-      state.settings.syncTrustedDevices ? state.settings.syncShareToken : undefined
-    );
+    const onReceive = (message: SyncMessage) => {
+      setState((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        return {
+          ...prev,
+          profiles: message.payload.profiles,
+          calendars: message.payload.calendars,
+          events: message.payload.events,
+          templates: message.payload.templates ?? prev.templates
+        };
+      });
+    };
+    const shareToken = state.settings.syncShareToken;
+    const handle =
+      state.settings.syncStrategy === 'ipfs'
+        ? createRelaySync(syncSenderId.current, onReceive, {
+            apiBase: SYNC_API_BASE,
+            requestToken: configuredSyncToken,
+            shareToken
+          })
+        : createP2PSync(syncSenderId.current, onReceive, shareToken);
     syncHandleRef.current = handle;
     return () => {
       handle.close();
@@ -534,6 +607,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const createProfile = useCallback((name: string) => {
+    if (!guardWorkspaceWrite('createProfile')) {
+      return;
+    }
     const profile = createSeedProfile(name);
     setState((prev) => {
       if (!prev) {
@@ -553,9 +629,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       };
     });
     logAuditEvent({ action: 'profile.created', category: 'profile', metadata: { profileId: profile.id } });
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const createDecoyProfile = useCallback((name: string) => {
+    if (!guardWorkspaceWrite('createDecoyProfile')) {
+      return;
+    }
     const profile = createSeedProfile(name);
     setState((prev) => {
       if (!prev) {
@@ -579,9 +658,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       };
     });
     logAuditEvent({ action: 'profile.decoy_created', category: 'profile', metadata: { profileId: profile.id } });
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const resetProfile = useCallback((profileId: string) => {
+    if (!guardWorkspaceWrite('resetProfile')) {
+      return;
+    }
     setState((prev) => {
       if (!prev) {
         return prev;
@@ -594,9 +676,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       };
     });
     logAuditEvent({ action: 'profile.reset', category: 'profile', metadata: { profileId } });
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const updateProfileName = useCallback((profileId: string, name: string) => {
+    if (!guardWorkspaceWrite('updateProfileName')) {
+      return;
+    }
     setState((prev) => {
       if (!prev) {
         return prev;
@@ -609,7 +694,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       };
     });
     logAuditEvent({ action: 'profile.updated', category: 'profile', metadata: { profileId } });
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const updateProfileDetails = useCallback(
     (
@@ -622,6 +707,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         bio: string;
       }>
     ) => {
+      if (!guardWorkspaceWrite('updateProfileDetails')) {
+        return;
+      }
       setState((prev) => {
         if (!prev) {
           return prev;
@@ -635,10 +723,13 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       });
       logAuditEvent({ action: 'profile.customized', category: 'profile', metadata: { profileId } });
     },
-    []
+    [guardWorkspaceWrite]
   );
 
   const createCalendar = useCallback((profileId: string, payload: { name: string; color: string }) => {
+    if (!guardWorkspaceWrite('createCalendar')) {
+      return;
+    }
     const calendar = buildCalendar(profileId, payload);
     setState((prev) => {
       if (!prev) {
@@ -654,9 +745,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       category: 'calendar',
       metadata: { calendarId: calendar.id, profileId }
     });
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const renameCalendar = useCallback((profileId: string, calendarId: string, name: string) => {
+    if (!guardWorkspaceWrite('renameCalendar')) {
+      return;
+    }
     setState((prev) => {
       if (!prev) {
         return prev;
@@ -667,9 +761,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       };
     });
     logAuditEvent({ action: 'calendar.renamed', category: 'calendar', metadata: { calendarId, profileId } });
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const recolorCalendar = useCallback((profileId: string, calendarId: string, color: string) => {
+    if (!guardWorkspaceWrite('recolorCalendar')) {
+      return;
+    }
     setState((prev) => {
       if (!prev) {
         return prev;
@@ -680,9 +777,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       };
     });
     logAuditEvent({ action: 'calendar.recolored', category: 'calendar', metadata: { calendarId, profileId } });
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const deleteCalendar = useCallback((profileId: string, calendarId: string) => {
+    if (!guardWorkspaceWrite('deleteCalendar')) {
+      return;
+    }
     setState((prev) => {
       if (!prev) {
         return prev;
@@ -695,9 +795,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       };
     });
     logAuditEvent({ action: 'calendar.deleted', category: 'calendar', metadata: { calendarId, profileId } });
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const toggleCalendarVisibility = useCallback((calendarId: string) => {
+    if (!guardWorkspaceWrite('toggleCalendarVisibility')) {
+      return;
+    }
     setState((prev) => {
       if (!prev) {
         return prev;
@@ -709,9 +812,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         )
       };
     });
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const upsertEvent = useCallback((event: CalendarEvent) => {
+    if (!guardWorkspaceWrite('upsertEvent')) {
+      return;
+    }
     setState((prev) => {
       if (!prev) {
         return prev;
@@ -733,9 +839,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       category: 'event',
       metadata: { eventId: event.id, profileId: event.profileId }
     });
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const deleteEvent = useCallback((eventId: string) => {
+    if (!guardWorkspaceWrite('deleteEvent')) {
+      return;
+    }
     setState((prev) => {
       if (!prev) {
         return prev;
@@ -746,9 +855,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       };
     });
     logAuditEvent({ action: 'event.deleted', category: 'event', metadata: { eventId } });
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const createTemplate = useCallback((template: Omit<EventTemplate, 'id' | 'createdAt'>) => {
+    if (!guardWorkspaceWrite('createTemplate')) {
+      return;
+    }
     const nextTemplate: EventTemplate = {
       ...template,
       id: crypto.randomUUID(),
@@ -768,9 +880,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       category: 'template',
       metadata: { templateId: nextTemplate.id, profileId: nextTemplate.profileId }
     });
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const updateTemplate = useCallback((templateId: string, updates: Partial<EventTemplate>) => {
+    if (!guardWorkspaceWrite('updateTemplate')) {
+      return;
+    }
     setState((prev) => {
       if (!prev) {
         return prev;
@@ -783,9 +898,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       };
     });
     logAuditEvent({ action: 'template.updated', category: 'template', metadata: { templateId } });
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const deleteTemplate = useCallback((templateId: string) => {
+    if (!guardWorkspaceWrite('deleteTemplate')) {
+      return;
+    }
     setState((prev) => {
       if (!prev) {
         return prev;
@@ -796,7 +914,131 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       };
     });
     logAuditEvent({ action: 'template.deleted', category: 'template', metadata: { templateId } });
-  }, []);
+  }, [guardWorkspaceWrite]);
+
+  const inviteCollaborator = useCallback(
+    (name: string, contact: string, role: CollaborationRole) => {
+      if (!guardCollaborationAdmin('inviteCollaborator')) {
+        return;
+      }
+      const trimmedName = name.trim();
+      const trimmedContact = contact.trim();
+      if (!trimmedName || !trimmedContact) {
+        return;
+      }
+      const now = new Date().toISOString();
+      const normalizedContact = trimmedContact.toLowerCase();
+      setState((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        const existingIndex = prev.settings.collaborationMembers.findIndex(
+          (member) => member.contact.trim().toLowerCase() === normalizedContact
+        );
+        const nextMember: CollaborationMember = {
+          id: crypto.randomUUID(),
+          name: trimmedName,
+          contact: trimmedContact,
+          role,
+          status: 'invited',
+          invitedAt: now
+        };
+        const nextMembers: CollaborationMember[] =
+          existingIndex >= 0
+            ? prev.settings.collaborationMembers.map((member, index) =>
+                index === existingIndex
+                  ? { ...member, name: trimmedName, role, status: 'invited' as const, invitedAt: now }
+                  : member
+              )
+            : [...prev.settings.collaborationMembers, nextMember];
+        return {
+          ...prev,
+          settings: {
+            ...prev.settings,
+            collaborationMembers: nextMembers
+          }
+        };
+      });
+      logAuditEvent({
+        action: 'collaboration.member_invited',
+        category: 'collaboration',
+        metadata: { contact: trimmedContact, role }
+      });
+    },
+    [guardCollaborationAdmin]
+  );
+
+  const updateCollaborator = useCallback(
+    (memberId: string, updates: Partial<CollaborationMember>) => {
+      if (!guardCollaborationAdmin('updateCollaborator')) {
+        return;
+      }
+      setState((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        return {
+          ...prev,
+          settings: {
+            ...prev.settings,
+            collaborationMembers: prev.settings.collaborationMembers.map((member) =>
+              member.id === memberId
+                ? {
+                    ...member,
+                    ...updates,
+                    contact: updates.contact ? updates.contact.trim() : member.contact,
+                    name: updates.name ? updates.name.trim() : member.name
+                  }
+                : member
+            )
+          }
+        };
+      });
+      logAuditEvent({ action: 'collaboration.member_updated', category: 'collaboration', metadata: { memberId } });
+    },
+    [guardCollaborationAdmin]
+  );
+
+  const removeCollaborator = useCallback(
+    (memberId: string) => {
+      if (!guardCollaborationAdmin('removeCollaborator')) {
+        return;
+      }
+      setState((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        return {
+          ...prev,
+          settings: {
+            ...prev.settings,
+            collaborationMembers: prev.settings.collaborationMembers.filter((member) => member.id !== memberId)
+          }
+        };
+      });
+      logAuditEvent({ action: 'collaboration.member_removed', category: 'collaboration', metadata: { memberId } });
+    },
+    [guardCollaborationAdmin]
+  );
+
+  const setCollaborationRole = useCallback(
+    (role: CollaborationRole) => {
+      setState((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        return {
+          ...prev,
+          settings: {
+            ...prev.settings,
+            collaborationRole: role
+          }
+        };
+      });
+      logAuditEvent({ action: 'collaboration.role_set', category: 'collaboration', metadata: { role } });
+    },
+    []
+  );
 
   const ensureTwoFactor = useCallback(async (): Promise<'pending' | 'clear' | 'failed'> => {
     if (!state?.settings.twoFactorEnabled) {
@@ -1084,8 +1326,11 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   ]);
 
   const replaceState = useCallback((next: AppState) => {
+    if (!guardWorkspaceWrite('replaceState')) {
+      return;
+    }
     setState(next);
-  }, []);
+  }, [guardWorkspaceWrite]);
 
   const exportEncrypted = useCallback(
     async (passphrase: string) => {
@@ -1108,6 +1353,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
 
   const importEncrypted = useCallback(
     async (payload: EncryptedPayload, passphrase: string) => {
+      if (!guardWorkspaceWrite('importEncrypted')) {
+        return;
+      }
       const decrypted = (await decryptPayload(payload, passphrase)) as AppState & {
         exportedAt?: string;
       };
@@ -1129,6 +1377,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         autoLockOnBlur: decrypted.settings.autoLockOnBlur ?? false,
         autoLockGraceSeconds: decrypted.settings.autoLockGraceSeconds ?? 0,
         privacyScreenHotkeyEnabled: decrypted.settings.privacyScreenHotkeyEnabled ?? true,
+        collaborationRole: decrypted.settings.collaborationRole ?? 'owner',
+        collaborationMembers: decrypted.settings.collaborationMembers ?? [],
         activeProfileId: activeProfileExists
           ? decrypted.settings.activeProfileId
           : decrypted.profiles[0]?.id ?? decrypted.settings.activeProfileId
@@ -1155,7 +1405,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         )
       );
     },
-    []
+    [guardWorkspaceWrite]
   );
 
   const panicWipe = useCallback(async () => {
@@ -1181,6 +1431,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       resendTwoFactor,
       updateSettings,
       updateSecurityPrefs,
+      canEditWorkspace,
+      canManageCollaboration,
       setActiveProfile,
       createProfile,
       createDecoyProfile,
@@ -1197,6 +1449,10 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       createTemplate,
       updateTemplate,
       deleteTemplate,
+      inviteCollaborator,
+      updateCollaborator,
+      removeCollaborator,
+      setCollaborationRole,
       replaceState,
       panicWipe,
       setPin,
@@ -1219,6 +1475,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       resendTwoFactor,
       updateSettings,
       updateSecurityPrefs,
+      canEditWorkspace,
+      canManageCollaboration,
       setActiveProfile,
       createProfile,
       createDecoyProfile,
@@ -1235,6 +1493,10 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       createTemplate,
       updateTemplate,
       deleteTemplate,
+      inviteCollaborator,
+      updateCollaborator,
+      removeCollaborator,
+      setCollaborationRole,
       replaceState,
       panicWipe,
       setPin,

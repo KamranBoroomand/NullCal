@@ -4,12 +4,24 @@ const MAX_MESSAGE_LENGTH = 1000;
 const MAX_METADATA_ENTRIES = 10;
 const MAX_METADATA_KEY_LENGTH = 64;
 const MAX_METADATA_VALUE_LENGTH = 200;
+const MAX_SYNC_TOKEN_LENGTH = 160;
+const MAX_SYNC_SENDER_LENGTH = 120;
 const DEFAULT_MAX_REQUEST_BYTES = 8 * 1024;
 const DEFAULT_RATE_LIMIT_WINDOW_SEC = 300;
 const DEFAULT_RATE_LIMIT_MAX = 20;
 const MAX_RATE_LIMIT_TRACKED_KEYS = 4096;
 const DEFAULT_DEV_CORS_ORIGINS = ['http://127.0.0.1:5173', 'http://localhost:5173'];
+const DEFAULT_QUEUE_RETRY_SEC = 30;
+const DEFAULT_QUEUE_MAX_ATTEMPTS = 5;
+const DEFAULT_QUEUE_MAX_ITEMS = 500;
+const DEFAULT_SYNC_TTL_SEC = 24 * 60 * 60;
+const DEFAULT_SYNC_MAX_MESSAGES = 250;
+const DEFAULT_SYNC_MAX_PULL = 100;
+const DEFAULT_MAX_SYNC_REQUEST_BYTES = 512 * 1024;
+
 const rateLimitStore = new Map();
+const deliveryQueue = [];
+const syncStore = new Map();
 
 const hasValue = (value) => typeof value === 'string' && value.trim().length > 0;
 
@@ -62,7 +74,7 @@ const resolveCorsOrigin = (origin, allowedOrigins) => {
 const corsHeaders = (origin) => ({
   'Access-Control-Allow-Origin': origin,
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Nullcal-Token',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
   Vary: 'Origin'
 });
 
@@ -178,11 +190,10 @@ const enforceRateLimit = (key, env) => {
   if (`${env.NOTIFY_RATE_LIMIT_DISABLE ?? ''}`.trim() === '1') {
     return;
   }
-  const windowSec = parsePositiveInt(
-    env.NOTIFY_RATE_LIMIT_WINDOW_SEC,
-    DEFAULT_RATE_LIMIT_WINDOW_SEC,
-    { min: 1, max: 86400 }
-  );
+  const windowSec = parsePositiveInt(env.NOTIFY_RATE_LIMIT_WINDOW_SEC, DEFAULT_RATE_LIMIT_WINDOW_SEC, {
+    min: 1,
+    max: 86400
+  });
   const maxRequests = parsePositiveInt(env.NOTIFY_RATE_LIMIT_MAX, DEFAULT_RATE_LIMIT_MAX, {
     min: 1,
     max: 1000
@@ -216,11 +227,13 @@ const getClientKey = (request, env) => {
   return 'unknown';
 };
 
-const readJson = async (request, env) => {
-  const maxBytes = parsePositiveInt(env.NOTIFY_MAX_REQUEST_BYTES, DEFAULT_MAX_REQUEST_BYTES, {
-    min: 256,
-    max: 1024 * 1024
-  });
+const readJson = async (request, env, maxBytesOverride) => {
+  const maxBytes =
+    maxBytesOverride ??
+    parsePositiveInt(env.NOTIFY_MAX_REQUEST_BYTES, DEFAULT_MAX_REQUEST_BYTES, {
+      min: 256,
+      max: 1024 * 1024
+    });
   const raw = await request.text();
   if (!raw) {
     throw new HttpError(400, 'Request body is empty.');
@@ -232,6 +245,209 @@ const readJson = async (request, env) => {
     return JSON.parse(raw);
   } catch {
     throw new HttpError(400, 'Request body is not valid JSON.');
+  }
+};
+
+const postWebhook = async (url, payload) => {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw new Error(`Webhook delivery failed: ${response.status}`);
+  }
+};
+
+const sendEmailViaWebhook = async (env, { to, subject, message, metadata }) => {
+  await postWebhook(env.EMAIL_WEBHOOK_URL, { to, subject, message, metadata });
+};
+
+const sendEmailViaResend = async (env, { to, subject, message }) => {
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from: env.NOTIFY_FROM_EMAIL,
+      to: [to],
+      subject: subject ?? 'NullCal notification',
+      text: message
+    })
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`Resend delivery failed: ${response.status} ${details}`);
+  }
+};
+
+const sendSmsViaTextbelt = async ({ to, message, key }) => {
+  const params = new URLSearchParams({
+    phone: to,
+    message,
+    key
+  });
+  const response = await fetch('https://textbelt.com/text', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString()
+  });
+  let details;
+  try {
+    details = await response.json();
+  } catch {
+    details = null;
+  }
+  if (!response.ok || !details?.success) {
+    const reason =
+      details && typeof details.error === 'string'
+        ? details.error
+        : `status ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+    throw new Error(`Textbelt delivery failed: ${reason}`);
+  }
+};
+
+const sendSmsViaTwilio = async (env, { to, message }) => {
+  const params = new URLSearchParams({
+    To: to,
+    From: env.TWILIO_FROM_NUMBER,
+    Body: message
+  });
+  const basicAuth = btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`);
+  const response = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${basicAuth}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params.toString()
+    }
+  );
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`Twilio delivery failed: ${response.status} ${details}`);
+  }
+};
+
+const runProviderChain = async (providers) => {
+  const failures = [];
+  for (const provider of providers) {
+    try {
+      await provider.send();
+      return provider.name;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown provider error.';
+      failures.push(`${provider.name}: ${message}`);
+    }
+  }
+  throw new Error(failures.join(' | ') || 'No provider available.');
+};
+
+const buildEmailProviders = (env, payload) => {
+  const providers = [];
+  if (hasValue(env.EMAIL_WEBHOOK_URL)) {
+    providers.push({ name: 'email:webhook', send: () => sendEmailViaWebhook(env, payload) });
+  }
+  if (hasValue(env.RESEND_API_KEY) && hasValue(env.NOTIFY_FROM_EMAIL)) {
+    providers.push({ name: 'email:resend', send: () => sendEmailViaResend(env, payload) });
+  }
+  return providers;
+};
+
+const buildSmsProviders = (env, payload) => {
+  const providers = [];
+  if (hasValue(env.SMS_WEBHOOK_URL)) {
+    providers.push({ name: 'sms:webhook', send: () => postWebhook(env.SMS_WEBHOOK_URL, payload) });
+  }
+  const textbeltKey = hasValue(env.TEXTBELT_API_KEY)
+    ? env.TEXTBELT_API_KEY
+    : env.TEXTBELT_FREE === '1'
+      ? 'textbelt'
+      : undefined;
+  if (textbeltKey) {
+    providers.push({
+      name: 'sms:textbelt',
+      send: () => sendSmsViaTextbelt({ to: payload.to, message: payload.message, key: textbeltKey })
+    });
+  }
+  if (hasValue(env.TWILIO_ACCOUNT_SID) && hasValue(env.TWILIO_AUTH_TOKEN) && hasValue(env.TWILIO_FROM_NUMBER)) {
+    providers.push({ name: 'sms:twilio', send: () => sendSmsViaTwilio(env, payload) });
+  }
+  return providers;
+};
+
+const deliverNotification = async (env, payload) => {
+  const providers = payload.channel === 'email' ? buildEmailProviders(env, payload) : buildSmsProviders(env, payload);
+  if (providers.length === 0) {
+    throw new Error(`${payload.channel.toUpperCase()} provider is not configured.`);
+  }
+  const provider = await runProviderChain(providers);
+  return { provider };
+};
+
+const queueEnabled = (env) => `${env.NOTIFY_QUEUE_DISABLE ?? ''}`.trim() !== '1';
+
+const queueMaxAttempts = (env) =>
+  parsePositiveInt(env.NOTIFY_QUEUE_MAX_ATTEMPTS, DEFAULT_QUEUE_MAX_ATTEMPTS, { min: 1, max: 20 });
+
+const queueRetrySeconds = (env) =>
+  parsePositiveInt(env.NOTIFY_QUEUE_RETRY_SEC, DEFAULT_QUEUE_RETRY_SEC, { min: 5, max: 3600 });
+
+const queueMaxItems = (env) =>
+  parsePositiveInt(env.NOTIFY_QUEUE_MAX_ITEMS, DEFAULT_QUEUE_MAX_ITEMS, { min: 10, max: 10000 });
+
+const enqueueDelivery = (env, payload, lastError) => {
+  const now = Date.now();
+  const item = {
+    id: crypto.randomUUID(),
+    payload,
+    attempts: 0,
+    createdAt: now,
+    nextAttemptAt: now + queueRetrySeconds(env) * 1000,
+    lastError: lastError ?? 'Queued'
+  };
+  deliveryQueue.push(item);
+  if (deliveryQueue.length > queueMaxItems(env)) {
+    deliveryQueue.splice(0, deliveryQueue.length - queueMaxItems(env));
+  }
+  return item;
+};
+
+const processDeliveryQueue = async (env) => {
+  if (!queueEnabled(env) || deliveryQueue.length === 0) {
+    return;
+  }
+  const now = Date.now();
+  const maxAttempts = queueMaxAttempts(env);
+  for (const item of [...deliveryQueue]) {
+    if (item.nextAttemptAt > now) {
+      continue;
+    }
+    try {
+      await deliverNotification(env, item.payload);
+      const index = deliveryQueue.findIndex((entry) => entry.id === item.id);
+      if (index >= 0) {
+        deliveryQueue.splice(index, 1);
+      }
+    } catch (error) {
+      item.attempts += 1;
+      item.lastError = error instanceof Error ? error.message : 'Unknown queue failure.';
+      if (item.attempts >= maxAttempts) {
+        const index = deliveryQueue.findIndex((entry) => entry.id === item.id);
+        if (index >= 0) {
+          deliveryQueue.splice(index, 1);
+        }
+        continue;
+      }
+      const backoffMs = queueRetrySeconds(env) * 1000 * Math.max(1, item.attempts);
+      item.nextAttemptAt = now + backoffMs;
+    }
   }
 };
 
@@ -266,7 +482,7 @@ const validateMetadata = (metadata) => {
   return sanitized;
 };
 
-const validatePayload = (body) => {
+const validateNotificationPayload = (body) => {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw new HttpError(400, 'Payload must be an object.');
   }
@@ -315,121 +531,108 @@ const validatePayload = (body) => {
   };
 };
 
-const postWebhook = async (url, payload) => {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+const sanitizeSyncPayload = (payload) => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new HttpError(400, 'Sync payload must be an object.');
+  }
+  const profiles = Array.isArray(payload.profiles) ? payload.profiles : [];
+  const calendars = Array.isArray(payload.calendars) ? payload.calendars : [];
+  const events = Array.isArray(payload.events) ? payload.events : [];
+  const templates = Array.isArray(payload.templates) ? payload.templates : [];
+  return { profiles, calendars, events, templates };
+};
+
+const validateSyncWritePayload = (body) => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new HttpError(400, 'Payload must be an object.');
+  }
+  const token = `${body.token ?? ''}`.trim();
+  const senderId = `${body.senderId ?? ''}`.trim();
+  if (!hasValue(token)) {
+    throw new HttpError(400, 'Sync token is required.');
+  }
+  if (token.length > MAX_SYNC_TOKEN_LENGTH) {
+    throw new HttpError(400, 'Sync token is too long.');
+  }
+  if (!hasValue(senderId) || senderId.length > MAX_SYNC_SENDER_LENGTH) {
+    throw new HttpError(400, 'Sync senderId is invalid.');
+  }
+  const sentAt = Number(body.sentAt ?? Date.now());
+  if (!Number.isFinite(sentAt)) {
+    throw new HttpError(400, 'Sync sentAt is invalid.');
+  }
+  const payload = sanitizeSyncPayload(body.payload);
+  return { token, senderId, sentAt, payload };
+};
+
+const getSyncEntry = (token) => {
+  let entry = syncStore.get(token);
+  if (!entry) {
+    entry = { revision: 0, messages: [] };
+    syncStore.set(token, entry);
+  }
+  return entry;
+};
+
+const cleanupSyncEntry = (env, entry) => {
+  const now = Date.now();
+  const ttlMs = parsePositiveInt(env.NOTIFY_SYNC_TTL_SEC, DEFAULT_SYNC_TTL_SEC, {
+    min: 60,
+    max: 7 * 24 * 60 * 60
+  }) * 1000;
+  const maxMessages = parsePositiveInt(env.NOTIFY_SYNC_MAX_MESSAGES, DEFAULT_SYNC_MAX_MESSAGES, {
+    min: 10,
+    max: 5000
   });
-  if (!response.ok) {
-    throw new Error(`Webhook delivery failed: ${response.status}`);
+  entry.messages = entry.messages.filter((message) => now - message.recordedAt <= ttlMs);
+  if (entry.messages.length > maxMessages) {
+    entry.messages.splice(0, entry.messages.length - maxMessages);
   }
 };
 
-const sendEmail = async (env, { to, subject, message, metadata }) => {
-  if (hasValue(env.EMAIL_WEBHOOK_URL)) {
-    await postWebhook(env.EMAIL_WEBHOOK_URL, { to, subject, message, metadata });
-    return;
-  }
-
-  if (!hasValue(env.RESEND_API_KEY) || !hasValue(env.NOTIFY_FROM_EMAIL)) {
-    throw new Error('Email provider is not configured.');
-  }
-
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      from: env.NOTIFY_FROM_EMAIL,
-      to: [to],
-      subject: subject ?? 'NullCal notification',
-      text: message
-    })
-  });
-
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(`Resend delivery failed: ${response.status} ${details}`);
-  }
+const writeSyncMessage = (env, token, message) => {
+  const entry = getSyncEntry(token);
+  entry.revision += 1;
+  const record = {
+    revision: entry.revision,
+    senderId: message.senderId,
+    sentAt: message.sentAt,
+    payload: message.payload,
+    recordedAt: Date.now()
+  };
+  entry.messages.push(record);
+  cleanupSyncEntry(env, entry);
+  return record.revision;
 };
 
-const sendSmsViaTextbelt = async ({ to, message, key }) => {
-  const params = new URLSearchParams({
-    phone: to,
-    message,
-    key
-  });
-  const response = await fetch('https://textbelt.com/text', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString()
-  });
-  let details;
-  try {
-    details = await response.json();
-  } catch {
-    details = null;
-  }
-  if (!response.ok || !details?.success) {
-    const reason =
-      details && typeof details.error === 'string'
-        ? details.error
-        : `status ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
-    throw new Error(`Textbelt delivery failed: ${reason}`);
-  }
+const readSyncMessages = (env, token, since) => {
+  const entry = getSyncEntry(token);
+  cleanupSyncEntry(env, entry);
+  const maxPull = parsePositiveInt(env.NOTIFY_SYNC_MAX_PULL, DEFAULT_SYNC_MAX_PULL, { min: 1, max: 500 });
+  const items = entry.messages.filter((item) => item.revision > since).slice(-maxPull);
+  return {
+    latestRevision: entry.revision,
+    items
+  };
 };
 
-const sendSms = async (env, { to, message, metadata }) => {
-  if (hasValue(env.SMS_WEBHOOK_URL)) {
-    await postWebhook(env.SMS_WEBHOOK_URL, { to, message, metadata });
-    return;
+const parseSyncReadParams = (url) => {
+  const token = `${url.searchParams.get('token') ?? ''}`.trim();
+  if (!hasValue(token)) {
+    throw new HttpError(400, 'Sync token is required.');
   }
-
-  const textbeltKey = hasValue(env.TEXTBELT_API_KEY)
-    ? env.TEXTBELT_API_KEY
-    : env.TEXTBELT_FREE === '1'
-      ? 'textbelt'
-      : undefined;
-  if (textbeltKey) {
-    await sendSmsViaTextbelt({ to, message, key: textbeltKey });
-    return;
+  if (token.length > MAX_SYNC_TOKEN_LENGTH) {
+    throw new HttpError(400, 'Sync token is too long.');
   }
-
-  if (!hasValue(env.TWILIO_ACCOUNT_SID) || !hasValue(env.TWILIO_AUTH_TOKEN) || !hasValue(env.TWILIO_FROM_NUMBER)) {
-    throw new Error('SMS provider is not configured.');
-  }
-
-  const params = new URLSearchParams({
-    To: to,
-    From: env.TWILIO_FROM_NUMBER,
-    Body: message
-  });
-  const basicAuth = btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`);
-  const response = await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${basicAuth}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: params.toString()
-    }
-  );
-
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(`Twilio delivery failed: ${response.status} ${details}`);
-  }
+  const sinceRaw = Number(url.searchParams.get('since') ?? 0);
+  const since = Number.isFinite(sinceRaw) && sinceRaw > 0 ? Math.floor(sinceRaw) : 0;
+  return { token, since };
 };
 
 export default {
   async fetch(request, env) {
     const requestOrigin = request.headers.get('Origin');
-    const allowedOrigins = parseAllowedOrigins(env.NOTIFY_CORS_ORIGIN);
+    const allowedOrigins = parseAllowedOrigins(env.NOTIFY_CORS_ORIGINS ?? env.NOTIFY_CORS_ORIGIN);
     const corsOrigin = resolveCorsOrigin(requestOrigin, allowedOrigins);
 
     if (request.method === 'OPTIONS') {
@@ -444,10 +647,20 @@ export default {
 
     const url = new URL(request.url);
     if (request.method === 'GET' && (url.pathname === '/health' || url.pathname === '/api/health')) {
-      return json(200, { ok: true, service: 'nullcal-notify-worker' }, corsOrigin);
+      return json(
+        200,
+        {
+          ok: true,
+          service: 'nullcal-notify-worker',
+          queueDepth: deliveryQueue.length
+        },
+        corsOrigin
+      );
     }
 
-    if (request.method !== 'POST' || url.pathname !== '/api/notify') {
+    const isNotifyRoute = url.pathname === '/api/notify';
+    const isSyncRoute = url.pathname === '/api/sync';
+    if (!isNotifyRoute && !isSyncRoute) {
       return json(404, { ok: false, error: 'Not found.' }, corsOrigin);
     }
 
@@ -457,16 +670,51 @@ export default {
       }
       assertRequestToken(request, env);
       enforceRateLimit(getClientKey(request, env), env);
+      await processDeliveryQueue(env);
 
-      const payload = validatePayload(await readJson(request, env));
-      assertAllowedRecipient(payload.channel, payload.to, env);
-
-      if (payload.channel === 'email') {
-        await sendEmail(env, payload);
-      } else {
-        await sendSms(env, payload);
+      if (isNotifyRoute) {
+        if (request.method !== 'POST') {
+          throw new HttpError(405, 'Method not allowed.');
+        }
+        const payload = validateNotificationPayload(await readJson(request, env));
+        assertAllowedRecipient(payload.channel, payload.to, env);
+        try {
+          const result = await deliverNotification(env, payload);
+          return json(200, { ok: true, id: crypto.randomUUID(), provider: result.provider }, corsOrigin);
+        } catch (deliveryError) {
+          if (!queueEnabled(env)) {
+            throw deliveryError;
+          }
+          const queued = enqueueDelivery(
+            env,
+            payload,
+            deliveryError instanceof Error ? deliveryError.message : 'Queued after failure.'
+          );
+          return json(
+            202,
+            { ok: true, queued: true, queueId: queued.id, retryAfterSeconds: queueRetrySeconds(env) },
+            corsOrigin
+          );
+        }
       }
-      return json(200, { ok: true, id: crypto.randomUUID() }, corsOrigin);
+
+      if (isSyncRoute && request.method === 'POST') {
+        const maxSyncBytes = parsePositiveInt(env.NOTIFY_SYNC_MAX_REQUEST_BYTES, DEFAULT_MAX_SYNC_REQUEST_BYTES, {
+          min: 1024,
+          max: 4 * 1024 * 1024
+        });
+        const payload = validateSyncWritePayload(await readJson(request, env, maxSyncBytes));
+        const revision = writeSyncMessage(env, payload.token, payload);
+        return json(200, { ok: true, revision }, corsOrigin);
+      }
+
+      if (isSyncRoute && request.method === 'GET') {
+        const params = parseSyncReadParams(url);
+        const data = readSyncMessages(env, params.token, params.since);
+        return json(200, { ok: true, ...data }, corsOrigin);
+      }
+
+      throw new HttpError(405, 'Method not allowed.');
     } catch (error) {
       if (error instanceof HttpError) {
         return json(error.status, { ok: false, error: error.message }, corsOrigin);

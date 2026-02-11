@@ -29,6 +29,7 @@ Current app routes:
 
 - `/` -> Calendar workspace
 - `/safety` -> Safety Center (security, export/import, audit, panic wipe, profile hardening)
+- `/home`, `/about`, `/privacy`, `/contact` -> product/marketing pages
 
 ## Core Features
 
@@ -41,6 +42,9 @@ Current app routes:
 - Encrypted export/import backups with export hygiene modes (`full`, `clean`, `minimal`)
 - Event export formats: CSV, ICS, and JSON
 - Audit log, auto-lock rules, decoy profile flow, and panic wipe
+- Relay-backed multi-device sync (`/api/sync`) plus local P2P sync
+- Collaboration roles (`owner`, `editor`, `viewer`) with team member management
+- Notification failover + retry queue (Node gateway and Worker)
 - PWA install support with service worker caching and standalone mode
 - Built-in localization support: English (`en`), Russian (`ru`), Persian (`fa`)
 
@@ -104,6 +108,8 @@ Environment variables:
 - `VITE_BASE` -> base path for deployment (for example `/NullCal/` on GitHub Pages)
 - `VITE_NOTIFICATION_API` -> notification backend base URL (default: `/api`, for example `https://<worker>.workers.dev/api`)
 - `VITE_NOTIFICATION_TOKEN` -> optional request token sent as `X-Nullcal-Token` / Bearer header by the frontend
+- `VITE_SYNC_API` -> optional sync relay base URL (defaults to `VITE_NOTIFICATION_API` or `/api`)
+- `VITE_SYNC_TOKEN` -> optional sync request token (defaults to `VITE_NOTIFICATION_TOKEN`)
 - `VITE_NOTIFICATION_TOKEN` is bundled into client code; pair it with strict `NOTIFY_CORS_ORIGIN` + `NOTIFY_ALLOWED_RECIPIENTS`
 - `NOTIFY_PROXY_TARGET` -> Vite dev proxy target for `/api` (default: `http://127.0.0.1:8787`)
 - `NOTIFY_SERVER_PORT` -> optional notification server port (default: `8787`)
@@ -119,10 +125,15 @@ Environment variables:
 - `NOTIFY_TRUST_PROXY=1` -> trust `X-Forwarded-For` for rate-limit client IP derivation (only enable behind a trusted proxy)
 - `NOTIFY_RATE_LIMIT_MAX` and `NOTIFY_RATE_LIMIT_WINDOW_SEC` -> per-IP in-memory rate limit controls
 - `NOTIFY_MAX_REQUEST_BYTES` -> max request size in bytes (default: `8192`)
+- `NOTIFY_QUEUE_DISABLE=1` -> disable retry queue (enabled by default)
+- `NOTIFY_QUEUE_RETRY_SEC`, `NOTIFY_QUEUE_MAX_ATTEMPTS`, `NOTIFY_QUEUE_MAX_ITEMS` -> queue retry/backlog controls
+- `NOTIFY_SYNC_TTL_SEC`, `NOTIFY_SYNC_MAX_MESSAGES`, `NOTIFY_SYNC_MAX_PULL` -> sync relay retention and pull-window controls
+- `NOTIFY_SYNC_MAX_REQUEST_BYTES` -> max accepted sync snapshot payload bytes (default: `524288`)
 
 ## Notification Gateway (Email/SMS)
 
-Email/SMS 2FA and reminders require a backend route at `POST /api/notify`.
+Email/SMS 2FA and reminders require `POST /api/notify`.
+Multi-device relay sync uses `POST /api/sync` and `GET /api/sync`.
 
 ### Local Node gateway
 
@@ -187,6 +198,17 @@ npx wrangler secret put TWILIO_FROM_NUMBER
 npx wrangler secret put NOTIFY_RATE_LIMIT_MAX
 npx wrangler secret put NOTIFY_RATE_LIMIT_WINDOW_SEC
 
+# Optional queue tuning
+npx wrangler secret put NOTIFY_QUEUE_RETRY_SEC
+npx wrangler secret put NOTIFY_QUEUE_MAX_ATTEMPTS
+npx wrangler secret put NOTIFY_QUEUE_MAX_ITEMS
+
+# Optional sync relay tuning
+npx wrangler secret put NOTIFY_SYNC_TTL_SEC
+npx wrangler secret put NOTIFY_SYNC_MAX_MESSAGES
+npx wrangler secret put NOTIFY_SYNC_MAX_PULL
+npx wrangler secret put NOTIFY_SYNC_MAX_REQUEST_BYTES
+
 # Required by default for /api/notify (client must send this header)
 npx wrangler secret put NOTIFY_REQUEST_TOKEN
 ```
@@ -215,11 +237,15 @@ The workflow already reads this variable during build.
 ## Scripts
 
 - `npm run dev` -> ensure icons + start dev server
-- `npm run notify:server` -> start email/SMS notification gateway (`/api/notify`)
+- `npm run notify:server` -> start notification/sync gateway (`/api/notify`, `/api/sync`)
 - `npm run build` -> ensure icons, run hook-order guard, build, generate `404.html`
 - `npm run preview` -> preview built output locally
 - `npm run lint` -> run hook dependency order validator
 - `npm run typecheck` -> TypeScript compile check (`tsc --noEmit`)
+- `npm run test` -> run unit + integration + e2e smoke suites
+- `npm run test:unit` -> run unit tests
+- `npm run test:integration` -> run integration tests
+- `npm run test:e2e` -> run build/e2e smoke tests
 
 ## Deployment
 
@@ -247,7 +273,7 @@ Custom domain in this repo:
 
 ## Roadmap
 
-- Add real multi-device sync transport beyond local BroadcastChannel exchange
-- Add provider failover/queueing for notification gateway delivery
-- Add automated test suites (unit + integration + E2E)
-- Add role-based collaboration workflows for shared/team modes
+- Move relay sync storage from in-memory to durable backing (KV/DB) for long retention
+- Add collaborator invite acceptance + presence/status reconciliation
+- Expand automated coverage with browser journey tests for core calendar workflows
+- Add conflict-resolution policies for concurrent multi-device edits

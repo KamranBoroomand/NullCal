@@ -54,6 +54,19 @@ export type EventTemplate = {
   createdAt: string;
 };
 
+export type CollaborationRole = 'owner' | 'editor' | 'viewer';
+
+export type CollaborationMember = {
+  id: string;
+  name: string;
+  contact: string;
+  role: CollaborationRole;
+  status: 'invited' | 'active';
+  invitedAt: string;
+  joinedAt?: string;
+  lastSeenAt?: string;
+};
+
 export type AppSettings = {
   id: 'app';
   theme: 'dark' | 'light';
@@ -93,6 +106,8 @@ export type AppSettings = {
   signalWebhookUrl?: string;
   collaborationMode: 'private' | 'shared' | 'team';
   collaborationEnabled: boolean;
+  collaborationRole: CollaborationRole;
+  collaborationMembers: CollaborationMember[];
   notesShareToken?: string;
   lastExportAt?: string;
   highContrast?: boolean;

@@ -35,6 +35,14 @@ const ThemeBridge = ({ children }: { children: ReactNode }) => {
   const palette = state?.settings.palette ?? fallbackPalette;
   const theme = state?.settings.theme ?? resolveThemeModeFromPalette(palette, fallbackTheme);
 
+  useEffect(() => {
+    void import('../security/notifications')
+      .then(({ flushPendingNotifications }) => flushPendingNotifications())
+      .catch(() => {
+        // Ignore startup notification flush failures.
+      });
+  }, []);
+
   return (
     <ThemeProvider
       theme={theme}

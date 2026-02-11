@@ -29,6 +29,12 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Quality checks
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run test:unit
+
       - name: Resolve base path
         id: resolve-base
         run: |

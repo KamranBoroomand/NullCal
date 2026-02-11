@@ -20,7 +20,7 @@ import { buildExportPayload, type ExportMode, validateExportPayload } from '../s
 import { usePrivacyScreen } from '../state/privacy';
 import { useTranslations } from '../i18n/useTranslations';
 import { translateLiteral } from '../i18n/literalTranslations';
-import type { AppSettings } from '../storage/types';
+import type { AppSettings, CollaborationRole } from '../storage/types';
 import { DEFAULT_THEME_BY_MODE, THEME_PACKS } from '../theme/themePacks';
 import { clearAuditLog, readAuditLog } from '../storage/auditLog';
 
@@ -40,6 +40,8 @@ const SafetyCenter = () => {
   const { t, language } = useTranslations();
   const {
     state,
+    canEditWorkspace,
+    canManageCollaboration,
     lockNow,
     updateSettings,
     setActiveProfile,
@@ -47,6 +49,10 @@ const SafetyCenter = () => {
     createDecoyProfile,
     resetProfile,
     updateProfileDetails,
+    inviteCollaborator,
+    updateCollaborator,
+    removeCollaborator,
+    setCollaborationRole,
     createCalendar,
     renameCalendar,
     recolorCalendar,
@@ -96,6 +102,9 @@ const SafetyCenter = () => {
   const [profilePhone, setProfilePhone] = useState('');
   const [profileLocation, setProfileLocation] = useState('');
   const [profilePreferredNotification, setProfilePreferredNotification] = useState<'email' | 'sms'>('email');
+  const [collabInviteName, setCollabInviteName] = useState('');
+  const [collabInviteContact, setCollabInviteContact] = useState('');
+  const [collabInviteRole, setCollabInviteRole] = useState<CollaborationRole>('viewer');
   const holdTimer = useRef<number | null>(null);
   const profileRecoveryRef = useRef(false);
   const [searchParams] = useSearchParams();
@@ -822,8 +831,33 @@ const SafetyCenter = () => {
   const auditEntries = readAuditLog();
 
   const handleToggleCollaboration = (enabled: boolean) => {
+    if (!canManageCollaboration) {
+      notify('Only owner role can change collaboration settings.', 'error');
+      return;
+    }
     updateSettings({ collaborationEnabled: enabled });
     notify(enabled ? 'Collaboration enabled.' : 'Collaboration disabled.', 'success');
+  };
+
+  const handleInviteCollaborator = () => {
+    if (!canManageCollaboration) {
+      notify('Only owner role can invite collaborators.', 'error');
+      return;
+    }
+    if (!collabInviteName.trim() || !collabInviteContact.trim()) {
+      notify('Add collaborator name and contact.', 'error');
+      return;
+    }
+    inviteCollaborator(collabInviteName, collabInviteContact, collabInviteRole);
+    setCollabInviteName('');
+    setCollabInviteContact('');
+    setCollabInviteRole('viewer');
+    notify('Collaborator invited.', 'success');
+  };
+
+  const handleRoleChange = (role: CollaborationRole) => {
+    setCollaborationRole(role);
+    notify(`Local collaboration role set to ${role}.`, 'success');
   };
 
   const handleToggleSharing = (enabled: boolean) => {
@@ -1136,7 +1170,7 @@ const SafetyCenter = () => {
                       Offline only
                     </option>
                     <option value="ipfs" className="bg-panel2">
-                      IPFS secure sync
+                      Relay secure sync
                     </option>
                     <option value="p2p" className="bg-panel2">
                       Peer-to-peer mesh
@@ -1857,6 +1891,7 @@ const SafetyCenter = () => {
                     type="checkbox"
                     checked={state.settings.collaborationEnabled}
                     onChange={(event) => handleToggleCollaboration(event.target.checked)}
+                    disabled={!canManageCollaboration}
                     className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
                   />
                 </label>
@@ -1870,7 +1905,7 @@ const SafetyCenter = () => {
                       })
                     }
                     className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
-                    disabled={!state.settings.collaborationEnabled}
+                    disabled={!state.settings.collaborationEnabled || !canManageCollaboration}
                   >
                     <option value="private" className="bg-panel2">
                       Private only
@@ -1883,6 +1918,124 @@ const SafetyCenter = () => {
                     </option>
                   </select>
                 </label>
+                <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                  Local role
+                  <select
+                    value={state.settings.collaborationRole}
+                    onChange={(event) => handleRoleChange(event.target.value as CollaborationRole)}
+                    className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                    disabled={!state.settings.collaborationEnabled}
+                  >
+                    <option value="owner" className="bg-panel2">
+                      Owner (manage members)
+                    </option>
+                    <option value="editor" className="bg-panel2">
+                      Editor (modify events)
+                    </option>
+                    <option value="viewer" className="bg-panel2">
+                      Viewer (read-only)
+                    </option>
+                  </select>
+                </label>
+                {state.settings.collaborationEnabled && (
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Team members</p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
+                      <input
+                        value={collabInviteName}
+                        onChange={(event) => setCollabInviteName(event.target.value)}
+                        placeholder="Name"
+                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                        disabled={!canManageCollaboration}
+                      />
+                      <input
+                        value={collabInviteContact}
+                        onChange={(event) => setCollabInviteContact(event.target.value)}
+                        placeholder="Email or phone"
+                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                        disabled={!canManageCollaboration}
+                      />
+                      <select
+                        value={collabInviteRole}
+                        onChange={(event) => setCollabInviteRole(event.target.value as CollaborationRole)}
+                        className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                        disabled={!canManageCollaboration}
+                      >
+                        <option value="viewer" className="bg-panel2">
+                          Viewer
+                        </option>
+                        <option value="editor" className="bg-panel2">
+                          Editor
+                        </option>
+                        <option value="owner" className="bg-panel2">
+                          Owner
+                        </option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={handleInviteCollaborator}
+                        disabled={!canManageCollaboration}
+                        className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted disabled:opacity-50"
+                      >
+                        Invite
+                      </button>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {state.settings.collaborationMembers.length === 0 && (
+                        <p className="text-[11px] text-muted">No collaborators added yet.</p>
+                      )}
+                      {state.settings.collaborationMembers.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex flex-wrap items-center gap-2 rounded-xl border border-grid bg-panel px-3 py-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm text-text">{member.name}</p>
+                            <p className="truncate text-[11px] text-muted">{member.contact}</p>
+                          </div>
+                          <span className="rounded-full border border-grid px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-muted">
+                            {member.status}
+                          </span>
+                          <select
+                            value={member.role}
+                            onChange={(event) =>
+                              updateCollaborator(member.id, {
+                                role: event.target.value as CollaborationRole,
+                                status: 'active',
+                                joinedAt: member.joinedAt ?? new Date().toISOString()
+                              })
+                            }
+                            className="rounded-xl border border-grid bg-panel2 px-2 py-1 text-[11px] text-text"
+                            disabled={!canManageCollaboration}
+                          >
+                            <option value="viewer" className="bg-panel2">
+                              Viewer
+                            </option>
+                            <option value="editor" className="bg-panel2">
+                              Editor
+                            </option>
+                            <option value="owner" className="bg-panel2">
+                              Owner
+                            </option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => removeCollaborator(member.id)}
+                            disabled={!canManageCollaboration}
+                            className="rounded-full border border-grid px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-muted disabled:opacity-50"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {!canEditWorkspace && state.settings.collaborationEnabled && (
+                  <p className="rounded-xl border border-grid bg-panel px-3 py-2 text-[11px] text-muted">
+                    Viewer role is read-only for calendars, profiles, templates, and event updates.
+                  </p>
+                )}
                 <p className="text-xs text-muted">
                   Shared calendars remain encrypted; only approved collaborators can decrypt events.
                 </p>
