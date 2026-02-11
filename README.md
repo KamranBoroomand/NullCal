@@ -112,7 +112,7 @@ Environment variables:
 - `TEXTBELT_FREE=1` -> use Textbelt free key (`textbelt`, very limited quota, useful for testing)
 - `EMAIL_WEBHOOK_URL` and `SMS_WEBHOOK_URL` -> optional custom delivery webhooks (alternative to Resend/Twilio)
 - `NOTIFY_ALLOWED_RECIPIENTS` -> optional recipient allowlist (`email:alerts@example.com,sms:+15551234567,*@example.com`)
-- `NOTIFY_REQUEST_TOKEN` -> optional shared token required in `Authorization: Bearer <token>` or `X-Nullcal-Token`
+- `NOTIFY_REQUEST_TOKEN` -> optional shared token required in `Authorization: Bearer <token>` or `X-Nullcal-Token` (advanced; client must send this header)
 - `NOTIFY_RATE_LIMIT_MAX` and `NOTIFY_RATE_LIMIT_WINDOW_SEC` -> per-IP in-memory rate limit controls
 - `NOTIFY_MAX_REQUEST_BYTES` -> max request size in bytes (default: `8192`)
 
@@ -162,7 +162,6 @@ npx wrangler secret put NOTIFY_CORS_ORIGIN
 
 # Optional hardening (recommended)
 npx wrangler secret put NOTIFY_ALLOWED_RECIPIENTS
-npx wrangler secret put NOTIFY_REQUEST_TOKEN
 
 # Email path (free tier possible via Resend)
 npx wrangler secret put RESEND_API_KEY
@@ -176,9 +175,12 @@ npx wrangler secret put TWILIO_ACCOUNT_SID
 npx wrangler secret put TWILIO_AUTH_TOKEN
 npx wrangler secret put TWILIO_FROM_NUMBER
 
-# Optional rate limit tuning (vars, not secrets)
+# Optional rate limit tuning
 npx wrangler secret put NOTIFY_RATE_LIMIT_MAX
 npx wrangler secret put NOTIFY_RATE_LIMIT_WINDOW_SEC
+
+# Advanced hardening (requires client-side token header support)
+npx wrangler secret put NOTIFY_REQUEST_TOKEN
 ```
 
 3. Build frontend against worker URL:
