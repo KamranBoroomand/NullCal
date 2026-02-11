@@ -1089,8 +1089,8 @@ const SafetyCenter = () => {
             </div>
           </motion.section>
 
-          <motion.section {...panelMotion} className="columns-1 gap-1.5 lg:columns-2">
-            <div className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6">
+          <motion.section {...panelMotion} className="grid items-start gap-1.5 lg:grid-cols-2">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6 lg:order-1">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Decentralized Sync</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -1223,7 +1223,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6 lg:order-2">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Authentication</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -1489,7 +1489,7 @@ const SafetyCenter = () => {
 
             <div
               id="profile-section"
-              className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6"
+              className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6 lg:order-3"
             >
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Profile customization</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
@@ -1606,7 +1606,7 @@ const SafetyCenter = () => {
 
             <div
               id="accessibility-section"
-              className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6"
+              className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6 lg:order-6"
             >
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Accessibility</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
@@ -1654,7 +1654,7 @@ const SafetyCenter = () => {
 
             <div
               id="notes-section"
-              className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6"
+              className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6 lg:order-5"
             >
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Private Notes & Sharing</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
@@ -1737,7 +1737,7 @@ const SafetyCenter = () => {
 
             <div
               id="reminders-section"
-              className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6"
+              className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6 lg:order-4"
             >
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Reminders & Collaboration</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
@@ -1894,49 +1894,105 @@ const SafetyCenter = () => {
             {...panelMotion}
             className="grid items-start gap-1.5 text-sm text-muted md:grid-cols-2"
           >
-            <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy Status</p>
-              <div className="mt-3 space-y-3 text-xs text-muted">
-                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
-                    <span>Privacy level</span>
-                    <span className="text-[10px] uppercase tracking-[0.2em] text-text">{privacyLevel}</span>
+            <div className="grid gap-1.5">
+              <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy Status</p>
+                <div className="mt-3 space-y-3 text-xs text-muted">
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                      <span>Privacy level</span>
+                      <span className="text-[10px] uppercase tracking-[0.2em] text-text">{privacyLevel}</span>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted">
+                      <span>Coverage</span>
+                      <span className="text-text">
+                        {privacyScore}/4 signals active
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-grid">
+                      <div
+                        className="h-full rounded-full bg-accent transition-all"
+                        style={{ width: `${(privacyScore / 4) * 100}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted">
-                    <span>Coverage</span>
-                    <span className="text-text">
-                      {privacyScore}/4 signals active
-                    </span>
-                  </div>
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-grid">
-                    <div
-                      className="h-full rounded-full bg-accent transition-all"
-                      style={{ width: `${(privacyScore / 4) * 100}%` }}
-                    />
-                  </div>
+                  {privacySections.map((section, index) => (
+                    <details
+                      key={section.title}
+                      className="rounded-2xl border border-grid bg-panel2 px-4 py-3"
+                      open={index === 0}
+                    >
+                      <summary className="flex cursor-pointer list-none items-center justify-between text-xs uppercase tracking-[0.3em] text-muted">
+                        <span>{section.title}</span>
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-muted">View</span>
+                      </summary>
+                      <ul className="mt-3 space-y-1.5 text-sm text-muted">
+                        {section.items.map((item) => (
+                          <li key={item.label} className="flex min-w-0 items-center justify-between gap-3">
+                            <span>{item.label}</span>
+                            <span className="text-text">{item.value}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ))}
                 </div>
-                {privacySections.map((section, index) => (
-                  <details
-                    key={section.title}
-                    className="rounded-2xl border border-grid bg-panel2 px-4 py-3"
-                    open={index === 0}
+              </div>
+
+              <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
+                <div className="mt-3 space-y-3 text-sm text-muted">
+                  <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted">Secure mode</p>
+                      <p className="mt-1 text-xs text-muted">
+                        Hides event titles until hover or focus to deter shoulder-surfing. Not encryption.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={state.settings.secureMode}
+                      onChange={(event) => updateSettings({ secureMode: event.target.checked })}
+                      className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                    />
+                  </label>
+                  <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted">Blur sensitive</p>
+                      <p className="mt-1 text-xs text-muted">Blurs titles until hover.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={state.settings.blurSensitive}
+                      onChange={(event) => updateSettings({ blurSensitive: event.target.checked })}
+                      className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                    />
+                  </label>
+                  <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy screen hotkey</p>
+                      <p className="mt-1 text-xs text-muted">Cmd/Ctrl+Shift+P toggles a decoy overlay.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={state.settings.privacyScreenHotkeyEnabled}
+                      onChange={(event) =>
+                        updateSettings({ privacyScreenHotkeyEnabled: event.target.checked })
+                      }
+                      className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={togglePrivacyScreen}
+                    className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
                   >
-                    <summary className="flex cursor-pointer list-none items-center justify-between text-xs uppercase tracking-[0.3em] text-muted">
-                      <span>{section.title}</span>
-                      <span className="text-[10px] uppercase tracking-[0.2em] text-muted">View</span>
-                    </summary>
-                    <ul className="mt-3 space-y-1.5 text-sm text-muted">
-                      {section.items.map((item) => (
-                        <li key={item.label} className="flex min-w-0 items-center justify-between gap-3">
-                          <span>{item.label}</span>
-                          <span className="text-text">{item.value}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                ))}
+                    {privacyScreenOn ? 'Exit privacy screen' : 'Activate privacy screen'}
+                  </button>
+                </div>
               </div>
             </div>
+
             <div className="grid gap-1.5">
               <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
                 <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Checklist</p>
@@ -1979,6 +2035,7 @@ const SafetyCenter = () => {
                   ))}
                 </div>
               </div>
+
               <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
                 <p className="text-xs uppercase tracking-[0.3em] text-muted">Locking</p>
                 <div className="mt-2 space-y-3 text-sm text-muted">
@@ -2090,92 +2147,37 @@ const SafetyCenter = () => {
                   </div>
                 </div>
               </div>
-            </div>
-          </motion.section>
 
-          <motion.section {...panelMotion} className="grid gap-2">
-            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
-              <div className="mt-3 space-y-3 text-sm text-muted">
-                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Secure mode</p>
-                    <p className="mt-1 text-xs text-muted">
-                      Hides event titles until hover or focus to deter shoulder-surfing. Not encryption.
+              <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Appearance</p>
+                <div className="mt-2 flex flex-col gap-3 text-sm text-muted lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                      <span>Theme Packs</span>
+                      <span className="text-[10px] tracking-[0.2em] text-muted">{activeTheme.name}</span>
+                    </div>
+                    <p className="mt-2 text-xs text-muted">
+                      Pick a theme to restyle the entire interface. Saved locally on this device.
                     </p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={state.settings.secureMode}
-                    onChange={(event) => updateSettings({ secureMode: event.target.checked })}
-                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
-                  />
-                </label>
-                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Blur sensitive</p>
-                    <p className="mt-1 text-xs text-muted">Blurs titles until hover.</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={state.settings.blurSensitive}
-                    onChange={(event) => updateSettings({ blurSensitive: event.target.checked })}
-                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
-                  />
-                </label>
-                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy screen hotkey</p>
-                    <p className="mt-1 text-xs text-muted">Cmd/Ctrl+Shift+P toggles a decoy overlay.</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={state.settings.privacyScreenHotkeyEnabled}
-                    onChange={(event) =>
-                      updateSettings({ privacyScreenHotkeyEnabled: event.target.checked })
-                    }
-                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={togglePrivacyScreen}
-                  className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
-                >
-                  {privacyScreenOn ? 'Exit privacy screen' : 'Activate privacy screen'}
-                </button>
-              </div>
-            </div>
-
-            <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Appearance</p>
-              <div className="mt-2 flex flex-col gap-3 text-sm text-muted lg:flex-row lg:items-start lg:justify-between">
-                <div className="flex-1">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.3em] text-muted">
-                    <span>Theme Packs</span>
-                    <span className="text-[10px] tracking-[0.2em] text-muted">{activeTheme.name}</span>
-                  </div>
-                  <p className="mt-2 text-xs text-muted">
-                    Pick a theme to restyle the entire interface. Saved locally on this device.
-                  </p>
-                  <div className="mt-3 min-w-0">
-                    <ThemePicker
-                      themes={themeOptions}
-                      activeId={state.settings.palette}
-                      onSelect={(nextPalette) => {
-                        const nextTheme =
-                          themeOptions.find((theme) => theme.id === nextPalette)?.mode ?? state.settings.theme;
-                        updateSettings({ palette: nextPalette, theme: nextTheme });
-                      }}
-                    />
+                    <div className="mt-3 min-w-0">
+                      <ThemePicker
+                        themes={themeOptions}
+                        activeId={state.settings.palette}
+                        onSelect={(nextPalette) => {
+                          const nextTheme =
+                            themeOptions.find((theme) => theme.id === nextPalette)?.mode ?? state.settings.theme;
+                          updateSettings({ palette: nextPalette, theme: nextTheme });
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </motion.section>
 
-          <motion.section {...panelMotion} className="columns-1 gap-1.5 md:columns-2">
-            <div className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6">
+          <motion.section {...panelMotion} className="grid items-start gap-1.5 md:grid-cols-2">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Event export</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
@@ -2207,7 +2209,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Audit log</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <div className="max-h-44 space-y-2 overflow-auto rounded-2xl border border-grid bg-panel2 px-3 py-2 text-xs">
@@ -2245,7 +2247,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Export Hygiene</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <div className="space-y-3">
@@ -2352,7 +2354,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Decoy Profile</p>
               <div className="mt-4 grid auto-rows-min gap-2 text-sm text-muted xl:grid-cols-2">
                 <div className="space-y-4">
