@@ -23,6 +23,7 @@ Local-first operations calendar with privacy-first controls, profile isolation, 
 
 NullCal is a React + TypeScript Progressive Web App for scheduling in high-privacy workflows.
 It is built to run offline-first, keep data local by default, and provide operational security controls without requiring a backend for core use.
+For remote delivery features (email/SMS OTP and reminders), run the optional notification gateway in `server/notify-server.mjs`.
 
 Current app routes:
 
@@ -102,10 +103,37 @@ Environment variables:
 
 - `VITE_BASE` -> base path for deployment (for example `/NullCal/` on GitHub Pages)
 - `VITE_NOTIFICATION_API` -> notification backend base URL (default: `/api`)
+- `NOTIFY_PROXY_TARGET` -> Vite dev proxy target for `/api` (default: `http://127.0.0.1:8787`)
+- `NOTIFY_SERVER_PORT` -> optional notification server port (default: `8787`)
+- `NOTIFY_CORS_ORIGIN` -> allowed origin for notification server requests (default: `*`)
+- `RESEND_API_KEY` and `NOTIFY_FROM_EMAIL` -> email delivery via Resend
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` -> SMS delivery via Twilio
+- `EMAIL_WEBHOOK_URL` and `SMS_WEBHOOK_URL` -> optional custom delivery webhooks (alternative to Resend/Twilio)
+
+## Notification Gateway (Email/SMS)
+
+Email/SMS 2FA and reminders require a backend route at `POST /api/notify`.
+
+1. Start the gateway:
+
+```bash
+npm run notify:server
+```
+
+2. Point the frontend to it:
+
+```bash
+VITE_NOTIFICATION_API=http://127.0.0.1:8787/api npm run dev
+```
+
+3. In Safety Center:
+- Disable **Network lock** when you want remote delivery.
+- Keep it enabled for strict offline mode.
 
 ## Scripts
 
 - `npm run dev` -> ensure icons + start dev server
+- `npm run notify:server` -> start email/SMS notification gateway (`/api/notify`)
 - `npm run build` -> ensure icons, run hook-order guard, build, generate `404.html`
 - `npm run preview` -> preview built output locally
 - `npm run lint` -> run hook dependency order validator
@@ -131,11 +159,11 @@ Custom domain in this repo:
 - PIN/local passphrase hashes are PBKDF2-derived and verified client-side.
 - TOTP is implemented client-side for offline-friendly MFA.
 - Panic wipe removes IndexedDB, localStorage state, caches, and service workers.
-- Network lock is enforced in current app state logic, so outbound network-dependent integrations (for example email/SMS reminder delivery APIs) are constrained unless that behavior is intentionally relaxed.
+- Network lock can be toggled in Safety Center. When enabled, all outbound network requests are blocked.
 
 ## Roadmap
 
 - Add real multi-device sync transport beyond local BroadcastChannel exchange
-- Add robust backend adapters for remote notifications and OTP delivery
+- Add provider failover/queueing for notification gateway delivery
 - Add automated test suites (unit + integration + E2E)
 - Add role-based collaboration workflows for shared/team modes

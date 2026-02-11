@@ -400,7 +400,7 @@ const SafetyCenter = () => {
     { label: 'Auto-lock enabled', value: state.settings.autoLockMinutes > 0 || state.settings.autoLockOnBlur },
     {
       label: 'Offline mode enforced',
-      value: state.settings.networkLock || state.settings.syncStrategy === 'offline'
+      value: state.settings.networkLock
     },
     { label: 'Secure mode enabled', value: state.settings.secureMode },
     { label: 'Two-factor ready', value: state.settings.twoFactorEnabled },
@@ -441,7 +441,7 @@ const SafetyCenter = () => {
         },
         {
           label: 'Offline mode enforced',
-          value: state.settings.networkLock || state.settings.syncStrategy === 'offline'
+          value: state.settings.networkLock
         }
       ]
     }
@@ -602,6 +602,12 @@ const SafetyCenter = () => {
       notify('Add a destination for the verification code.', 'error');
       return;
     }
+    if (state.settings.networkLock) {
+      notify(
+        'Network lock is enabled. NullCal will use local-device fallback if gateway delivery is unavailable.',
+        'info'
+      );
+    }
     try {
       await startTwoFactorChallenge(twoFactorChannel, twoFactorDestination);
       setTwoFactorSent(true);
@@ -676,8 +682,24 @@ const SafetyCenter = () => {
   };
 
   const handleToggleSyncEnabled = (enabled: boolean) => {
-    updateSettings({ syncStrategy: enabled ? 'p2p' : 'offline' });
+    updateSettings({
+      syncStrategy: enabled ? 'p2p' : 'offline',
+      networkLock: enabled ? false : true
+    });
     notify(enabled ? 'Decentralized sync enabled.' : 'Decentralized sync disabled.', 'success');
+  };
+
+  const handleToggleNetworkLock = (enabled: boolean) => {
+    updateSettings({
+      networkLock: enabled,
+      syncStrategy: enabled ? 'offline' : state.settings.syncStrategy
+    });
+    notify(
+      enabled
+        ? 'Network lock enabled. Remote integrations are blocked.'
+        : 'Network lock disabled. Remote integrations are allowed.',
+      'success'
+    );
   };
 
   const handleToggleTrustedDevices = (enabled: boolean) => {
@@ -921,13 +943,14 @@ const SafetyCenter = () => {
     : { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.25 } };
   const localEncryption = state.settings.encryptedNotes || state.settings.encryptedAttachments ? 'Encrypted' : 'Standard';
   const syncEncryption = state.settings.encryptedSharingEnabled ? 'Enabled' : 'Standard';
-  const networkLabel =
-    state.settings.syncStrategy === 'offline'
-      ? 'Offline only'
+  const networkLabel = state.settings.networkLock
+    ? 'Offline only'
+    : state.settings.syncStrategy === 'offline'
+      ? 'Limited online'
       : 'Secure sync';
   const ipTrackingStatus = state.settings.networkLock ? 'Blocked' : 'Limited';
   const privacyScore = [
-    state.settings.networkLock || state.settings.syncStrategy === 'offline',
+    state.settings.networkLock,
     state.settings.encryptedNotes || state.settings.encryptedAttachments,
     state.settings.encryptedSharingEnabled,
     state.settings.twoFactorEnabled
@@ -1066,10 +1089,24 @@ const SafetyCenter = () => {
             </div>
           </motion.section>
 
-          <motion.section {...panelMotion} className="grid gap-2 lg:grid-cols-2">
+          <motion.section {...panelMotion} className="grid items-start gap-2 lg:grid-cols-2">
             <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Decentralized Sync</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
+                <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Network lock</p>
+                    <p className="mt-1 text-xs text-muted">
+                      Blocks all outbound requests (email/SMS reminders, secure pings, sync).
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={state.settings.networkLock}
+                    onChange={(event) => handleToggleNetworkLock(event.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border border-grid bg-panel2"
+                  />
+                </label>
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
                   <div className="min-w-0">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Enable decentralized sync</p>
@@ -1087,7 +1124,10 @@ const SafetyCenter = () => {
                   <select
                     value={state.settings.syncStrategy}
                     onChange={(event) =>
-                      updateSettings({ syncStrategy: event.target.value as AppSettings['syncStrategy'] })
+                      updateSettings({
+                        syncStrategy: event.target.value as AppSettings['syncStrategy'],
+                        networkLock: event.target.value === 'offline'
+                      })
                     }
                     className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
                     disabled={state.settings.syncStrategy === 'offline'}
@@ -1223,6 +1263,12 @@ const SafetyCenter = () => {
                       </label>
                       {twoFactorMode === 'otp' && (
                         <>
+                          {state.settings.networkLock && (
+                            <p className="rounded-xl border border-grid bg-panel px-3 py-2 text-[11px] text-muted">
+                              Network lock is enabled. Remote email/SMS delivery is blocked unless a local fallback is
+                              available.
+                            </p>
+                          )}
                           <label className="flex min-w-0 flex-col gap-2 text-[10px] uppercase tracking-[0.3em] text-muted">
                             Delivery channel
                             <select
@@ -1725,6 +1771,13 @@ const SafetyCenter = () => {
                     </option>
                   </select>
                 </label>
+                {state.settings.networkLock &&
+                  state.settings.reminderChannel !== 'local' &&
+                  state.settings.reminderChannel !== 'push' && (
+                    <p className="rounded-xl border border-grid bg-panel px-3 py-2 text-[11px] text-muted">
+                      Network lock is enabled. Remote reminder delivery is blocked.
+                    </p>
+                  )}
                 {(state.settings.reminderChannel === 'email' ||
                   state.settings.reminderChannel === 'sms') && (
                   <div className="grid gap-2">
@@ -1825,7 +1878,7 @@ const SafetyCenter = () => {
             </div>
           </motion.section>
 
-          <motion.section {...panelMotion} className="grid gap-2 text-sm text-muted md:grid-cols-2">
+          <motion.section {...panelMotion} className="grid items-start gap-2 text-sm text-muted md:grid-cols-2">
             <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy Status</p>
               <div className="mt-3 space-y-3 text-xs text-muted">
@@ -2106,7 +2159,7 @@ const SafetyCenter = () => {
             </div>
           </motion.section>
 
-          <motion.section {...panelMotion} className="grid gap-2 md:grid-cols-2">
+          <motion.section {...panelMotion} className="grid items-start gap-2 md:grid-cols-2">
             <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Event export</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
@@ -2286,7 +2339,7 @@ const SafetyCenter = () => {
 
             <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Decoy Profile</p>
-              <div className="mt-4 grid gap-4 text-sm text-muted xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+              <div className="mt-4 grid auto-rows-min gap-3 text-sm text-muted xl:grid-cols-2">
                 <div className="space-y-4">
                   <p className="text-xs text-muted leading-relaxed">
                     Decoy profile is a separate local workspace. Use a decoy PIN to open it under pressure.
@@ -2341,7 +2394,7 @@ const SafetyCenter = () => {
                       type="button"
                       onClick={handleSwitchToDecoy}
                       disabled={!state.settings.decoyProfileId}
-                      className="mt-4 w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      className="mt-4 w-full rounded-full border border-grid px-4 py-2 text-[11px] leading-tight uppercase tracking-[0.14em] text-muted disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Open decoy workspace
                     </button>
@@ -2352,22 +2405,22 @@ const SafetyCenter = () => {
                       <button
                         type="button"
                         onClick={handleCreateDecoyProfile}
-                        className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                        className="w-full rounded-full border border-grid px-4 py-2 text-[11px] leading-tight uppercase tracking-[0.14em] text-muted"
                       >
                         Create decoy shell
                       </button>
-                      <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="grid gap-2 md:grid-cols-2">
                         <button
                           type="button"
                           onClick={handleSwitchToDecoy}
-                          className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                          className="w-full rounded-full border border-grid px-4 py-2 text-[11px] leading-tight uppercase tracking-[0.14em] text-muted"
                         >
                           Switch to decoy
                         </button>
                         <button
                           type="button"
                           onClick={() => handleManualProfileSwitch(state.settings.primaryProfileId)}
-                          className="w-full rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                          className="w-full rounded-full border border-grid px-4 py-2 text-[11px] leading-tight uppercase tracking-[0.14em] text-muted"
                         >
                           Switch to primary
                         </button>

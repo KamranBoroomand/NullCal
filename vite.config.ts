@@ -9,6 +9,14 @@ const workboxMode = nodeMajor >= 24 ? 'development' : 'production';
 
 export default defineConfig({
   base,
+  server: {
+    proxy: {
+      '/api': {
+        target: process.env.NOTIFY_PROXY_TARGET ?? 'http://127.0.0.1:8787',
+        changeOrigin: true
+      }
+    }
+  },
   plugins: [
     react(),
     VitePWA({

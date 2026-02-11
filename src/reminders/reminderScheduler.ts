@@ -7,12 +7,22 @@ type ReminderHandle = {
 };
 
 const MAX_LOOKAHEAD_MS = 24 * 60 * 60 * 1000;
+const RESCAN_INTERVAL_MS = 15 * 60 * 1000;
+
+const showLocalReminder = (event: CalendarEvent, body?: string) => {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+    return;
+  }
+  new Notification(event.title || 'Upcoming event', {
+    body: body ?? (event.location ? `${event.location}` : 'Event starting now')
+  });
+};
 
 export const scheduleReminders = (
   events: CalendarEvent[],
   settings: AppSettings
 ): ReminderHandle => {
-  const timeouts: number[] = [];
+  const timeouts = new Map<string, number>();
 
   if (settings.reminderChannel === 'local' || settings.reminderChannel === 'push') {
     if (typeof Notification === 'undefined') {
@@ -27,8 +37,14 @@ export const scheduleReminders = (
     }
   }
 
-  const now = Date.now();
-  events.forEach((event) => {
+  const scheduleEvent = (event: CalendarEvent) => {
+    const existingTimeout = timeouts.get(event.id);
+    if (existingTimeout) {
+      window.clearTimeout(existingTimeout);
+      timeouts.delete(event.id);
+    }
+
+    const now = Date.now();
     const start = new Date(event.start).getTime();
     const offsetMinutes = parseReminderRule(event.reminderRule);
     const offsetMs = offsetMinutes ? offsetMinutes * 60 * 1000 : 0;
@@ -37,12 +53,9 @@ export const scheduleReminders = (
       return;
     }
     const timeout = window.setTimeout(() => {
+      timeouts.delete(event.id);
       if (settings.reminderChannel === 'local' || settings.reminderChannel === 'push') {
-        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-          new Notification(event.title || 'Upcoming event', {
-            body: event.location ? `${event.location}` : 'Event starting now'
-          });
-        }
+        showLocalReminder(event);
         return;
       }
       if (settings.reminderChannel === 'email' || settings.reminderChannel === 'sms') {
@@ -57,7 +70,8 @@ export const scheduleReminders = (
             sendReminder(settings.reminderChannel as 'email' | 'sms', destination, message)
           )
           .catch(() => {
-            // Ignore notification failures.
+            // Fall back to local reminder when remote notification delivery is unavailable.
+            showLocalReminder(event, message);
           });
         return;
       }
@@ -65,12 +79,28 @@ export const scheduleReminders = (
         // Ignore failed pings; UI will surface status separately.
       });
     }, delay);
-    timeouts.push(timeout);
-  });
+    timeouts.set(event.id, timeout);
+  };
+
+  const runScan = () => {
+    const activeIds = new Set(events.map((event) => event.id));
+    Array.from(timeouts.entries()).forEach(([eventId, timeout]) => {
+      if (!activeIds.has(eventId)) {
+        window.clearTimeout(timeout);
+        timeouts.delete(eventId);
+      }
+    });
+    events.forEach((event) => scheduleEvent(event));
+  };
+
+  runScan();
+  const interval = window.setInterval(runScan, RESCAN_INTERVAL_MS);
 
   return {
     stop: () => {
+      window.clearInterval(interval);
       timeouts.forEach((timeout) => window.clearTimeout(timeout));
+      timeouts.clear();
     }
   };
 };

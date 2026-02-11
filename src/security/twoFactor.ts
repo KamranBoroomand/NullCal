@@ -68,18 +68,25 @@ export const markTwoFactorVerified = () => {
   clearTwoFactorChallenge();
 };
 
-const notifyFallback = (code: string) => {
+const notifyFallback = async (code: string) => {
   if (typeof Notification === 'undefined') {
-    return;
+    return false;
   }
+  let permission = Notification.permission;
   if (Notification.permission === 'default') {
-    void Notification.requestPermission();
+    try {
+      permission = await Notification.requestPermission();
+    } catch {
+      permission = Notification.permission;
+    }
   }
-  if (Notification.permission === 'granted') {
+  if (permission === 'granted') {
     new Notification('NullCal verification code', {
       body: `Your code: ${code}`
     });
+    return true;
   }
+  return false;
 };
 
 export const startTwoFactorChallenge = async (channel: TwoFactorChannel, destination: string | undefined) => {
@@ -92,13 +99,20 @@ export const startTwoFactorChallenge = async (channel: TwoFactorChannel, destina
   const expiresAt = Date.now() + 10 * 60 * 1000;
   saveChallenge({ hash, salt: toBase64(salt), expiresAt });
 
+  let deliveredByGateway = false;
+  let gatewayError: unknown;
   try {
     const { sendTwoFactorCode } = await import('./notifications');
     await sendTwoFactorCode(channel, destination, code);
-    notifyFallback(code);
+    deliveredByGateway = true;
   } catch (error) {
+    gatewayError = error;
+  }
+
+  const deliveredByFallback = await notifyFallback(code);
+  if (!deliveredByGateway && !deliveredByFallback) {
     clearTwoFactorChallenge();
-    throw error;
+    throw gatewayError ?? new Error('Unable to deliver verification code.');
   }
 };
 

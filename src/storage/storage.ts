@@ -222,7 +222,7 @@ export const loadAppState = async (): Promise<AppState> => {
     const resolvedSettings = settings ?? buildDefaultSettings(profiles[0].id);
     const normalizedSettings = {
       ...resolvedSettings,
-      networkLock: true,
+      networkLock: resolvedSettings.networkLock ?? true,
       palette: resolvedSettings.palette ?? readPalette(),
       primaryProfileId: resolvedSettings.primaryProfileId ?? resolvedSettings.activeProfileId,
       autoLockOnBlur: resolvedSettings.autoLockOnBlur ?? false,
