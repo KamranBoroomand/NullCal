@@ -1,8 +1,66 @@
+const MAX_TO_LENGTH = 320;
+const MAX_SUBJECT_LENGTH = 140;
+const MAX_MESSAGE_LENGTH = 1000;
+const MAX_METADATA_ENTRIES = 10;
+const MAX_METADATA_KEY_LENGTH = 64;
+const MAX_METADATA_VALUE_LENGTH = 200;
+const DEFAULT_MAX_REQUEST_BYTES = 8 * 1024;
+const DEFAULT_RATE_LIMIT_WINDOW_SEC = 300;
+const DEFAULT_RATE_LIMIT_MAX = 20;
+const MAX_RATE_LIMIT_TRACKED_KEYS = 4096;
+const rateLimitStore = new Map();
+
 const hasValue = (value) => typeof value === 'string' && value.trim().length > 0;
+
+class HttpError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+const parsePositiveInt = (value, fallback, { min = 1, max = Number.MAX_SAFE_INTEGER } = {}) => {
+  const parsed = Number.parseInt(`${value ?? ''}`, 10);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+    return fallback;
+  }
+  return parsed;
+};
+
+const parseList = (value) =>
+  `${value ?? ''}`
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+const parseAllowedOrigins = (value) => {
+  const origins = parseList(value);
+  return origins.length > 0 ? origins : ['*'];
+};
+
+const isOriginAllowed = (origin, allowedOrigins) => {
+  if (allowedOrigins.includes('*')) {
+    return true;
+  }
+  if (!hasValue(origin)) {
+    return false;
+  }
+  return allowedOrigins.includes(origin);
+};
+
+const resolveCorsOrigin = (origin, allowedOrigins) => {
+  if (allowedOrigins.includes('*')) {
+    return '*';
+  }
+  if (hasValue(origin) && allowedOrigins.includes(origin)) {
+    return origin;
+  }
+  return allowedOrigins[0] ?? '*';
+};
 
 const corsHeaders = (origin) => ({
   'Access-Control-Allow-Origin': origin,
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Nullcal-Token',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   Vary: 'Origin'
 });
@@ -18,16 +76,235 @@ const json = (status, payload, corsOrigin) => {
   });
 };
 
-const readJson = async (request) => {
+const extractRequestToken = (request) => {
+  const tokenHeader = request.headers.get('x-nullcal-token');
+  if (hasValue(tokenHeader)) {
+    return tokenHeader.trim();
+  }
+  const authHeader = request.headers.get('authorization');
+  if (hasValue(authHeader) && authHeader.toLowerCase().startsWith('bearer ')) {
+    return authHeader.slice(7).trim();
+  }
+  return '';
+};
+
+const assertRequestToken = (request, env) => {
+  const expected = `${env.NOTIFY_REQUEST_TOKEN ?? ''}`.trim();
+  if (!hasValue(expected)) {
+    return;
+  }
+  const actual = extractRequestToken(request);
+  if (actual !== expected) {
+    throw new HttpError(401, 'Unauthorized request token.');
+  }
+};
+
+const normalizePhone = (value) => {
+  const cleaned = `${value ?? ''}`.trim().replace(/[^\d+]/g, '');
+  if (!cleaned) {
+    return '';
+  }
+  if (!cleaned.startsWith('+')) {
+    return cleaned.replace(/\+/g, '');
+  }
+  return `+${cleaned.slice(1).replace(/\+/g, '')}`;
+};
+
+const normalizeEmail = (value) => `${value ?? ''}`.trim().toLowerCase();
+
+const parseAllowlist = (value) =>
+  parseList(value).map((rawEntry) => {
+    const entry = rawEntry.toLowerCase();
+    if (entry.startsWith('email:')) {
+      return { channel: 'email', pattern: entry.slice(6).trim() };
+    }
+    if (entry.startsWith('sms:')) {
+      return { channel: 'sms', pattern: entry.slice(4).trim() };
+    }
+    return { channel: 'any', pattern: entry.trim() };
+  });
+
+const matchesAllowlistPattern = (channel, recipient, pattern) => {
+  if (!hasValue(pattern)) {
+    return false;
+  }
+  if (channel === 'email') {
+    const normalizedRecipient = normalizeEmail(recipient);
+    const normalizedPattern = pattern.toLowerCase();
+    if (normalizedPattern.startsWith('*@')) {
+      return normalizedRecipient.endsWith(normalizedPattern.slice(1));
+    }
+    if (normalizedPattern.startsWith('@')) {
+      return normalizedRecipient.endsWith(normalizedPattern);
+    }
+    return normalizedRecipient === normalizeEmail(normalizedPattern);
+  }
+  return normalizePhone(recipient) === normalizePhone(pattern);
+};
+
+const assertAllowedRecipient = (channel, recipient, env) => {
+  const allowlist = parseAllowlist(env.NOTIFY_ALLOWED_RECIPIENTS);
+  if (allowlist.length === 0) {
+    return;
+  }
+  const allowed = allowlist.some(({ channel: ruleChannel, pattern }) => {
+    if (ruleChannel !== 'any' && ruleChannel !== channel) {
+      return false;
+    }
+    return matchesAllowlistPattern(channel, recipient, pattern);
+  });
+  if (!allowed) {
+    throw new HttpError(403, 'Recipient is not in allowlist.');
+  }
+};
+
+const cleanupRateLimitStore = (now) => {
+  if (rateLimitStore.size <= MAX_RATE_LIMIT_TRACKED_KEYS) {
+    return;
+  }
+  for (const [key, entry] of rateLimitStore.entries()) {
+    if (entry.resetAt <= now) {
+      rateLimitStore.delete(key);
+    }
+  }
+};
+
+const enforceRateLimit = (key, env) => {
+  if (`${env.NOTIFY_RATE_LIMIT_DISABLE ?? ''}`.trim() === '1') {
+    return;
+  }
+  const windowSec = parsePositiveInt(
+    env.NOTIFY_RATE_LIMIT_WINDOW_SEC,
+    DEFAULT_RATE_LIMIT_WINDOW_SEC,
+    { min: 1, max: 86400 }
+  );
+  const maxRequests = parsePositiveInt(env.NOTIFY_RATE_LIMIT_MAX, DEFAULT_RATE_LIMIT_MAX, {
+    min: 1,
+    max: 1000
+  });
+  const now = Date.now();
+  cleanupRateLimitStore(now);
+  const existing = rateLimitStore.get(key);
+  if (!existing || existing.resetAt <= now) {
+    rateLimitStore.set(key, { count: 1, resetAt: now + windowSec * 1000 });
+    return;
+  }
+  if (existing.count >= maxRequests) {
+    const retryAfter = Math.max(1, Math.ceil((existing.resetAt - now) / 1000));
+    throw new HttpError(429, `Rate limit exceeded. Retry in ${retryAfter}s.`);
+  }
+  existing.count += 1;
+};
+
+const getClientKey = (request) => {
+  const cfIp = request.headers.get('cf-connecting-ip');
+  if (hasValue(cfIp)) {
+    return cfIp.trim();
+  }
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (hasValue(forwarded)) {
+    return forwarded.split(',')[0].trim();
+  }
+  return 'unknown';
+};
+
+const readJson = async (request, env) => {
+  const maxBytes = parsePositiveInt(env.NOTIFY_MAX_REQUEST_BYTES, DEFAULT_MAX_REQUEST_BYTES, {
+    min: 256,
+    max: 1024 * 1024
+  });
   const raw = await request.text();
   if (!raw) {
-    throw new Error('Request body is empty.');
+    throw new HttpError(400, 'Request body is empty.');
+  }
+  if (new TextEncoder().encode(raw).byteLength > maxBytes) {
+    throw new HttpError(413, 'Request payload is too large.');
   }
   try {
     return JSON.parse(raw);
   } catch {
-    throw new Error('Request body is not valid JSON.');
+    throw new HttpError(400, 'Request body is not valid JSON.');
   }
+};
+
+const validateMetadata = (metadata) => {
+  if (metadata === undefined) {
+    return undefined;
+  }
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    throw new HttpError(400, 'Metadata must be an object.');
+  }
+  const entries = Object.entries(metadata);
+  if (entries.length > MAX_METADATA_ENTRIES) {
+    throw new HttpError(400, `Metadata can include at most ${MAX_METADATA_ENTRIES} fields.`);
+  }
+  const sanitized = {};
+  for (const [key, value] of entries) {
+    const normalizedKey = `${key}`.trim();
+    if (!hasValue(normalizedKey)) {
+      throw new HttpError(400, 'Metadata keys cannot be empty.');
+    }
+    if (normalizedKey.length > MAX_METADATA_KEY_LENGTH) {
+      throw new HttpError(400, `Metadata key is too long: "${normalizedKey}".`);
+    }
+    if (typeof value !== 'string') {
+      throw new HttpError(400, `Metadata value for "${normalizedKey}" must be a string.`);
+    }
+    if (value.length > MAX_METADATA_VALUE_LENGTH) {
+      throw new HttpError(400, `Metadata value for "${normalizedKey}" is too long.`);
+    }
+    sanitized[normalizedKey] = value;
+  }
+  return sanitized;
+};
+
+const validatePayload = (body) => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new HttpError(400, 'Payload must be an object.');
+  }
+  const channel = body.channel;
+  if (channel !== 'email' && channel !== 'sms') {
+    throw new HttpError(400, 'Unsupported channel. Expected "email" or "sms".');
+  }
+  if (!hasValue(body.to)) {
+    throw new HttpError(400, 'Destination "to" is required.');
+  }
+  if (!hasValue(body.message)) {
+    throw new HttpError(400, 'Message is required.');
+  }
+  const to = body.to.trim();
+  const message = body.message.trim();
+  if (to.length > MAX_TO_LENGTH) {
+    throw new HttpError(400, 'Destination "to" is too long.');
+  }
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    throw new HttpError(400, `Message is too long (max ${MAX_MESSAGE_LENGTH} chars).`);
+  }
+  if (channel === 'email' && !to.includes('@')) {
+    throw new HttpError(400, 'Email destination is invalid.');
+  }
+  if (channel === 'sms' && normalizePhone(to).length < 7) {
+    throw new HttpError(400, 'SMS destination is invalid.');
+  }
+
+  let subject;
+  if (body.subject !== undefined) {
+    if (typeof body.subject !== 'string') {
+      throw new HttpError(400, 'Subject must be a string.');
+    }
+    subject = body.subject.trim();
+    if (subject.length > MAX_SUBJECT_LENGTH) {
+      throw new HttpError(400, `Subject is too long (max ${MAX_SUBJECT_LENGTH} chars).`);
+    }
+  }
+
+  return {
+    channel,
+    to,
+    message,
+    subject: hasValue(subject) ? subject : undefined,
+    metadata: validateMetadata(body.metadata)
+  };
 };
 
 const postWebhook = async (url, payload) => {
@@ -141,33 +418,16 @@ const sendSms = async (env, { to, message, metadata }) => {
   }
 };
 
-const validatePayload = (body) => {
-  if (!body || typeof body !== 'object') {
-    throw new Error('Payload must be an object.');
-  }
-  const channel = body.channel;
-  if (channel !== 'email' && channel !== 'sms') {
-    throw new Error('Unsupported channel. Expected "email" or "sms".');
-  }
-  if (!hasValue(body.to)) {
-    throw new Error('Destination "to" is required.');
-  }
-  if (!hasValue(body.message)) {
-    throw new Error('Message is required.');
-  }
-  return {
-    channel,
-    to: body.to.trim(),
-    message: body.message,
-    subject: typeof body.subject === 'string' ? body.subject : undefined,
-    metadata: typeof body.metadata === 'object' && body.metadata ? body.metadata : undefined
-  };
-};
-
 export default {
   async fetch(request, env) {
-    const corsOrigin = hasValue(env.NOTIFY_CORS_ORIGIN) ? env.NOTIFY_CORS_ORIGIN : '*';
+    const requestOrigin = request.headers.get('Origin');
+    const allowedOrigins = parseAllowedOrigins(env.NOTIFY_CORS_ORIGIN);
+    const corsOrigin = resolveCorsOrigin(requestOrigin, allowedOrigins);
+
     if (request.method === 'OPTIONS') {
+      if (!isOriginAllowed(requestOrigin, allowedOrigins)) {
+        return json(403, { ok: false, error: 'Origin not allowed.' }, corsOrigin);
+      }
       return new Response(null, {
         status: 204,
         headers: corsHeaders(corsOrigin)
@@ -184,7 +444,15 @@ export default {
     }
 
     try {
-      const payload = validatePayload(await readJson(request));
+      if (!isOriginAllowed(requestOrigin, allowedOrigins)) {
+        throw new HttpError(403, 'Origin not allowed.');
+      }
+      assertRequestToken(request, env);
+      enforceRateLimit(getClientKey(request), env);
+
+      const payload = validatePayload(await readJson(request, env));
+      assertAllowedRecipient(payload.channel, payload.to, env);
+
       if (payload.channel === 'email') {
         await sendEmail(env, payload);
       } else {
@@ -192,6 +460,9 @@ export default {
       }
       return json(200, { ok: true, id: crypto.randomUUID() }, corsOrigin);
     } catch (error) {
+      if (error instanceof HttpError) {
+        return json(error.status, { ok: false, error: error.message }, corsOrigin);
+      }
       const message = error instanceof Error ? error.message : 'Unknown delivery error.';
       return json(502, { ok: false, error: message }, corsOrigin);
     }

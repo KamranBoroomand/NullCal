@@ -105,12 +105,16 @@ Environment variables:
 - `VITE_NOTIFICATION_API` -> notification backend base URL (default: `/api`, for example `https://<worker>.workers.dev/api`)
 - `NOTIFY_PROXY_TARGET` -> Vite dev proxy target for `/api` (default: `http://127.0.0.1:8787`)
 - `NOTIFY_SERVER_PORT` -> optional notification server port (default: `8787`)
-- `NOTIFY_CORS_ORIGIN` -> allowed origin for notification server requests (default: `*`)
+- `NOTIFY_CORS_ORIGIN` -> allowed origin(s) for notification server requests (recommended: exact site origin, comma-separated allowed)
 - `RESEND_API_KEY` and `NOTIFY_FROM_EMAIL` -> email delivery via Resend
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` -> SMS delivery via Twilio
 - `TEXTBELT_API_KEY` -> optional SMS delivery via Textbelt (works in Node gateway and Worker)
 - `TEXTBELT_FREE=1` -> use Textbelt free key (`textbelt`, very limited quota, useful for testing)
 - `EMAIL_WEBHOOK_URL` and `SMS_WEBHOOK_URL` -> optional custom delivery webhooks (alternative to Resend/Twilio)
+- `NOTIFY_ALLOWED_RECIPIENTS` -> optional recipient allowlist (`email:alerts@example.com,sms:+15551234567,*@example.com`)
+- `NOTIFY_REQUEST_TOKEN` -> optional shared token required in `Authorization: Bearer <token>` or `X-Nullcal-Token`
+- `NOTIFY_RATE_LIMIT_MAX` and `NOTIFY_RATE_LIMIT_WINDOW_SEC` -> per-IP in-memory rate limit controls
+- `NOTIFY_MAX_REQUEST_BYTES` -> max request size in bytes (default: `8192`)
 
 ## Notification Gateway (Email/SMS)
 
@@ -156,6 +160,10 @@ npm run notify:deploy
 # CORS
 npx wrangler secret put NOTIFY_CORS_ORIGIN
 
+# Optional hardening (recommended)
+npx wrangler secret put NOTIFY_ALLOWED_RECIPIENTS
+npx wrangler secret put NOTIFY_REQUEST_TOKEN
+
 # Email path (free tier possible via Resend)
 npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put NOTIFY_FROM_EMAIL
@@ -167,6 +175,10 @@ npx wrangler secret put TEXTBELT_API_KEY
 npx wrangler secret put TWILIO_ACCOUNT_SID
 npx wrangler secret put TWILIO_AUTH_TOKEN
 npx wrangler secret put TWILIO_FROM_NUMBER
+
+# Optional rate limit tuning (vars, not secrets)
+npx wrangler secret put NOTIFY_RATE_LIMIT_MAX
+npx wrangler secret put NOTIFY_RATE_LIMIT_WINDOW_SEC
 ```
 
 3. Build frontend against worker URL:
@@ -218,6 +230,7 @@ Custom domain in this repo:
 - TOTP is implemented client-side for offline-friendly MFA.
 - Panic wipe removes IndexedDB, localStorage state, caches, and service workers.
 - Network lock can be toggled in Safety Center. When enabled, all outbound network requests are blocked.
+- Notification gateway hardening includes origin enforcement, payload size limits, optional recipient allowlist, optional request token, and per-IP rate limiting.
 
 ## Roadmap
 
