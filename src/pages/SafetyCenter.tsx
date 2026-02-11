@@ -1089,8 +1089,8 @@ const SafetyCenter = () => {
             </div>
           </motion.section>
 
-          <motion.section {...panelMotion} className="grid auto-rows-fr gap-1.5 lg:grid-cols-2">
-            <div className="photon-panel h-full min-w-0 rounded-3xl p-5 sm:p-6">
+          <motion.section {...panelMotion} className="columns-1 gap-1.5 lg:columns-2">
+            <div className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Decentralized Sync</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -1223,7 +1223,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel h-full min-w-0 rounded-3xl p-5 sm:p-6">
+            <div className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Authentication</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -1487,7 +1487,10 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div id="profile-section" className="photon-panel h-full min-w-0 rounded-3xl p-5 sm:p-6">
+            <div
+              id="profile-section"
+              className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6"
+            >
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Profile customization</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
@@ -1601,7 +1604,10 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div id="accessibility-section" className="photon-panel h-full min-w-0 rounded-3xl p-5 sm:p-6">
+            <div
+              id="accessibility-section"
+              className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6"
+            >
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Accessibility</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -1646,7 +1652,10 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div id="notes-section" className="photon-panel h-full min-w-0 rounded-3xl p-5 sm:p-6">
+            <div
+              id="notes-section"
+              className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6"
+            >
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Private Notes & Sharing</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -1726,7 +1735,10 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div id="reminders-section" className="photon-panel h-full min-w-0 rounded-3xl p-5 sm:p-6">
+            <div
+              id="reminders-section"
+              className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6"
+            >
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Reminders & Collaboration</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -1878,8 +1890,11 @@ const SafetyCenter = () => {
             </div>
           </motion.section>
 
-          <motion.section {...panelMotion} className="grid auto-rows-fr gap-1.5 text-sm text-muted md:grid-cols-2">
-            <div className="photon-panel h-full min-w-0 rounded-3xl p-4 sm:p-5">
+          <motion.section
+            {...panelMotion}
+            className="grid items-start gap-1.5 text-sm text-muted md:grid-cols-2"
+          >
+            <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Privacy Status</p>
               <div className="mt-3 space-y-3 text-xs text-muted">
                 <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -1922,8 +1937,8 @@ const SafetyCenter = () => {
                 ))}
               </div>
             </div>
-            <div className="grid h-full gap-1.5">
-              <div className="photon-panel h-full min-w-0 rounded-3xl p-4 sm:p-5">
+            <div className="grid gap-1.5">
+              <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
                 <p className="text-xs uppercase tracking-[0.3em] text-muted">Security Checklist</p>
                 <div className="mt-3 space-y-3 text-xs text-muted">
                   <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -1964,7 +1979,7 @@ const SafetyCenter = () => {
                   ))}
                 </div>
               </div>
-              <div className="photon-panel h-full min-w-0 rounded-3xl p-4 sm:p-5">
+              <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
                 <p className="text-xs uppercase tracking-[0.3em] text-muted">Locking</p>
                 <div className="mt-2 space-y-3 text-sm text-muted">
                   <div className="rounded-2xl border border-grid bg-panel2 px-3 py-2">
@@ -2079,7 +2094,7 @@ const SafetyCenter = () => {
           </motion.section>
 
           <motion.section {...panelMotion} className="grid gap-2">
-            <div className="photon-panel h-full min-w-0 rounded-3xl p-5 sm:p-6">
+            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Screen Privacy</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
@@ -2132,7 +2147,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel h-full min-w-0 rounded-3xl p-4 sm:p-5">
+            <div className="photon-panel min-w-0 rounded-3xl p-4 sm:p-5">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Appearance</p>
               <div className="mt-2 flex flex-col gap-3 text-sm text-muted lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex-1">
@@ -2159,8 +2174,8 @@ const SafetyCenter = () => {
             </div>
           </motion.section>
 
-          <motion.section {...panelMotion} className="grid auto-rows-fr gap-1.5 md:grid-cols-2">
-            <div className="photon-panel h-full min-w-0 rounded-3xl p-5 sm:p-6">
+          <motion.section {...panelMotion} className="columns-1 gap-1.5 md:columns-2">
+            <div className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Event export</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
@@ -2192,7 +2207,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel h-full min-w-0 rounded-3xl p-5 sm:p-6">
+            <div className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Audit log</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <div className="max-h-44 space-y-2 overflow-auto rounded-2xl border border-grid bg-panel2 px-3 py-2 text-xs">
@@ -2230,7 +2245,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel h-full min-w-0 rounded-3xl p-5 sm:p-6">
+            <div className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Export Hygiene</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <div className="space-y-3">
@@ -2337,7 +2352,7 @@ const SafetyCenter = () => {
               </div>
             </div>
 
-            <div className="photon-panel h-full min-w-0 rounded-3xl p-5 sm:p-6">
+            <div className="photon-panel mb-1.5 break-inside-avoid min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Decoy Profile</p>
               <div className="mt-4 grid auto-rows-min gap-2 text-sm text-muted xl:grid-cols-2">
                 <div className="space-y-4">
