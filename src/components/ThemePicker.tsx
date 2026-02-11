@@ -30,20 +30,20 @@ const ThemePicker = ({ themes, activeId, onSelect }: ThemePickerProps) => {
                   : 'border-grid bg-panel2 text-muted hover:text-text'
               }`}
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className="space-y-2">
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold normal-case text-text">{theme.name}</div>
+                  <div className="break-words text-sm font-semibold normal-case leading-snug text-text">{theme.name}</div>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-muted">
                     <span className="rounded-full border border-grid px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em]">
                       {theme.mode === 'dark' ? 'Dark' : 'Light'}
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   {theme.preview.map((color) => (
                     <span
                       key={`${theme.id}-${color}`}
-                      className="h-3 w-3 rounded-full border border-grid"
+                      className="h-3 w-3 shrink-0 rounded-full border border-grid"
                       style={{ backgroundColor: color }}
                     />
                   ))}
