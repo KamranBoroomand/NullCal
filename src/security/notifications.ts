@@ -8,11 +8,11 @@ type NotificationPayload = {
   metadata?: Record<string, string>;
 };
 
+const DEFAULT_NOTIFICATION_API = 'https://nullcal.kamranboroomand.workers.dev/api';
 const configuredApiBase = import.meta.env.VITE_NOTIFICATION_API?.trim();
-const API_BASE = (configuredApiBase && configuredApiBase.length > 0 ? configuredApiBase : '/api').replace(
-  /\/+$/,
-  ''
-);
+const API_BASE = (
+  configuredApiBase && configuredApiBase.length > 0 ? configuredApiBase : DEFAULT_NOTIFICATION_API
+).replace(/\/+$/, '');
 
 const sendNotification = async (payload: NotificationPayload) => {
   const response = await fetch(`${API_BASE}/notify`, {
