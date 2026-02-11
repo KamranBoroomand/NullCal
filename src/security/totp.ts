@@ -1,3 +1,5 @@
+import { normalizeOtpCode } from './otp';
+
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 const ISSUER = 'NullCal';
 const STEP_SECONDS = 30;
@@ -87,7 +89,7 @@ const buildTotpCode = async (secret: string, timestamp: number) => {
 };
 
 export const verifyTotpCode = async (code: string, secret: string) => {
-  const normalized = code.replace(/\D/g, '');
+  const normalized = normalizeOtpCode(code);
   if (normalized.length !== CODE_DIGITS) {
     return false;
   }

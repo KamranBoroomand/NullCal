@@ -1,6 +1,9 @@
+import { normalizeOtpCode } from './otp';
+
 const CHALLENGE_KEY = 'nullcal:2fa:challenge';
 const VERIFIED_KEY = 'nullcal:2fa:verified';
 const encoder = new TextEncoder();
+const OTP_CODE_DIGITS = 6;
 
 export type TwoFactorChannel = 'email' | 'sms';
 
@@ -125,8 +128,12 @@ export const verifyTwoFactorCode = async (input: string) => {
     clearTwoFactorChallenge();
     return false;
   }
+  const normalizedInput = normalizeOtpCode(input);
+  if (normalizedInput.length !== OTP_CODE_DIGITS) {
+    return false;
+  }
   const salt = fromBase64(challenge.salt);
-  const hash = await hashCode(input.trim(), salt);
+  const hash = await hashCode(normalizedInput, salt);
   if (hash !== challenge.hash) {
     return false;
   }
