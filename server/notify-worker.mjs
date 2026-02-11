@@ -8,6 +8,7 @@ const DEFAULT_MAX_REQUEST_BYTES = 8 * 1024;
 const DEFAULT_RATE_LIMIT_WINDOW_SEC = 300;
 const DEFAULT_RATE_LIMIT_MAX = 20;
 const MAX_RATE_LIMIT_TRACKED_KEYS = 4096;
+const DEFAULT_DEV_CORS_ORIGINS = ['http://127.0.0.1:5173', 'http://localhost:5173'];
 const rateLimitStore = new Map();
 
 const hasValue = (value) => typeof value === 'string' && value.trim().length > 0;
@@ -35,7 +36,7 @@ const parseList = (value) =>
 
 const parseAllowedOrigins = (value) => {
   const origins = parseList(value);
-  return origins.length > 0 ? origins : ['*'];
+  return origins.length > 0 ? origins : DEFAULT_DEV_CORS_ORIGINS;
 };
 
 const isOriginAllowed = (origin, allowedOrigins) => {
@@ -55,7 +56,7 @@ const resolveCorsOrigin = (origin, allowedOrigins) => {
   if (hasValue(origin) && allowedOrigins.includes(origin)) {
     return origin;
   }
-  return allowedOrigins[0] ?? '*';
+  return 'null';
 };
 
 const corsHeaders = (origin) => ({
@@ -90,8 +91,12 @@ const extractRequestToken = (request) => {
 
 const assertRequestToken = (request, env) => {
   const expected = `${env.NOTIFY_REQUEST_TOKEN ?? ''}`.trim();
+  const allowUnauthenticated = `${env.NOTIFY_ALLOW_UNAUTH ?? ''}`.trim() === '1';
   if (!hasValue(expected)) {
-    return;
+    if (allowUnauthenticated) {
+      return;
+    }
+    throw new HttpError(503, 'Notification auth is not configured.');
   }
   const actual = extractRequestToken(request);
   if (actual !== expected) {
@@ -196,14 +201,17 @@ const enforceRateLimit = (key, env) => {
   existing.count += 1;
 };
 
-const getClientKey = (request) => {
+const getClientKey = (request, env) => {
   const cfIp = request.headers.get('cf-connecting-ip');
   if (hasValue(cfIp)) {
     return cfIp.trim();
   }
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (hasValue(forwarded)) {
-    return forwarded.split(',')[0].trim();
+  const trustProxy = `${env.NOTIFY_TRUST_PROXY ?? ''}`.trim() === '1';
+  if (trustProxy) {
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (hasValue(forwarded)) {
+      return forwarded.split(',')[0].trim();
+    }
   }
   return 'unknown';
 };
@@ -448,7 +456,7 @@ export default {
         throw new HttpError(403, 'Origin not allowed.');
       }
       assertRequestToken(request, env);
-      enforceRateLimit(getClientKey(request), env);
+      enforceRateLimit(getClientKey(request, env), env);
 
       const payload = validatePayload(await readJson(request, env));
       assertAllowedRecipient(payload.channel, payload.to, env);

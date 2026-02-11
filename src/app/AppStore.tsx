@@ -35,7 +35,7 @@ import { verifyTotpCode } from '../security/totp';
 import { createP2PSync } from '../sync/p2pSync';
 import { scheduleReminders } from '../reminders/reminderScheduler';
 import { logAuditEvent } from '../storage/auditLog';
-import { readCachedState, writeCachedState } from '../storage/cache';
+import { clearCachedState, readCachedState, writeCachedState } from '../storage/cache';
 import { hashSnapshot } from '../security/fingerprint';
 
 type AppStoreContextValue = {
@@ -198,6 +198,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       }
       if (current.settings.cacheEnabled) {
         writeCachedState(current, current.settings.cacheTtlMinutes);
+      } else {
+        clearCachedState();
       }
     };
     window.addEventListener('online', handleOnline);
@@ -227,6 +229,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         await saveAppState(state);
         if (state.settings.cacheEnabled) {
           writeCachedState(state, state.settings.cacheTtlMinutes);
+        } else {
+          clearCachedState();
         }
       } catch {
         // Ignore transient persistence failures; next state change retries.

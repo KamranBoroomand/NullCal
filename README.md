@@ -103,16 +103,20 @@ Environment variables:
 
 - `VITE_BASE` -> base path for deployment (for example `/NullCal/` on GitHub Pages)
 - `VITE_NOTIFICATION_API` -> notification backend base URL (default: `/api`, for example `https://<worker>.workers.dev/api`)
+- `VITE_NOTIFICATION_TOKEN` -> optional request token sent as `X-Nullcal-Token` / Bearer header by the frontend
+- `VITE_NOTIFICATION_TOKEN` is bundled into client code; pair it with strict `NOTIFY_CORS_ORIGIN` + `NOTIFY_ALLOWED_RECIPIENTS`
 - `NOTIFY_PROXY_TARGET` -> Vite dev proxy target for `/api` (default: `http://127.0.0.1:8787`)
 - `NOTIFY_SERVER_PORT` -> optional notification server port (default: `8787`)
-- `NOTIFY_CORS_ORIGIN` -> allowed origin(s) for notification server requests (recommended: exact site origin, comma-separated allowed)
+- `NOTIFY_CORS_ORIGIN` -> allowed origin(s) for notification server requests (recommended: exact site origin, comma-separated allowed); default is local dev origins only (`http://127.0.0.1:5173,http://localhost:5173`)
 - `RESEND_API_KEY` and `NOTIFY_FROM_EMAIL` -> email delivery via Resend
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` -> SMS delivery via Twilio
 - `TEXTBELT_API_KEY` -> optional SMS delivery via Textbelt (works in Node gateway and Worker)
 - `TEXTBELT_FREE=1` -> use Textbelt free key (`textbelt`, very limited quota, useful for testing)
 - `EMAIL_WEBHOOK_URL` and `SMS_WEBHOOK_URL` -> optional custom delivery webhooks (alternative to Resend/Twilio)
 - `NOTIFY_ALLOWED_RECIPIENTS` -> optional recipient allowlist (`email:alerts@example.com,sms:+15551234567,*@example.com`)
-- `NOTIFY_REQUEST_TOKEN` -> optional shared token required in `Authorization: Bearer <token>` or `X-Nullcal-Token` (advanced; client must send this header)
+- `NOTIFY_REQUEST_TOKEN` -> request token required by default for `/api/notify`; if missing, server returns 503 unless `NOTIFY_ALLOW_UNAUTH=1`
+- `NOTIFY_ALLOW_UNAUTH=1` -> explicitly allow unauthenticated notify requests (not recommended)
+- `NOTIFY_TRUST_PROXY=1` -> trust `X-Forwarded-For` for rate-limit client IP derivation (only enable behind a trusted proxy)
 - `NOTIFY_RATE_LIMIT_MAX` and `NOTIFY_RATE_LIMIT_WINDOW_SEC` -> per-IP in-memory rate limit controls
 - `NOTIFY_MAX_REQUEST_BYTES` -> max request size in bytes (default: `8192`)
 
@@ -125,13 +129,17 @@ Email/SMS 2FA and reminders require a backend route at `POST /api/notify`.
 1. Start the gateway locally:
 
 ```bash
+NOTIFY_REQUEST_TOKEN=dev-notify-token \
+NOTIFY_CORS_ORIGIN=http://127.0.0.1:5173,http://localhost:5173 \
 npm run notify:server
 ```
 
 2. Point the frontend to it:
 
 ```bash
-VITE_NOTIFICATION_API=http://127.0.0.1:8787/api npm run dev
+VITE_NOTIFICATION_API=http://127.0.0.1:8787/api \
+VITE_NOTIFICATION_TOKEN=dev-notify-token \
+npm run dev
 ```
 
 3. In Safety Center:
@@ -179,19 +187,22 @@ npx wrangler secret put TWILIO_FROM_NUMBER
 npx wrangler secret put NOTIFY_RATE_LIMIT_MAX
 npx wrangler secret put NOTIFY_RATE_LIMIT_WINDOW_SEC
 
-# Advanced hardening (requires client-side token header support)
+# Required by default for /api/notify (client must send this header)
 npx wrangler secret put NOTIFY_REQUEST_TOKEN
 ```
 
 3. Build frontend against worker URL:
 
 ```bash
-VITE_NOTIFICATION_API=https://nullcal-notify.<your-subdomain>.workers.dev/api npm run build
+VITE_NOTIFICATION_API=https://nullcal-notify.<your-subdomain>.workers.dev/api \
+VITE_NOTIFICATION_TOKEN=<same-token-value> \
+npm run build
 ```
 
 4. For GitHub Pages deployment, set repository variable:
 
 - `VITE_NOTIFICATION_API=https://nullcal-notify.<your-subdomain>.workers.dev/api`
+- `VITE_NOTIFICATION_TOKEN=<same-token-value>`
 
 The workflow already reads this variable during build.
 
@@ -231,8 +242,8 @@ Custom domain in this repo:
 - PIN/local passphrase hashes are PBKDF2-derived and verified client-side.
 - TOTP is implemented client-side for offline-friendly MFA.
 - Panic wipe removes IndexedDB, localStorage state, caches, and service workers.
-- Network lock can be toggled in Safety Center. When enabled, all outbound network requests are blocked.
-- Notification gateway hardening includes origin enforcement, payload size limits, optional recipient allowlist, optional request token, and per-IP rate limiting.
+- Network lock can be toggled in Safety Center. It blocks fetch/XHR/WebSocket/EventSource/sendBeacon at runtime.
+- Notification gateway hardening includes origin enforcement, payload size limits, recipient allowlists, request-token enforcement (default), and per-IP rate limiting.
 
 ## Roadmap
 

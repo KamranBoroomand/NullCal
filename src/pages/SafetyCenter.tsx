@@ -1185,8 +1185,8 @@ const SafetyCenter = () => {
                 )}
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
                   <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Tamper-proof event log</p>
-                    <p className="mt-1 text-xs text-muted">Anchor event hashes for integrity checks.</p>
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Audit log history</p>
+                    <p className="mt-1 text-xs text-muted">Keep local audit history on this device.</p>
                   </div>
                   <input
                     type="checkbox"

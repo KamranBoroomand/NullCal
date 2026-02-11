@@ -12,6 +12,7 @@ const DEFAULT_MAX_REQUEST_BYTES = 8 * 1024;
 const DEFAULT_RATE_LIMIT_WINDOW_SEC = 300;
 const DEFAULT_RATE_LIMIT_MAX = 20;
 const MAX_RATE_LIMIT_TRACKED_KEYS = 4096;
+const DEFAULT_DEV_CORS_ORIGINS = ['http://127.0.0.1:5173', 'http://localhost:5173'];
 const rateLimitStore = new Map();
 
 const hasValue = (value) => typeof value === 'string' && value.trim().length > 0;
@@ -39,7 +40,7 @@ const parseList = (value) =>
 
 const parseAllowedOrigins = (value) => {
   const origins = parseList(value);
-  return origins.length > 0 ? origins : ['*'];
+  return origins.length > 0 ? origins : DEFAULT_DEV_CORS_ORIGINS;
 };
 
 const isOriginAllowed = (origin, allowedOrigins) => {
@@ -59,7 +60,7 @@ const resolveCorsOrigin = (origin, allowedOrigins) => {
   if (hasValue(origin) && allowedOrigins.includes(origin)) {
     return origin;
   }
-  return allowedOrigins[0] ?? '*';
+  return 'null';
 };
 
 const json = (res, status, payload, corsOrigin) => {
@@ -69,7 +70,8 @@ const json = (res, status, payload, corsOrigin) => {
     'Content-Length': Buffer.byteLength(body).toString(),
     'Access-Control-Allow-Origin': corsOrigin,
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Nullcal-Token',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin'
   });
   res.end(body);
 };
@@ -147,8 +149,12 @@ const extractRequestToken = (req) => {
 
 const assertRequestToken = (req) => {
   const expected = `${process.env.NOTIFY_REQUEST_TOKEN ?? ''}`.trim();
+  const allowUnauthenticated = `${process.env.NOTIFY_ALLOW_UNAUTH ?? ''}`.trim() === '1';
   if (!hasValue(expected)) {
-    return;
+    if (allowUnauthenticated) {
+      return;
+    }
+    throw new HttpError(503, 'Notification auth is not configured.');
   }
   const actual = extractRequestToken(req);
   if (actual !== expected) {
@@ -195,9 +201,12 @@ const enforceRateLimit = (key) => {
 };
 
 const getClientKey = (req) => {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (hasValue(forwarded)) {
-    return forwarded.split(',')[0].trim();
+  const trustProxy = `${process.env.NOTIFY_TRUST_PROXY ?? ''}`.trim() === '1';
+  if (trustProxy) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (hasValue(forwarded)) {
+      return forwarded.split(',')[0].trim();
+    }
   }
   return req.socket.remoteAddress ?? 'unknown';
 };

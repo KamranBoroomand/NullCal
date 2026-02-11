@@ -72,7 +72,7 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     highContrast: false,
     textScale: 1,
     keyboardNavigation: true,
-    cacheEnabled: true,
+    cacheEnabled: false,
     cacheTtlMinutes: 30,
     additionalTimeZones: []
   };
@@ -255,7 +255,7 @@ export const loadAppState = async (): Promise<AppState> => {
       highContrast: resolvedSettings.highContrast ?? false,
       textScale: resolvedSettings.textScale ?? 1,
       keyboardNavigation: resolvedSettings.keyboardNavigation ?? true,
-      cacheEnabled: resolvedSettings.cacheEnabled ?? true,
+      cacheEnabled: resolvedSettings.cacheEnabled ?? false,
       cacheTtlMinutes: resolvedSettings.cacheTtlMinutes ?? 30,
       language: resolvedSettings.language ?? 'en',
       additionalTimeZones: resolvedSettings.additionalTimeZones ?? []

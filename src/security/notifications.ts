@@ -8,16 +8,22 @@ type NotificationPayload = {
   metadata?: Record<string, string>;
 };
 
-const DEFAULT_NOTIFICATION_API = 'https://nullcal.kamranboroomand.workers.dev/api';
+const DEFAULT_NOTIFICATION_API = '/api';
 const configuredApiBase = import.meta.env.VITE_NOTIFICATION_API?.trim();
+const configuredRequestToken = import.meta.env.VITE_NOTIFICATION_TOKEN?.trim();
 const API_BASE = (
   configuredApiBase && configuredApiBase.length > 0 ? configuredApiBase : DEFAULT_NOTIFICATION_API
 ).replace(/\/+$/, '');
 
 const sendNotification = async (payload: NotificationPayload) => {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (configuredRequestToken) {
+    headers['X-Nullcal-Token'] = configuredRequestToken;
+    headers.Authorization = `Bearer ${configuredRequestToken}`;
+  }
   const response = await fetch(`${API_BASE}/notify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(payload)
   });
   if (!response.ok) {

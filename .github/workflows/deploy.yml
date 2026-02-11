@@ -46,6 +46,7 @@ jobs:
         env:
           VITE_BASE: "${{ steps.resolve-base.outputs.vite_base }}"
           VITE_NOTIFICATION_API: "${{ vars.VITE_NOTIFICATION_API }}"
+          VITE_NOTIFICATION_TOKEN: "${{ vars.VITE_NOTIFICATION_TOKEN }}"
 
       - name: Sanity check build base
         run: |
