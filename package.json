@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node scripts/ensure-icons.cjs && vite",
     "notify:server": "node server/notify-server.mjs",
+    "notify:deploy": "npx wrangler deploy",
     "build": "node scripts/ensure-icons.cjs && node scripts/check-hook-deps-order.cjs && vite build && node scripts/postbuild.cjs",
     "preview": "vite preview",
     "lint": "npm run lint:hooks",

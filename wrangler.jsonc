@@ -1,0 +1,5 @@
+{
+  "name": "nullcal-notify",
+  "main": "server/notify-worker.mjs",
+  "compatibility_date": "2026-02-11"
+}

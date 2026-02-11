@@ -45,6 +45,7 @@ jobs:
         run: npm run build
         env:
           VITE_BASE: "${{ steps.resolve-base.outputs.vite_base }}"
+          VITE_NOTIFICATION_API: "${{ vars.VITE_NOTIFICATION_API }}"
 
       - name: Sanity check build base
         run: |

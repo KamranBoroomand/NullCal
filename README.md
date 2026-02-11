@@ -23,7 +23,7 @@ Local-first operations calendar with privacy-first controls, profile isolation, 
 
 NullCal is a React + TypeScript Progressive Web App for scheduling in high-privacy workflows.
 It is built to run offline-first, keep data local by default, and provide operational security controls without requiring a backend for core use.
-For remote delivery features (email/SMS OTP and reminders), run the optional notification gateway in `server/notify-server.mjs`.
+For remote delivery features (email/SMS OTP and reminders), run the optional notification gateway in `server/notify-server.mjs` or deploy `server/notify-worker.mjs`.
 
 Current app routes:
 
@@ -102,19 +102,23 @@ npm run preview
 Environment variables:
 
 - `VITE_BASE` -> base path for deployment (for example `/NullCal/` on GitHub Pages)
-- `VITE_NOTIFICATION_API` -> notification backend base URL (default: `/api`)
+- `VITE_NOTIFICATION_API` -> notification backend base URL (default: `/api`, for example `https://<worker>.workers.dev/api`)
 - `NOTIFY_PROXY_TARGET` -> Vite dev proxy target for `/api` (default: `http://127.0.0.1:8787`)
 - `NOTIFY_SERVER_PORT` -> optional notification server port (default: `8787`)
 - `NOTIFY_CORS_ORIGIN` -> allowed origin for notification server requests (default: `*`)
 - `RESEND_API_KEY` and `NOTIFY_FROM_EMAIL` -> email delivery via Resend
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` -> SMS delivery via Twilio
+- `TEXTBELT_API_KEY` -> optional SMS delivery via Textbelt (works in Node gateway and Worker)
+- `TEXTBELT_FREE=1` -> use Textbelt free key (`textbelt`, very limited quota, useful for testing)
 - `EMAIL_WEBHOOK_URL` and `SMS_WEBHOOK_URL` -> optional custom delivery webhooks (alternative to Resend/Twilio)
 
 ## Notification Gateway (Email/SMS)
 
 Email/SMS 2FA and reminders require a backend route at `POST /api/notify`.
 
-1. Start the gateway:
+### Local Node gateway
+
+1. Start the gateway locally:
 
 ```bash
 npm run notify:server
@@ -129,6 +133,59 @@ VITE_NOTIFICATION_API=http://127.0.0.1:8787/api npm run dev
 3. In Safety Center:
 - Disable **Network lock** when you want remote delivery.
 - Keep it enabled for strict offline mode.
+
+### Free hosted gateway (Cloudflare Worker)
+
+`server/notify-worker.mjs` is compatible with Cloudflare Workers free tier.
+
+1. Deploy the worker:
+
+```bash
+npx wrangler deploy server/notify-worker.mjs --name nullcal-notify --compatibility-date 2026-02-11
+```
+
+This repo also includes `wrangler.jsonc`, so you can deploy with:
+
+```bash
+npm run notify:deploy
+```
+
+2. Add secrets/vars to the worker (choose any provider path):
+
+```bash
+# CORS
+npx wrangler secret put NOTIFY_CORS_ORIGIN
+
+# Email path (free tier possible via Resend)
+npx wrangler secret put RESEND_API_KEY
+npx wrangler secret put NOTIFY_FROM_EMAIL
+
+# SMS path option A (Textbelt; free key has very small quota)
+npx wrangler secret put TEXTBELT_API_KEY
+
+# SMS path option B (Twilio)
+npx wrangler secret put TWILIO_ACCOUNT_SID
+npx wrangler secret put TWILIO_AUTH_TOKEN
+npx wrangler secret put TWILIO_FROM_NUMBER
+```
+
+3. Build frontend against worker URL:
+
+```bash
+VITE_NOTIFICATION_API=https://nullcal-notify.<your-subdomain>.workers.dev/api npm run build
+```
+
+4. For GitHub Pages deployment, set repository variable:
+
+- `VITE_NOTIFICATION_API=https://nullcal-notify.<your-subdomain>.workers.dev/api`
+
+The workflow already reads this variable during build.
+
+### Practical free-tier notes
+
+- Email can be no-cost on free tier quotas (for example Resend free tier).
+- Reliable unlimited SMS is not truly free; Textbelt free key is quota-limited.
+- If you want fully no-cost reminders long-term, prefer `local`, `push`, `telegram`, or `signal` channels.
 
 ## Scripts
 
@@ -147,6 +204,7 @@ GitHub Actions workflow: `.github/workflows/deploy.yml`
 - Resolves `VITE_BASE` automatically:
   - Uses `/` when `public/CNAME` exists
   - Otherwise uses `/<repo-name>/`
+- Uses optional repository variable `VITE_NOTIFICATION_API` for production notification backend URL
 - Publishes `dist/` to GitHub Pages
 
 Custom domain in this repo:
