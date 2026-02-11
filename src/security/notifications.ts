@@ -8,7 +8,11 @@ type NotificationPayload = {
   metadata?: Record<string, string>;
 };
 
-const API_BASE = import.meta.env.VITE_NOTIFICATION_API ?? '/api';
+const configuredApiBase = import.meta.env.VITE_NOTIFICATION_API?.trim();
+const API_BASE = (configuredApiBase && configuredApiBase.length > 0 ? configuredApiBase : '/api').replace(
+  /\/+$/,
+  ''
+);
 
 const sendNotification = async (payload: NotificationPayload) => {
   const response = await fetch(`${API_BASE}/notify`, {

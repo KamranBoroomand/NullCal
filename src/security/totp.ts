@@ -1,6 +1,8 @@
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 const ISSUER = 'NullCal';
 const STEP_SECONDS = 30;
+const CODE_DIGITS = 6;
+const HASH_ALGORITHM = 'SHA1';
 
 const randomBytes = (length: number): Uint8Array<ArrayBuffer> => {
   const bytes = new Uint8Array(new ArrayBuffer(length));
@@ -27,7 +29,7 @@ const toBase32 = (bytes: Uint8Array<ArrayBuffer>) => {
 };
 
 const fromBase32 = (input: string): Uint8Array<ArrayBuffer> => {
-  const normalized = input.replace(/=+$/g, '').toUpperCase();
+  const normalized = input.trim().replace(/\s+/g, '').replace(/=+$/g, '').toUpperCase();
   let bits = 0;
   let value = 0;
   const bytes: number[] = [];
@@ -68,15 +70,15 @@ const truncate = (hmac: ArrayBuffer) => {
     ((bytes[offset + 1] & 0xff) << 16) |
     ((bytes[offset + 2] & 0xff) << 8) |
     (bytes[offset + 3] & 0xff);
-  return (code % 1_000_000).toString().padStart(6, '0');
+  return (code % 10 ** CODE_DIGITS).toString().padStart(CODE_DIGITS, '0');
 };
 
 export const generateTotpSecret = () => toBase32(randomBytes(20));
 
 export const buildTotpUri = (accountLabel: string, secret: string) =>
-  `otpauth://totp/${encodeURIComponent(ISSUER)}:${encodeURIComponent(accountLabel)}?secret=${secret}&issuer=${encodeURIComponent(
-    ISSUER
-  )}`;
+  `otpauth://totp/${encodeURIComponent(ISSUER)}:${encodeURIComponent(
+    accountLabel
+  )}?secret=${encodeURIComponent(secret)}&issuer=${encodeURIComponent(ISSUER)}&algorithm=${HASH_ALGORITHM}&digits=${CODE_DIGITS}&period=${STEP_SECONDS}`;
 
 const buildTotpCode = async (secret: string, timestamp: number) => {
   const counter = Math.floor(timestamp / 1000 / STEP_SECONDS);
@@ -85,7 +87,10 @@ const buildTotpCode = async (secret: string, timestamp: number) => {
 };
 
 export const verifyTotpCode = async (code: string, secret: string) => {
-  const normalized = code.trim();
+  const normalized = code.replace(/\D/g, '');
+  if (normalized.length !== CODE_DIGITS) {
+    return false;
+  }
   const now = Date.now();
   const windows = [0, -1, 1];
   for (const offset of windows) {

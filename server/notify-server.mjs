@@ -75,9 +75,41 @@ const sendEmail = async ({ to, subject, message, metadata }) => {
   }
 };
 
+const sendSmsViaTextbelt = async ({ to, message, key }) => {
+  const params = new URLSearchParams({
+    phone: to,
+    message,
+    key
+  });
+  const response = await fetch('https://textbelt.com/text', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString()
+  });
+  let details;
+  try {
+    details = await response.json();
+  } catch {
+    details = null;
+  }
+  if (!response.ok || !details?.success) {
+    const reason =
+      details && typeof details.error === 'string'
+        ? details.error
+        : `status ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+    throw new Error(`Textbelt delivery failed: ${reason}`);
+  }
+};
+
 const sendSms = async ({ to, message, metadata }) => {
   if (process.env.SMS_WEBHOOK_URL) {
     await postWebhook(process.env.SMS_WEBHOOK_URL, { to, message, metadata });
+    return;
+  }
+
+  const textbeltKey = process.env.TEXTBELT_API_KEY ?? (process.env.TEXTBELT_FREE === '1' ? 'textbelt' : undefined);
+  if (textbeltKey) {
+    await sendSmsViaTextbelt({ to, message, key: textbeltKey });
     return;
   }
 
