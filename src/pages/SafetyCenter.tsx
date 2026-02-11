@@ -1991,6 +1991,145 @@ const SafetyCenter = () => {
                   </button>
                 </div>
               </div>
+
+              <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Event export</p>
+                <div className="mt-3 space-y-3 text-sm text-muted">
+                  <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                    Format
+                    <select
+                      value={eventExportFormat}
+                      onChange={(event) => setEventExportFormat(event.target.value as 'csv' | 'ics' | 'json')}
+                      className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                    >
+                      <option value="csv" className="bg-panel2">
+                        CSV
+                      </option>
+                      <option value="ics" className="bg-panel2">
+                        ICS
+                      </option>
+                      <option value="json" className="bg-panel2">
+                        JSON
+                      </option>
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleEventExport}
+                    className="w-full rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                  >
+                    Export events
+                  </button>
+                  <p className="text-xs text-muted">Exports only events in the active profile.</p>
+                </div>
+              </div>
+
+              <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">Export Hygiene</p>
+                <div className="mt-3 space-y-3 text-sm text-muted">
+                  <div className="space-y-3">
+                    {(['full', 'clean', 'minimal'] as ExportMode[]).map((mode) => (
+                      <label
+                        key={mode}
+                        className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs uppercase tracking-[0.3em] text-muted">
+                            {mode === 'full' && 'Full export'}
+                            {mode === 'clean' && 'Clean export'}
+                            {mode === 'minimal' && 'Minimal export'}
+                          </p>
+                          <p className="mt-1 text-xs text-muted">
+                            {mode === 'full' && 'Complete profile export (calendars, events, preferences).'}
+                            {mode === 'clean' &&
+                              'Removes notes, locations, attendees; titles become “Busy” unless kept.'}
+                            {mode === 'minimal' && 'Only time blocks and category labels (no notes/locations).'}
+                          </p>
+                        </div>
+                        <input
+                          type="radio"
+                          name="export-mode"
+                          value={mode}
+                          checked={exportMode === mode}
+                          onChange={() => setExportMode(mode)}
+                          className="mt-1 h-4 w-4 rounded-full border border-grid bg-panel2"
+                        />
+                      </label>
+                    ))}
+                    {exportMode === 'clean' && (
+                      <label className="flex min-w-0 items-center gap-2 text-xs text-muted">
+                        <input
+                          type="checkbox"
+                          checked={keepTitles}
+                          onChange={(event) => setKeepTitles(event.target.checked)}
+                          className="h-4 w-4 rounded border border-grid bg-panel2"
+                        />
+                        Keep titles (still removes notes/location/attendees)
+                      </label>
+                    )}
+                    <p className="text-xs text-muted">Exports are files; handle them like secrets.</p>
+                  </div>
+                  <div className="grid gap-3 text-sm text-muted">
+                    <input
+                      type="password"
+                      placeholder="Passphrase"
+                      value={exportPassphrase}
+                      onChange={(event) => setExportPassphrase(event.target.value)}
+                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Confirm passphrase"
+                      value={exportConfirm}
+                      onChange={(event) => setExportConfirm(event.target.value)}
+                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleExport}
+                      className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                    >
+                      Export encrypted
+                    </button>
+                  </div>
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Quick export</p>
+                    <p className="mt-1 text-xs text-muted">Prompt for a passphrase and export immediately.</p>
+                    <button
+                      type="button"
+                      onClick={handleQuickExport}
+                      className="mt-3 rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                    >
+                      Quick export
+                    </button>
+                  </div>
+                  <div className="border-t border-grid pt-4">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Import Backup</p>
+                    <div className="mt-3 grid gap-3 text-sm text-muted">
+                      <input
+                        type="file"
+                        accept="application/json"
+                        onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+                        className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                      />
+                      <input
+                        type="password"
+                        placeholder="Passphrase"
+                        value={importPassphrase}
+                        onChange={(event) => setImportPassphrase(event.target.value)}
+                        className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleImport()}
+                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                      >
+                        Import
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="grid gap-1.5">
@@ -2173,43 +2312,7 @@ const SafetyCenter = () => {
                   </div>
                 </div>
               </div>
-            </div>
-          </motion.section>
-
-          <motion.section {...panelMotion} className="grid items-start gap-1.5 md:grid-cols-2">
-            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Event export</p>
-              <div className="mt-3 space-y-3 text-sm text-muted">
-                <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
-                  Format
-                  <select
-                    value={eventExportFormat}
-                    onChange={(event) => setEventExportFormat(event.target.value as 'csv' | 'ics' | 'json')}
-                    className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
-                  >
-                    <option value="csv" className="bg-panel2">
-                      CSV
-                    </option>
-                    <option value="ics" className="bg-panel2">
-                      ICS
-                    </option>
-                    <option value="json" className="bg-panel2">
-                      JSON
-                    </option>
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  onClick={handleEventExport}
-                  className="w-full rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
-                >
-                  Export events
-                </button>
-                <p className="text-xs text-muted">Exports only events in the active profile.</p>
-              </div>
-            </div>
-
-            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Audit log</p>
               <div className="mt-3 space-y-3 text-sm text-muted">
                 <div className="max-h-44 space-y-2 overflow-auto rounded-2xl border border-grid bg-panel2 px-3 py-2 text-xs">
@@ -2246,115 +2349,7 @@ const SafetyCenter = () => {
                 <p className="text-xs text-muted">Stored locally for offline review.</p>
               </div>
             </div>
-
-            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Export Hygiene</p>
-              <div className="mt-3 space-y-3 text-sm text-muted">
-                <div className="space-y-3">
-                  {(['full', 'clean', 'minimal'] as ExportMode[]).map((mode) => (
-                    <label
-                      key={mode}
-                      className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-xs uppercase tracking-[0.3em] text-muted">
-                          {mode === 'full' && 'Full export'}
-                          {mode === 'clean' && 'Clean export'}
-                          {mode === 'minimal' && 'Minimal export'}
-                        </p>
-                        <p className="mt-1 text-xs text-muted">
-                          {mode === 'full' && 'Complete profile export (calendars, events, preferences).'}
-                          {mode === 'clean' &&
-                            'Removes notes, locations, attendees; titles become “Busy” unless kept.'}
-                          {mode === 'minimal' && 'Only time blocks and category labels (no notes/locations).'}
-                        </p>
-                      </div>
-                      <input
-                        type="radio"
-                        name="export-mode"
-                        value={mode}
-                        checked={exportMode === mode}
-                        onChange={() => setExportMode(mode)}
-                        className="mt-1 h-4 w-4 rounded-full border border-grid bg-panel2"
-                      />
-                    </label>
-                  ))}
-                  {exportMode === 'clean' && (
-                    <label className="flex min-w-0 items-center gap-2 text-xs text-muted">
-                      <input
-                        type="checkbox"
-                        checked={keepTitles}
-                        onChange={(event) => setKeepTitles(event.target.checked)}
-                        className="h-4 w-4 rounded border border-grid bg-panel2"
-                      />
-                      Keep titles (still removes notes/location/attendees)
-                    </label>
-                  )}
-                  <p className="text-xs text-muted">Exports are files; handle them like secrets.</p>
-                </div>
-                <div className="grid gap-3 text-sm text-muted">
-                  <input
-                    type="password"
-                    placeholder="Passphrase"
-                    value={exportPassphrase}
-                    onChange={(event) => setExportPassphrase(event.target.value)}
-                    className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Confirm passphrase"
-                    value={exportConfirm}
-                    onChange={(event) => setExportConfirm(event.target.value)}
-                    className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleExport}
-                    className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
-                  >
-                    Export encrypted
-                  </button>
-                </div>
-                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Quick export</p>
-                  <p className="mt-1 text-xs text-muted">Prompt for a passphrase and export immediately.</p>
-                  <button
-                    type="button"
-                    onClick={handleQuickExport}
-                    className="mt-3 rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                  >
-                    Quick export
-                  </button>
-                </div>
-                <div className="border-t border-grid pt-4">
-                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Import Backup</p>
-                  <div className="mt-3 grid gap-3 text-sm text-muted">
-                    <input
-                      type="file"
-                      accept="application/json"
-                      onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
-                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                    />
-                    <input
-                      type="password"
-                      placeholder="Passphrase"
-                      value={importPassphrase}
-                      onChange={(event) => setImportPassphrase(event.target.value)}
-                      className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleImport()}
-                      className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
-                    >
-                      Import
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
+              <div className="photon-panel min-w-0 rounded-3xl p-5 sm:p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Decoy Profile</p>
               <div className="mt-4 grid auto-rows-min gap-2 text-sm text-muted xl:grid-cols-2">
                 <div className="space-y-4">
@@ -2489,6 +2484,7 @@ const SafetyCenter = () => {
                   </div>
                 </div>
               </div>
+            </div>
             </div>
           </motion.section>
 
