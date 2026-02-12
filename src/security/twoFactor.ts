@@ -95,6 +95,20 @@ const notifyFallback = async (code: string) => {
   return false;
 };
 
+const manualFallback = (code: string) => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  try {
+    window.alert(
+      `NullCal verification code: ${code}\n\nEmail/SMS delivery is unavailable right now, so this local fallback code was generated on-device.`
+    );
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const startTwoFactorChallenge = async (channel: TwoFactorChannel, destination: string | undefined) => {
   const normalizedDestination = destination?.trim();
   if (!normalizedDestination) {
@@ -122,8 +136,10 @@ export const startTwoFactorChallenge = async (channel: TwoFactorChannel, destina
       gatewayError = error;
     }
 
-    const deliveredByFallback = await notifyFallback(code);
-    if (!deliveredByGateway && !deliveredByFallback) {
+    const deliveredByNotification = await notifyFallback(code);
+    const deliveredByManualFallback =
+      !deliveredByGateway && !deliveredByNotification ? manualFallback(code) : false;
+    if (!deliveredByGateway && !deliveredByNotification && !deliveredByManualFallback) {
       clearTwoFactorChallenge();
       throw gatewayError ?? new Error('Unable to deliver verification code.');
     }

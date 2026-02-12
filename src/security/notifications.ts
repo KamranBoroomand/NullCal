@@ -110,7 +110,10 @@ const sendNotification = async (payload: NotificationPayload, options: SendNotif
       body: JSON.stringify(payload)
     });
     if (!response.ok) {
-      throw new Error('Notification delivery failed.');
+      const details = await response.text().catch(() => '');
+      const trimmedDetails = details.trim();
+      const detailSuffix = trimmedDetails ? ` ${trimmedDetails.slice(0, 180)}` : '';
+      throw new Error(`Notification delivery failed (${response.status}).${detailSuffix}`);
     }
   } catch (error) {
     if (options.queueOnFailure) {

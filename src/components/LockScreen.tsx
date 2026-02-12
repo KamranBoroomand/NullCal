@@ -130,8 +130,8 @@ const LockScreen = ({
       await onResendTwoFactor();
       setError('');
       setTwoFactorCode('');
-    } catch {
-      setError('Unable to send verification code.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Unable to send verification code.');
     } finally {
       setBusyAction(null);
     }

@@ -631,8 +631,8 @@ const SafetyCenter = () => {
       setTwoFactorSent(true);
       setTwoFactorCode('');
       notify('Verification code sent.', 'success');
-    } catch {
-      notify('Unable to send verification code.', 'error');
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Unable to send verification code.', 'error');
     } finally {
       setTwoFactorSendPending(false);
     }
