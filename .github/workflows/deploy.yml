@@ -57,8 +57,7 @@ jobs:
           NOTIFY_API="${NOTIFY_API_VAR:-$NOTIFY_API_SECRET}"
           NOTIFY_TOKEN="${NOTIFY_TOKEN_VAR:-$NOTIFY_TOKEN_SECRET}"
           if [ -f public/CNAME ] && [ -z "$NOTIFY_API" ]; then
-            echo "::error::VITE_NOTIFICATION_API is required for OTP email/SMS on static hosting. Configure it to your worker /api URL before deploy."
-            exit 1
+            echo "::warning::VITE_NOTIFICATION_API is not set. Deploy will continue, but OTP email/SMS delivery from GitHub Pages will be unavailable until it points to your worker /api URL."
           fi
           if [ -n "$NOTIFY_API" ] && [ -z "$NOTIFY_TOKEN" ]; then
             echo "::warning::VITE_NOTIFICATION_TOKEN is empty. If NOTIFY_REQUEST_TOKEN is enforced on the backend, OTP delivery will fail with 401."
