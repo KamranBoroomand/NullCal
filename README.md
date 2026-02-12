@@ -262,6 +262,14 @@ Custom domain in this repo:
 
 - `public/CNAME` -> `nullcal.kamranboroomand.ir`
 
+Important for OTP email/SMS on GitHub Pages:
+
+- GitHub Pages is static; `/api/notify` is not available there.
+- Set `VITE_NOTIFICATION_API` to your deployed worker URL (for example `https://<worker>.workers.dev/api`).
+- Set `VITE_NOTIFICATION_TOKEN` to match backend `NOTIFY_REQUEST_TOKEN`.
+- Set worker secrets `RESEND_API_KEY` and `NOTIFY_FROM_EMAIL`.
+- Set worker CORS `NOTIFY_CORS_ORIGIN=https://nullcal.kamranboroomand.ir`.
+
 ## Security Notes
 
 - Export encryption and note encryption use Web Crypto with PBKDF2-derived AES-GCM keys.

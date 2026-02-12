@@ -95,13 +95,23 @@ const notifyFallback = async (code: string) => {
   return false;
 };
 
-const manualFallback = (code: string) => {
+const describeError = (error: unknown) => {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+  return '';
+};
+
+const manualFallback = (code: string, reason?: unknown) => {
   if (typeof window === 'undefined') {
     return false;
   }
+  const detail = describeError(reason);
   try {
     window.alert(
-      `NullCal verification code: ${code}\n\nEmail/SMS delivery is unavailable right now, so this local fallback code was generated on-device.`
+      `NullCal verification code: ${code}\n\nEmail/SMS delivery is unavailable right now, so this local fallback code was generated on-device.${
+        detail ? `\n\nGateway error: ${detail}` : ''
+      }`
     );
     return true;
   } catch {
@@ -138,7 +148,7 @@ export const startTwoFactorChallenge = async (channel: TwoFactorChannel, destina
 
     const deliveredByNotification = await notifyFallback(code);
     const deliveredByManualFallback =
-      !deliveredByGateway && !deliveredByNotification ? manualFallback(code) : false;
+      !deliveredByGateway && !deliveredByNotification ? manualFallback(code, gatewayError) : false;
     if (!deliveredByGateway && !deliveredByNotification && !deliveredByManualFallback) {
       clearTwoFactorChallenge();
       throw gatewayError ?? new Error('Unable to deliver verification code.');

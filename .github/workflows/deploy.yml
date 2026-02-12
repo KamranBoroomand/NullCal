@@ -47,12 +47,29 @@ jobs:
       - name: Echo base path
         run: echo "VITE_BASE=${{ steps.resolve-base.outputs.vite_base }}"
 
+      - name: Validate notification gateway config
+        env:
+          NOTIFY_API_VAR: "${{ vars.VITE_NOTIFICATION_API }}"
+          NOTIFY_API_SECRET: "${{ secrets.VITE_NOTIFICATION_API }}"
+          NOTIFY_TOKEN_VAR: "${{ vars.VITE_NOTIFICATION_TOKEN }}"
+          NOTIFY_TOKEN_SECRET: "${{ secrets.VITE_NOTIFICATION_TOKEN }}"
+        run: |
+          NOTIFY_API="${NOTIFY_API_VAR:-$NOTIFY_API_SECRET}"
+          NOTIFY_TOKEN="${NOTIFY_TOKEN_VAR:-$NOTIFY_TOKEN_SECRET}"
+          if [ -f public/CNAME ] && [ -z "$NOTIFY_API" ]; then
+            echo "::error::VITE_NOTIFICATION_API is required for OTP email/SMS on static hosting. Configure it to your worker /api URL before deploy."
+            exit 1
+          fi
+          if [ -n "$NOTIFY_API" ] && [ -z "$NOTIFY_TOKEN" ]; then
+            echo "::warning::VITE_NOTIFICATION_TOKEN is empty. If NOTIFY_REQUEST_TOKEN is enforced on the backend, OTP delivery will fail with 401."
+          fi
+
       - name: Build
         run: npm run build
         env:
           VITE_BASE: "${{ steps.resolve-base.outputs.vite_base }}"
-          VITE_NOTIFICATION_API: "${{ vars.VITE_NOTIFICATION_API }}"
-          VITE_NOTIFICATION_TOKEN: "${{ vars.VITE_NOTIFICATION_TOKEN }}"
+          VITE_NOTIFICATION_API: "${{ vars.VITE_NOTIFICATION_API != '' && vars.VITE_NOTIFICATION_API || secrets.VITE_NOTIFICATION_API }}"
+          VITE_NOTIFICATION_TOKEN: "${{ vars.VITE_NOTIFICATION_TOKEN != '' && vars.VITE_NOTIFICATION_TOKEN || secrets.VITE_NOTIFICATION_TOKEN }}"
 
       - name: Sanity check build base
         run: |
