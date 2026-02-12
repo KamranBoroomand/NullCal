@@ -126,7 +126,7 @@ export const sendTwoFactorCode = async (
   destination: string,
   code: string
 ) => {
-  const message = `NullCal verification code: ${code}. It expires in 10 minutes.`;
+  const message = `NullCal verification code: ${code}. It expires in ten minutes.`;
   const subject = channel === 'email' ? 'NullCal verification code' : undefined;
   await sendNotification({ channel, to: destination, message, subject, metadata: { purpose: '2fa' } });
 };

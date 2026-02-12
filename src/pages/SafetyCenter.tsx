@@ -84,6 +84,8 @@ const SafetyCenter = () => {
   const [twoFactorDestination, setTwoFactorDestination] = useState('');
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [twoFactorSent, setTwoFactorSent] = useState(false);
+  const [twoFactorSendPending, setTwoFactorSendPending] = useState(false);
+  const [twoFactorVerifyPending, setTwoFactorVerifyPending] = useState(false);
   const [totpSecret, setTotpSecret] = useState('');
   const [totpDraftSecret, setTotpDraftSecret] = useState('');
   const [totpCode, setTotpCode] = useState('');
@@ -137,6 +139,8 @@ const SafetyCenter = () => {
     if (state?.settings.twoFactorEnabled) {
       setTwoFactorSent(false);
       setTwoFactorCode('');
+      setTwoFactorSendPending(false);
+      setTwoFactorVerifyPending(false);
     }
   }, [state?.settings.twoFactorEnabled]);
 
@@ -607,7 +611,11 @@ const SafetyCenter = () => {
   };
 
   const handleStartTwoFactor = async () => {
-    if (!twoFactorDestination) {
+    if (twoFactorSendPending || twoFactorVerifyPending) {
+      return;
+    }
+    const destination = twoFactorDestination.trim();
+    if (!destination) {
       notify('Add a destination for the verification code.', 'error');
       return;
     }
@@ -617,16 +625,29 @@ const SafetyCenter = () => {
         'info'
       );
     }
+    setTwoFactorSendPending(true);
     try {
-      await startTwoFactorChallenge(twoFactorChannel, twoFactorDestination);
+      await startTwoFactorChallenge(twoFactorChannel, destination);
       setTwoFactorSent(true);
+      setTwoFactorCode('');
       notify('Verification code sent.', 'success');
     } catch {
       notify('Unable to send verification code.', 'error');
+    } finally {
+      setTwoFactorSendPending(false);
     }
   };
 
   const handleVerifyTwoFactorSetup = async () => {
+    if (twoFactorSendPending || twoFactorVerifyPending) {
+      return;
+    }
+    const destination = twoFactorDestination.trim();
+    if (!destination) {
+      notify('Add a destination for the verification code.', 'error');
+      return;
+    }
+    setTwoFactorVerifyPending(true);
     try {
       const ok = await verifyTwoFactorCode(twoFactorCode);
       if (!ok) {
@@ -637,14 +658,17 @@ const SafetyCenter = () => {
         twoFactorEnabled: true,
         twoFactorMode: 'otp',
         twoFactorChannel,
-        twoFactorDestination
+        twoFactorDestination: destination
       });
+      setTwoFactorDestination(destination);
       setTwoFactorCode('');
       setTwoFactorSent(false);
       lockNow();
       notify('Two-factor authentication enabled.', 'success');
     } catch {
       notify('Two-factor setup failed.', 'error');
+    } finally {
+      setTwoFactorVerifyPending(false);
     }
   };
 
@@ -1284,7 +1308,11 @@ const SafetyCenter = () => {
                         MFA method
                         <select
                           value={twoFactorMode}
-                          onChange={(event) => setTwoFactorMode(event.target.value as 'otp' | 'totp')}
+                          onChange={(event) => {
+                            setTwoFactorMode(event.target.value as 'otp' | 'totp');
+                            setTwoFactorSent(false);
+                            setTwoFactorCode('');
+                          }}
                           className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
                         >
                           <option value="otp" className="bg-panel2">
@@ -1307,7 +1335,11 @@ const SafetyCenter = () => {
                             Delivery channel
                             <select
                               value={twoFactorChannel}
-                              onChange={(event) => setTwoFactorChannel(event.target.value as 'email' | 'sms')}
+                              onChange={(event) => {
+                                setTwoFactorChannel(event.target.value as 'email' | 'sms');
+                                setTwoFactorSent(false);
+                                setTwoFactorCode('');
+                              }}
                               className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
                             >
                               <option value="email" className="bg-panel2">
@@ -1322,16 +1354,21 @@ const SafetyCenter = () => {
                             type={twoFactorChannel === 'email' ? 'email' : 'tel'}
                             placeholder={twoFactorChannel === 'email' ? 'Email address' : 'Phone number'}
                             value={twoFactorDestination}
-                            onChange={(event) => setTwoFactorDestination(event.target.value)}
+                            onChange={(event) => {
+                              setTwoFactorDestination(event.target.value);
+                              setTwoFactorSent(false);
+                              setTwoFactorCode('');
+                            }}
                             className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
                           />
                           <div className="flex flex-wrap gap-2">
                             <button
                               type="button"
                               onClick={handleStartTwoFactor}
-                              className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted"
+                              className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted disabled:cursor-not-allowed disabled:opacity-60"
+                              disabled={twoFactorSendPending || twoFactorVerifyPending}
                             >
-                              Send code
+                              {twoFactorSendPending ? 'Sending...' : 'Send code'}
                             </button>
                             {twoFactorSent && (
                               <>
@@ -1342,13 +1379,15 @@ const SafetyCenter = () => {
                                   value={twoFactorCode}
                                   onChange={(event) => setTwoFactorCode(event.target.value)}
                                   className="min-w-0 flex-1 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                                  disabled={twoFactorVerifyPending}
                                 />
                                 <button
                                   type="button"
                                   onClick={handleVerifyTwoFactorSetup}
-                                  className="rounded-full bg-accent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                                  className="rounded-full bg-accent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] disabled:cursor-not-allowed disabled:opacity-60"
+                                  disabled={twoFactorSendPending || twoFactorVerifyPending}
                                 >
-                                  Verify & enable
+                                  {twoFactorVerifyPending ? 'Verifying...' : 'Verify & enable'}
                                 </button>
                               </>
                             )}

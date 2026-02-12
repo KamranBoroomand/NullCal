@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 type LockScreenProps = {
@@ -15,6 +15,8 @@ type LockScreenProps = {
   onVerifyTwoFactor: (code: string) => Promise<boolean>;
   onResendTwoFactor: () => Promise<void>;
 };
+
+type AuthAction = 'unlock' | 'webauthn' | 'biometric' | 'verify' | 'resend';
 
 const LockScreen = ({
   open,
@@ -33,46 +35,106 @@ const LockScreen = ({
   const [pin, setPin] = useState('');
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [error, setError] = useState('');
+  const [busyAction, setBusyAction] = useState<AuthAction | null>(null);
   const reduceMotion = useReducedMotion();
+  const busy = busyAction !== null;
+
+  useEffect(() => {
+    if (open) {
+      return;
+    }
+    setPin('');
+    setTwoFactorCode('');
+    setError('');
+    setBusyAction(null);
+  }, [open]);
 
   const handleUnlock = async () => {
-    const ok = await onUnlock(pin);
-    if (!ok) {
-      setError('Invalid credentials');
-    } else {
-      setError('');
-      setPin('');
+    if (busy) {
+      return;
+    }
+    setBusyAction('unlock');
+    try {
+      const ok = await onUnlock(pin);
+      if (!ok) {
+        setError('Invalid credentials');
+      } else {
+        setError('');
+        setPin('');
+      }
+    } finally {
+      setBusyAction(null);
     }
   };
 
   const handleWebAuthn = async () => {
-    const ok = await onUnlockWithWebAuthn();
-    if (!ok) {
-      setError('Passkey authentication failed.');
-    } else {
-      setError('');
-      setPin('');
+    if (busy) {
+      return;
+    }
+    setBusyAction('webauthn');
+    try {
+      const ok = await onUnlockWithWebAuthn();
+      if (!ok) {
+        setError('Passkey authentication failed.');
+      } else {
+        setError('');
+        setPin('');
+      }
+    } finally {
+      setBusyAction(null);
     }
   };
 
   const handleBiometric = async () => {
-    const ok = await onUnlockWithBiometric();
-    if (!ok) {
-      setError('Biometric authentication failed.');
-    } else {
-      setError('');
-      setPin('');
+    if (busy) {
+      return;
+    }
+    setBusyAction('biometric');
+    try {
+      const ok = await onUnlockWithBiometric();
+      if (!ok) {
+        setError('Biometric authentication failed.');
+      } else {
+        setError('');
+        setPin('');
+      }
+    } finally {
+      setBusyAction(null);
     }
   };
 
   const handleVerifyTwoFactor = async () => {
-    const ok = await onVerifyTwoFactor(twoFactorCode);
-    if (!ok) {
-      setError('Invalid verification code.');
+    if (busy) {
       return;
     }
-    setError('');
-    setTwoFactorCode('');
+    setBusyAction('verify');
+    try {
+      const ok = await onVerifyTwoFactor(twoFactorCode);
+      if (!ok) {
+        setError('Invalid verification code.');
+        return;
+      }
+      setError('');
+      setTwoFactorCode('');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleResendTwoFactor = async () => {
+    if (busy) {
+      return;
+    }
+    setBusyAction('resend');
+    try {
+      await onResendTwoFactor();
+      setError('');
+      setTwoFactorCode('');
+    } catch {
+      setError('Unable to send verification code.');
+    } finally {
+      setBusyAction(null);
+    }
   };
 
   const showSecretInput = pinEnabled || passwordEnabled;
@@ -116,6 +178,7 @@ const LockScreen = ({
                 onChange={(event) => setPin(event.target.value)}
                 className="mt-4 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                 placeholder={secretLabel}
+                disabled={busy}
               />
             )}
             {twoFactorPending && (
@@ -126,6 +189,7 @@ const LockScreen = ({
                 onChange={(event) => setTwoFactorCode(event.target.value)}
                 className="mt-4 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                 placeholder={twoFactorMode === 'totp' ? 'Authenticator code' : 'Verification code'}
+                disabled={busy}
               />
             )}
             {error && <p className="mt-2 text-xs text-danger">{error}</p>}
@@ -133,7 +197,8 @@ const LockScreen = ({
               <button
                 type="button"
                 onClick={handleUnlock}
-                className="mt-4 w-full rounded-xl bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                className="mt-4 w-full rounded-xl bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={busy}
               >
                 Unlock
               </button>
@@ -142,7 +207,8 @@ const LockScreen = ({
               <button
                 type="button"
                 onClick={handleVerifyTwoFactor}
-                className="mt-4 w-full rounded-xl bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                className="mt-4 w-full rounded-xl bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={busy}
               >
                 Verify code
               </button>
@@ -151,7 +217,8 @@ const LockScreen = ({
               <button
                 type="button"
                 onClick={handleWebAuthn}
-                className="mt-2 w-full rounded-xl border border-grid px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted"
+                className="mt-2 w-full rounded-xl border border-grid px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={busy}
               >
                 Use passkey
               </button>
@@ -160,7 +227,8 @@ const LockScreen = ({
               <button
                 type="button"
                 onClick={handleBiometric}
-                className="mt-2 w-full rounded-xl border border-grid px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted"
+                className="mt-2 w-full rounded-xl border border-grid px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={busy}
               >
                 Use biometric unlock
               </button>
@@ -168,8 +236,9 @@ const LockScreen = ({
             {twoFactorPending && twoFactorMode === 'otp' && (
               <button
                 type="button"
-                onClick={onResendTwoFactor}
-                className="mt-2 w-full rounded-xl border border-grid px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted"
+                onClick={handleResendTwoFactor}
+                className="mt-2 w-full rounded-xl border border-grid px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={busy}
               >
                 Resend code
               </button>

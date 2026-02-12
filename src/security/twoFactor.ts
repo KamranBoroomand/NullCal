@@ -1,9 +1,12 @@
-import { normalizeOtpCode } from './otp';
+import { extractOtpCode } from './otp';
 
 const CHALLENGE_KEY = 'nullcal:2fa:challenge';
 const VERIFIED_KEY = 'nullcal:2fa:verified';
 const encoder = new TextEncoder();
 const OTP_CODE_DIGITS = 6;
+const OTP_TTL_MS = 10 * 60 * 1000;
+
+let activeChallengeRequest: Promise<void> | null = null;
 
 export type TwoFactorChannel = 'email' | 'sms';
 
@@ -93,29 +96,43 @@ const notifyFallback = async (code: string) => {
 };
 
 export const startTwoFactorChallenge = async (channel: TwoFactorChannel, destination: string | undefined) => {
-  if (!destination) {
+  const normalizedDestination = destination?.trim();
+  if (!normalizedDestination) {
     throw new Error('Two-factor destination required.');
   }
-  const code = `${crypto.getRandomValues(new Uint32Array(1))[0] % 1000000}`.padStart(6, '0');
-  const salt = randomBytes(16);
-  const hash = await hashCode(code, salt);
-  const expiresAt = Date.now() + 10 * 60 * 1000;
-  saveChallenge({ hash, salt: toBase64(salt), expiresAt });
 
-  let deliveredByGateway = false;
-  let gatewayError: unknown;
-  try {
-    const { sendTwoFactorCode } = await import('./notifications');
-    await sendTwoFactorCode(channel, destination, code);
-    deliveredByGateway = true;
-  } catch (error) {
-    gatewayError = error;
+  if (activeChallengeRequest) {
+    return activeChallengeRequest;
   }
 
-  const deliveredByFallback = await notifyFallback(code);
-  if (!deliveredByGateway && !deliveredByFallback) {
-    clearTwoFactorChallenge();
-    throw gatewayError ?? new Error('Unable to deliver verification code.');
+  activeChallengeRequest = (async () => {
+    const code = `${100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000)}`;
+    const salt = randomBytes(16);
+    const hash = await hashCode(code, salt);
+    const expiresAt = Date.now() + OTP_TTL_MS;
+    saveChallenge({ hash, salt: toBase64(salt), expiresAt });
+
+    let deliveredByGateway = false;
+    let gatewayError: unknown;
+    try {
+      const { sendTwoFactorCode } = await import('./notifications');
+      await sendTwoFactorCode(channel, normalizedDestination, code);
+      deliveredByGateway = true;
+    } catch (error) {
+      gatewayError = error;
+    }
+
+    const deliveredByFallback = await notifyFallback(code);
+    if (!deliveredByGateway && !deliveredByFallback) {
+      clearTwoFactorChallenge();
+      throw gatewayError ?? new Error('Unable to deliver verification code.');
+    }
+  })();
+
+  try {
+    await activeChallengeRequest;
+  } finally {
+    activeChallengeRequest = null;
   }
 };
 
@@ -128,7 +145,7 @@ export const verifyTwoFactorCode = async (input: string) => {
     clearTwoFactorChallenge();
     return false;
   }
-  const normalizedInput = normalizeOtpCode(input);
+  const normalizedInput = extractOtpCode(input, OTP_CODE_DIGITS);
   if (normalizedInput.length !== OTP_CODE_DIGITS) {
     return false;
   }
