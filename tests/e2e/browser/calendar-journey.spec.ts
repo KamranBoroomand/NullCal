@@ -12,9 +12,10 @@ test.describe('Core calendar browser journeys', () => {
     }
 
     await page.getByTestId('event-wizard-finish-button').click();
-    await expect(page.getByText('Journey Event')).toBeVisible();
+    const createdEvent = page.getByTestId('calendar-event').filter({ hasText: 'Journey Event' }).first();
+    await expect(createdEvent).toBeVisible();
 
-    await page.getByText('Journey Event').first().click();
+    await createdEvent.click();
     await page.getByTestId('event-title-input').fill('Journey Event Updated');
 
     for (let step = 0; step < 4; step += 1) {
@@ -22,11 +23,12 @@ test.describe('Core calendar browser journeys', () => {
     }
 
     await page.getByTestId('event-wizard-finish-button').click();
-    await expect(page.getByText('Journey Event Updated')).toBeVisible();
+    const updatedEvent = page.getByTestId('calendar-event').filter({ hasText: 'Journey Event Updated' }).first();
+    await expect(updatedEvent).toBeVisible();
 
-    await page.getByText('Journey Event Updated').first().click();
+    await updatedEvent.click();
     await page.getByTestId('event-delete-button').click();
-    await expect(page.getByText('Journey Event Updated')).toHaveCount(0);
+    await expect(page.getByTestId('calendar-event').filter({ hasText: 'Journey Event Updated' })).toHaveCount(0);
   });
 
   test('create a new calendar topic from the sidebar', async ({ page }) => {

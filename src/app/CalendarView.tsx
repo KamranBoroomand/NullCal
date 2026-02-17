@@ -98,6 +98,11 @@ const CalendarView = ({
             onEventChange(info.event.id, info.event.start, info.event.end);
           }
         }}
+        eventDidMount={(info) => {
+          info.el.setAttribute('data-testid', 'calendar-event');
+          info.el.setAttribute('data-event-id', info.event.id);
+          info.el.setAttribute('data-event-title', info.event.title);
+        }}
         eventContent={(arg) => {
           const accentColor = arg.event.extendedProps.accentColor as string | undefined;
           const label = arg.event.extendedProps.label as string | undefined;

@@ -1,7 +1,13 @@
 const { spawnSync } = require('node:child_process');
 
 const isCI = process.env.CI === '1' || process.env.CI === 'true';
-const command = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const cliPath = (() => {
+  try {
+    return require.resolve('@playwright/test/cli');
+  } catch {
+    return null;
+  }
+})();
 
 const check = spawnSync(process.execPath, ['-e', "require.resolve('@playwright/test')"], {
   stdio: 'ignore'
@@ -15,7 +21,13 @@ if (check.status !== 0 && !isCI) {
   process.exit(0);
 }
 
-const testRun = spawnSync(command, ['playwright', 'test', '--config=playwright.config.mjs'], {
+if (!cliPath) {
+  // eslint-disable-next-line no-console
+  console.error('Playwright is required for browser journey tests. Install @playwright/test.');
+  process.exit(1);
+}
+
+const testRun = spawnSync(process.execPath, [cliPath, 'test', '--config=playwright.config.mjs'], {
   stdio: 'inherit'
 });
 
