@@ -11,3 +11,6 @@ node_modules
 /public/favicon-16-v4.png
 /public/favicon-32-v4.png
 /public/apple-touch-icon-v4.png
+/playwright-report
+/test-results
+/output/playwright

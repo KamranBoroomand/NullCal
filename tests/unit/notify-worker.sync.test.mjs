@@ -68,3 +68,58 @@ test('worker sync endpoint enforces request token', async () => {
   const payload = await response.json();
   assert.equal(payload.ok, false);
 });
+
+test('worker sync endpoint supports durable KV backing when configured', async () => {
+  const kvData = new Map();
+  const durableEnv = {
+    ...env,
+    SYNC_KV: {
+      async get(key) {
+        return kvData.get(key) ?? null;
+      },
+      async put(key, value) {
+        kvData.set(key, value);
+      }
+    }
+  };
+
+  const writeResponse = await worker.fetch(
+    new Request('https://example.workers.dev/api/sync', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        token: 'kv-sync-token',
+        senderId: 'kv-sender',
+        sentAt: Date.now(),
+        payload: {
+          profiles: [],
+          calendars: [],
+          events: [],
+          templates: [],
+          collaboration: { enabled: true, mode: 'shared', members: [] }
+        }
+      })
+    }),
+    durableEnv
+  );
+
+  assert.equal(writeResponse.status, 200);
+  assert.equal(kvData.size >= 1, true);
+
+  const readResponse = await worker.fetch(
+    new Request('https://example.workers.dev/api/sync?token=kv-sync-token&since=0', {
+      method: 'GET',
+      headers: {
+        Origin: 'http://localhost:5173',
+        'X-Nullcal-Token': 'test-token'
+      }
+    }),
+    durableEnv
+  );
+
+  assert.equal(readResponse.status, 200);
+  const payload = await readResponse.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.items.length, 1);
+  assert.deepEqual(payload.items[0].payload.collaboration, { enabled: true, mode: 'shared', members: [] });
+});

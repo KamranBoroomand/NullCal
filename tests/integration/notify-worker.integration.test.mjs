@@ -63,7 +63,12 @@ test('worker sync route supports write/read integration flow', async () => {
           profiles: [{ id: 'p1', name: 'One' }],
           calendars: [],
           events: [],
-          templates: []
+          templates: [],
+          collaboration: {
+            enabled: true,
+            mode: 'shared',
+            members: [{ id: 'm1', name: 'Alex', contact: 'alex@example.com', role: 'editor', status: 'active' }]
+          }
         }
       })
     }),
@@ -90,4 +95,5 @@ test('worker sync route supports write/read integration flow', async () => {
   assert.equal(readPayload.ok, true);
   assert.equal(Array.isArray(readPayload.items), true);
   assert.equal(readPayload.items.length >= 1, true);
+  assert.equal(readPayload.items[0].payload.collaboration.mode, 'shared');
 });

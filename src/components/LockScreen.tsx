@@ -9,14 +9,16 @@ type LockScreenProps = {
   biometricEnabled: boolean;
   twoFactorPending: boolean;
   twoFactorMode?: 'otp' | 'totp';
-  onUnlock: (pin?: string) => Promise<boolean>;
+  availableTwoFactorModes?: Array<'otp' | 'totp'>;
+  onSelectTwoFactorMode?: (mode: 'otp' | 'totp') => Promise<void>;
+  onUnlock: (secret?: string, method?: 'auto' | 'pin' | 'passphrase') => Promise<boolean>;
   onUnlockWithWebAuthn: () => Promise<boolean>;
   onUnlockWithBiometric: () => Promise<boolean>;
   onVerifyTwoFactor: (code: string) => Promise<boolean>;
   onResendTwoFactor: () => Promise<void>;
 };
 
-type AuthAction = 'unlock' | 'webauthn' | 'biometric' | 'verify' | 'resend';
+type AuthAction = 'unlock' | 'webauthn' | 'biometric' | 'verify' | 'resend' | 'twoFactorMode';
 
 const LockScreen = ({
   open,
@@ -26,13 +28,16 @@ const LockScreen = ({
   biometricEnabled,
   twoFactorPending,
   twoFactorMode = 'otp',
+  availableTwoFactorModes = ['otp'],
+  onSelectTwoFactorMode,
   onUnlock,
   onUnlockWithWebAuthn,
   onUnlockWithBiometric,
   onVerifyTwoFactor,
   onResendTwoFactor
 }: LockScreenProps) => {
-  const [pin, setPin] = useState('');
+  const [secret, setSecret] = useState('');
+  const [secretMethod, setSecretMethod] = useState<'pin' | 'passphrase'>(pinEnabled ? 'pin' : 'passphrase');
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [error, setError] = useState('');
   const [busyAction, setBusyAction] = useState<AuthAction | null>(null);
@@ -43,11 +48,24 @@ const LockScreen = ({
     if (open) {
       return;
     }
-    setPin('');
+    setSecret('');
     setTwoFactorCode('');
     setError('');
     setBusyAction(null);
   }, [open]);
+
+  useEffect(() => {
+    if (pinEnabled && passwordEnabled) {
+      return;
+    }
+    if (pinEnabled) {
+      setSecretMethod('pin');
+      return;
+    }
+    if (passwordEnabled) {
+      setSecretMethod('passphrase');
+    }
+  }, [passwordEnabled, pinEnabled]);
 
   const handleUnlock = async () => {
     if (busy) {
@@ -55,12 +73,13 @@ const LockScreen = ({
     }
     setBusyAction('unlock');
     try {
-      const ok = await onUnlock(pin);
+      const method = pinEnabled && passwordEnabled ? secretMethod : pinEnabled ? 'pin' : passwordEnabled ? 'passphrase' : 'auto';
+      const ok = await onUnlock(secret, method);
       if (!ok) {
         setError('Invalid credentials');
       } else {
         setError('');
-        setPin('');
+        setSecret('');
       }
     } finally {
       setBusyAction(null);
@@ -78,7 +97,7 @@ const LockScreen = ({
         setError('Passkey authentication failed.');
       } else {
         setError('');
-        setPin('');
+        setSecret('');
       }
     } finally {
       setBusyAction(null);
@@ -96,7 +115,7 @@ const LockScreen = ({
         setError('Biometric authentication failed.');
       } else {
         setError('');
-        setPin('');
+        setSecret('');
       }
     } finally {
       setBusyAction(null);
@@ -137,8 +156,32 @@ const LockScreen = ({
     }
   };
 
+  const handleSelectTwoFactorMode = async (mode: 'otp' | 'totp') => {
+    if (busy || mode === twoFactorMode) {
+      return;
+    }
+    if (!onSelectTwoFactorMode) {
+      return;
+    }
+    setBusyAction('twoFactorMode');
+    try {
+      await onSelectTwoFactorMode(mode);
+      setTwoFactorCode('');
+      setError('');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   const showSecretInput = pinEnabled || passwordEnabled;
-  const secretLabel = pinEnabled ? 'PIN' : 'Passphrase';
+  const supportsSecretMethodChoice = pinEnabled && passwordEnabled;
+  const resolvedSecretMethod = supportsSecretMethodChoice
+    ? secretMethod
+    : pinEnabled
+      ? 'pin'
+      : 'passphrase';
+  const secretLabel = resolvedSecretMethod === 'pin' ? 'PIN' : 'Passphrase';
+  const canChooseTwoFactorMode = twoFactorPending && availableTwoFactorModes.length > 1;
 
   return (
     <AnimatePresence>
@@ -164,22 +207,76 @@ const LockScreen = ({
                 ? twoFactorMode === 'totp'
                   ? 'Enter your authenticator code to finish unlocking.'
                   : 'Enter your verification code to finish unlocking.'
-                : pinEnabled
+                : resolvedSecretMethod === 'pin'
                   ? 'Enter your PIN to continue.'
-                  : passwordEnabled
+                  : resolvedSecretMethod === 'passphrase'
                     ? 'Enter your passphrase to continue.'
                     : 'Tap unlock to resume.'}
             </p>
+            {supportsSecretMethodChoice && !twoFactorPending && (
+              <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-grid bg-panel2 p-1">
+                <button
+                  type="button"
+                  onClick={() => setSecretMethod('pin')}
+                  className={`rounded-lg px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] transition ${
+                    secretMethod === 'pin'
+                      ? 'bg-accent text-[var(--accentText)]'
+                      : 'text-muted hover:text-text'
+                  }`}
+                >
+                  PIN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSecretMethod('passphrase')}
+                  className={`rounded-lg px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] transition ${
+                    secretMethod === 'passphrase'
+                      ? 'bg-accent text-[var(--accentText)]'
+                      : 'text-muted hover:text-text'
+                  }`}
+                >
+                  Passphrase
+                </button>
+              </div>
+            )}
             {showSecretInput && !twoFactorPending && (
               <input
                 type="password"
-                inputMode={pinEnabled ? 'numeric' : 'text'}
-                value={pin}
-                onChange={(event) => setPin(event.target.value)}
+                inputMode={resolvedSecretMethod === 'pin' ? 'numeric' : 'text'}
+                value={secret}
+                onChange={(event) => setSecret(event.target.value)}
                 className="mt-4 w-full rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                 placeholder={secretLabel}
                 disabled={busy}
               />
+            )}
+            {canChooseTwoFactorMode && (
+              <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-grid bg-panel2 p-1">
+                <button
+                  type="button"
+                  onClick={() => void handleSelectTwoFactorMode('otp')}
+                  className={`rounded-lg px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] transition ${
+                    twoFactorMode === 'otp'
+                      ? 'bg-accent text-[var(--accentText)]'
+                      : 'text-muted hover:text-text'
+                  }`}
+                  disabled={busy}
+                >
+                  SMS / Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleSelectTwoFactorMode('totp')}
+                  className={`rounded-lg px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] transition ${
+                    twoFactorMode === 'totp'
+                      ? 'bg-accent text-[var(--accentText)]'
+                      : 'text-muted hover:text-text'
+                  }`}
+                  disabled={busy}
+                >
+                  Authenticator
+                </button>
+              </div>
             )}
             {twoFactorPending && (
               <input

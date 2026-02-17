@@ -403,6 +403,7 @@ const SideBar = ({
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
+          data-testid="sidebar-new-topic-button"
           className="w-full rounded-xl border border-accent/40 bg-[color-mix(in srgb,var(--accent) 16%, transparent)] px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-accent transition hover:border-accent hover:text-text"
         >
           {copy.newTopic}
@@ -573,6 +574,7 @@ const SideBar = ({
         {variant === 'full' && onNewEvent && (
           <motion.button
             onClick={onNewEvent}
+            data-testid="sidebar-new-event-button"
             whileHover={reduceMotion ? undefined : { scale: 1.02 }}
             whileTap={reduceMotion ? undefined : { scale: 0.98 }}
             className="w-full rounded-xl bg-accent px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow transition"
@@ -642,6 +644,7 @@ const SideBar = ({
               value={topicName}
               onChange={(event) => setTopicName(event.target.value)}
               placeholder={copy.namePlaceholder}
+              data-testid="calendar-topic-name-input"
               className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
             />
           </label>
@@ -689,6 +692,7 @@ const SideBar = ({
             type="button"
             onClick={handleSaveCalendar}
             disabled={topicName.trim().length < 2 || topicName.trim().length > 30}
+            data-testid="calendar-topic-save-button"
             className="rounded-full bg-accent px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {editTarget ? copy.saveChanges : copy.createTopic}

@@ -14,10 +14,11 @@ const DEFAULT_DEV_CORS_ORIGINS = ['http://127.0.0.1:5173', 'http://localhost:517
 const DEFAULT_QUEUE_RETRY_SEC = 30;
 const DEFAULT_QUEUE_MAX_ATTEMPTS = 5;
 const DEFAULT_QUEUE_MAX_ITEMS = 500;
-const DEFAULT_SYNC_TTL_SEC = 24 * 60 * 60;
+const DEFAULT_SYNC_TTL_SEC = 30 * 24 * 60 * 60;
 const DEFAULT_SYNC_MAX_MESSAGES = 250;
 const DEFAULT_SYNC_MAX_PULL = 100;
 const DEFAULT_MAX_SYNC_REQUEST_BYTES = 512 * 1024;
+const SYNC_STORE_KEY_PREFIX = 'sync:';
 
 const rateLimitStore = new Map();
 const deliveryQueue = [];
@@ -539,7 +540,17 @@ const sanitizeSyncPayload = (payload) => {
   const calendars = Array.isArray(payload.calendars) ? payload.calendars : [];
   const events = Array.isArray(payload.events) ? payload.events : [];
   const templates = Array.isArray(payload.templates) ? payload.templates : [];
-  return { profiles, calendars, events, templates };
+  let collaboration;
+  if (payload.collaboration && typeof payload.collaboration === 'object' && !Array.isArray(payload.collaboration)) {
+    const modeRaw = `${payload.collaboration.mode ?? 'private'}`.trim().toLowerCase();
+    const mode = modeRaw === 'shared' || modeRaw === 'team' ? modeRaw : 'private';
+    collaboration = {
+      enabled: Boolean(payload.collaboration.enabled),
+      mode,
+      members: Array.isArray(payload.collaboration.members) ? payload.collaboration.members : []
+    };
+  }
+  return { profiles, calendars, events, templates, collaboration };
 };
 
 const validateSyncWritePayload = (body) => {
@@ -565,7 +576,45 @@ const validateSyncWritePayload = (body) => {
   return { token, senderId, sentAt, payload };
 };
 
-const getSyncEntry = (token) => {
+const hasSyncKV = (env) =>
+  env &&
+  typeof env.SYNC_KV?.get === 'function' &&
+  typeof env.SYNC_KV?.put === 'function';
+
+const syncStoreKey = (token) => `${SYNC_STORE_KEY_PREFIX}${token}`;
+
+const parseSyncEntry = (raw) => {
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      Number.isFinite(parsed.revision) &&
+      Array.isArray(parsed.messages)
+    ) {
+      return {
+        revision: Number(parsed.revision),
+        messages: parsed.messages
+      };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+};
+
+const getSyncEntry = async (env, token) => {
+  if (hasSyncKV(env)) {
+    const raw = await env.SYNC_KV.get(syncStoreKey(token));
+    const parsed = parseSyncEntry(raw);
+    if (parsed) {
+      syncStore.set(token, parsed);
+      return parsed;
+    }
+  }
   let entry = syncStore.get(token);
   if (!entry) {
     entry = { revision: 0, messages: [] };
@@ -574,11 +623,19 @@ const getSyncEntry = (token) => {
   return entry;
 };
 
+const persistSyncEntry = async (env, token, entry) => {
+  syncStore.set(token, entry);
+  if (!hasSyncKV(env)) {
+    return;
+  }
+  await env.SYNC_KV.put(syncStoreKey(token), JSON.stringify(entry));
+};
+
 const cleanupSyncEntry = (env, entry) => {
   const now = Date.now();
   const ttlMs = parsePositiveInt(env.NOTIFY_SYNC_TTL_SEC, DEFAULT_SYNC_TTL_SEC, {
     min: 60,
-    max: 7 * 24 * 60 * 60
+    max: 365 * 24 * 60 * 60
   }) * 1000;
   const maxMessages = parsePositiveInt(env.NOTIFY_SYNC_MAX_MESSAGES, DEFAULT_SYNC_MAX_MESSAGES, {
     min: 10,
@@ -590,8 +647,8 @@ const cleanupSyncEntry = (env, entry) => {
   }
 };
 
-const writeSyncMessage = (env, token, message) => {
-  const entry = getSyncEntry(token);
+const writeSyncMessage = async (env, token, message) => {
+  const entry = await getSyncEntry(env, token);
   entry.revision += 1;
   const record = {
     revision: entry.revision,
@@ -602,12 +659,14 @@ const writeSyncMessage = (env, token, message) => {
   };
   entry.messages.push(record);
   cleanupSyncEntry(env, entry);
+  await persistSyncEntry(env, token, entry);
   return record.revision;
 };
 
-const readSyncMessages = (env, token, since) => {
-  const entry = getSyncEntry(token);
+const readSyncMessages = async (env, token, since) => {
+  const entry = await getSyncEntry(env, token);
   cleanupSyncEntry(env, entry);
+  await persistSyncEntry(env, token, entry);
   const maxPull = parsePositiveInt(env.NOTIFY_SYNC_MAX_PULL, DEFAULT_SYNC_MAX_PULL, { min: 1, max: 500 });
   const items = entry.messages.filter((item) => item.revision > since).slice(-maxPull);
   return {
@@ -652,7 +711,8 @@ export default {
         {
           ok: true,
           service: 'nullcal-notify-worker',
-          queueDepth: deliveryQueue.length
+          queueDepth: deliveryQueue.length,
+          syncStore: hasSyncKV(env) ? 'kv' : 'memory'
         },
         corsOrigin
       );
@@ -704,13 +764,13 @@ export default {
           max: 4 * 1024 * 1024
         });
         const payload = validateSyncWritePayload(await readJson(request, env, maxSyncBytes));
-        const revision = writeSyncMessage(env, payload.token, payload);
+        const revision = await writeSyncMessage(env, payload.token, payload);
         return json(200, { ok: true, revision }, corsOrigin);
       }
 
       if (isSyncRoute && request.method === 'GET') {
         const params = parseSyncReadParams(url);
-        const data = readSyncMessages(env, params.token, params.since);
+        const data = await readSyncMessages(env, params.token, params.since);
         return json(200, { ok: true, ...data }, corsOrigin);
       }
 

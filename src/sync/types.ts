@@ -1,10 +1,23 @@
-import type { Calendar, CalendarEvent, EventTemplate, Profile } from '../storage/types';
+import type {
+  Calendar,
+  CalendarEvent,
+  CollaborationMember,
+  EventTemplate,
+  Profile
+} from '../storage/types';
+
+export type SyncCollaborationSnapshot = {
+  enabled: boolean;
+  mode: 'private' | 'shared' | 'team';
+  members: CollaborationMember[];
+};
 
 export type SyncPayload = {
   profiles: Profile[];
   calendars: Calendar[];
   events: CalendarEvent[];
   templates: EventTemplate[];
+  collaboration?: SyncCollaborationSnapshot;
 };
 
 export type SyncMessage = {

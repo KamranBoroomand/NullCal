@@ -1,5 +1,7 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 
 const PORT = Number(process.env.NOTIFY_SERVER_PORT ?? 8787);
 const MAX_TO_LENGTH = 320;
@@ -18,14 +20,17 @@ const DEFAULT_DEV_CORS_ORIGINS = ['http://127.0.0.1:5173', 'http://localhost:517
 const DEFAULT_QUEUE_RETRY_SEC = 30;
 const DEFAULT_QUEUE_MAX_ATTEMPTS = 5;
 const DEFAULT_QUEUE_MAX_ITEMS = 500;
-const DEFAULT_SYNC_TTL_SEC = 24 * 60 * 60;
+const DEFAULT_SYNC_TTL_SEC = 30 * 24 * 60 * 60;
 const DEFAULT_SYNC_MAX_MESSAGES = 250;
 const DEFAULT_SYNC_MAX_PULL = 100;
 const DEFAULT_MAX_SYNC_REQUEST_BYTES = 512 * 1024;
+const DEFAULT_SYNC_DB_PATH = path.resolve(process.cwd(), '.nullcal-sync-store.json');
 
 const rateLimitStore = new Map();
 const deliveryQueue = [];
 const syncStore = new Map();
+let syncStoreLoaded = false;
+let syncStorePersistPromise = Promise.resolve();
 
 const hasValue = (value) => typeof value === 'string' && value.trim().length > 0;
 
@@ -548,7 +553,17 @@ const sanitizeSyncPayload = (payload) => {
   const calendars = Array.isArray(payload.calendars) ? payload.calendars : [];
   const events = Array.isArray(payload.events) ? payload.events : [];
   const templates = Array.isArray(payload.templates) ? payload.templates : [];
-  return { profiles, calendars, events, templates };
+  let collaboration;
+  if (payload.collaboration && typeof payload.collaboration === 'object' && !Array.isArray(payload.collaboration)) {
+    const modeRaw = `${payload.collaboration.mode ?? 'private'}`.trim().toLowerCase();
+    const mode = modeRaw === 'shared' || modeRaw === 'team' ? modeRaw : 'private';
+    collaboration = {
+      enabled: Boolean(payload.collaboration.enabled),
+      mode,
+      members: Array.isArray(payload.collaboration.members) ? payload.collaboration.members : []
+    };
+  }
+  return { profiles, calendars, events, templates, collaboration };
 };
 
 const validateSyncWritePayload = (body) => {
@@ -574,7 +589,57 @@ const validateSyncWritePayload = (body) => {
   return { token, senderId, sentAt, payload };
 };
 
-const getSyncEntry = (token) => {
+const syncDbPath = () => `${process.env.NOTIFY_SYNC_DB_PATH ?? ''}`.trim() || DEFAULT_SYNC_DB_PATH;
+
+const ensureSyncStoreLoaded = async () => {
+  if (syncStoreLoaded) {
+    return;
+  }
+  syncStoreLoaded = true;
+  try {
+    const raw = await fs.readFile(syncDbPath(), 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return;
+    }
+    for (const [token, entry] of Object.entries(parsed)) {
+      if (
+        typeof token === 'string' &&
+        entry &&
+        typeof entry === 'object' &&
+        Number.isFinite(entry.revision) &&
+        Array.isArray(entry.messages)
+      ) {
+        syncStore.set(token, {
+          revision: Number(entry.revision),
+          messages: entry.messages
+        });
+      }
+    }
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') {
+      return;
+    }
+    throw error;
+  }
+};
+
+const persistSyncStoreToDisk = async () => {
+  const payload = JSON.stringify(Object.fromEntries(syncStore.entries()));
+  const outputPath = syncDbPath();
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.writeFile(outputPath, payload);
+};
+
+const queueSyncStorePersist = () => {
+  syncStorePersistPromise = syncStorePersistPromise
+    .then(() => persistSyncStoreToDisk())
+    .catch(() => persistSyncStoreToDisk());
+  return syncStorePersistPromise;
+};
+
+const getSyncEntry = async (token) => {
+  await ensureSyncStoreLoaded();
   let entry = syncStore.get(token);
   if (!entry) {
     entry = { revision: 0, messages: [] };
@@ -587,7 +652,7 @@ const cleanupSyncEntry = (entry) => {
   const now = Date.now();
   const ttlMs = parsePositiveInt(process.env.NOTIFY_SYNC_TTL_SEC, DEFAULT_SYNC_TTL_SEC, {
     min: 60,
-    max: 7 * 24 * 60 * 60
+    max: 365 * 24 * 60 * 60
   }) * 1000;
   const maxMessages = parsePositiveInt(process.env.NOTIFY_SYNC_MAX_MESSAGES, DEFAULT_SYNC_MAX_MESSAGES, {
     min: 10,
@@ -599,8 +664,8 @@ const cleanupSyncEntry = (entry) => {
   }
 };
 
-const writeSyncMessage = (token, message) => {
-  const entry = getSyncEntry(token);
+const writeSyncMessage = async (token, message) => {
+  const entry = await getSyncEntry(token);
   entry.revision += 1;
   const record = {
     revision: entry.revision,
@@ -611,12 +676,14 @@ const writeSyncMessage = (token, message) => {
   };
   entry.messages.push(record);
   cleanupSyncEntry(entry);
+  await queueSyncStorePersist();
   return record.revision;
 };
 
-const readSyncMessages = (token, since) => {
-  const entry = getSyncEntry(token);
+const readSyncMessages = async (token, since) => {
+  const entry = await getSyncEntry(token);
   cleanupSyncEntry(entry);
+  await queueSyncStorePersist();
   const maxPull = parsePositiveInt(process.env.NOTIFY_SYNC_MAX_PULL, DEFAULT_SYNC_MAX_PULL, {
     min: 1,
     max: 500
@@ -661,7 +728,8 @@ const server = http.createServer(async (req, res) => {
       {
         ok: true,
         service: 'nullcal-notify',
-        queueDepth: deliveryQueue.length
+        queueDepth: deliveryQueue.length,
+        syncStore: 'file'
       },
       corsOrigin
     );
@@ -713,13 +781,13 @@ const server = http.createServer(async (req, res) => {
         { min: 1024, max: 4 * 1024 * 1024 }
       );
       const payload = validateSyncWritePayload(await readJson(req, maxSyncBytes));
-      const revision = writeSyncMessage(payload.token, payload);
+      const revision = await writeSyncMessage(payload.token, payload);
       return json(res, 200, { ok: true, revision }, corsOrigin);
     }
 
     if (isSyncRoute && req.method === 'GET') {
       const params = parseSyncReadParams(url);
-      const data = readSyncMessages(params.token, params.since);
+      const data = await readSyncMessages(params.token, params.since);
       return json(res, 200, { ok: true, ...data }, corsOrigin);
     }
 

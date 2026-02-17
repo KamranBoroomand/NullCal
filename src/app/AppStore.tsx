@@ -49,15 +49,204 @@ import { hashSnapshot } from '../security/fingerprint';
 import type { SyncMessage } from '../sync/types';
 import { hasCollaborationAdminAccess, hasCollaborationWriteAccess } from '../collaboration/access';
 
+type UnlockSecretMethod = 'auto' | 'pin' | 'passphrase';
+type TwoFactorMethod = 'otp' | 'totp';
+type TwoFactorStatus = 'pending' | 'clear' | 'failed';
+type ConflictPolicy = AppSettings['syncConflictPolicy'];
+
+const ONLINE_WINDOW_MS = 2 * 60 * 1000;
+const AWAY_WINDOW_MS = 30 * 60 * 1000;
+
+const nowIso = () => new Date().toISOString();
+
+const normalizeContact = (value: string) => value.trim().toLowerCase();
+
+const createInviteCode = () =>
+  Array.from(crypto.getRandomValues(new Uint8Array(5)))
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 8)
+    .toUpperCase();
+
+const toMillis = (...values: Array<string | number | undefined>) => {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = Date.parse(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return 0;
+};
+
+const resolvePresence = (status: CollaborationMember['status'], lastSeenAt?: string) => {
+  if (status !== 'active') {
+    return 'offline' as const;
+  }
+  const seenMs = toMillis(lastSeenAt);
+  if (!seenMs) {
+    return 'away' as const;
+  }
+  const age = Date.now() - seenMs;
+  if (age <= ONLINE_WINDOW_MS) {
+    return 'online' as const;
+  }
+  if (age <= AWAY_WINDOW_MS) {
+    return 'away' as const;
+  }
+  return 'offline' as const;
+};
+
+const reconcileCollaborationMembers = (members: CollaborationMember[]): CollaborationMember[] =>
+  members.map((member) => {
+    const joinedAt = member.joinedAt ?? member.inviteAcceptedAt ?? member.invitedAt;
+    const status = member.status === 'active' || member.inviteAcceptedAt ? 'active' : 'invited';
+    const lastSeenAt = member.lastSeenAt ?? (status === 'active' ? joinedAt : undefined);
+    return {
+      ...member,
+      status,
+      joinedAt: status === 'active' ? joinedAt : member.joinedAt,
+      lastSeenAt,
+      presence: resolvePresence(status, lastSeenAt)
+    };
+  });
+
+const getDefaultTwoFactorMethod = (settings: AppSettings, securityPrefs: SecurityPrefs): TwoFactorMethod | null => {
+  const otpEnabled = settings.twoFactorOtpEnabled;
+  const totpEnabled = settings.twoFactorTotpEnabled && Boolean(securityPrefs.totpSecret);
+  if (totpEnabled && settings.twoFactorMode === 'totp') {
+    return 'totp';
+  }
+  if (otpEnabled && settings.twoFactorMode === 'otp') {
+    return 'otp';
+  }
+  if (totpEnabled) {
+    return 'totp';
+  }
+  if (otpEnabled) {
+    return 'otp';
+  }
+  return null;
+};
+
+const getRecordUpdatedAt = <T extends { updatedAt?: string; createdAt?: string; end?: string; start?: string }>(
+  record: T
+) => toMillis(record.updatedAt, record.createdAt, record.end, record.start);
+
+const mergeEntitiesById = <
+  T extends {
+    id: string;
+    updatedAt?: string;
+    createdAt?: string;
+    end?: string;
+    start?: string;
+  }
+>(
+  localItems: T[],
+  remoteItems: T[],
+  policy: ConflictPolicy
+) => {
+  const merged = new Map(localItems.map((item) => [item.id, item]));
+  for (const remoteItem of remoteItems) {
+    const localItem = merged.get(remoteItem.id);
+    if (!localItem) {
+      merged.set(remoteItem.id, remoteItem);
+      continue;
+    }
+    if (policy === 'prefer-local') {
+      continue;
+    }
+    if (policy === 'prefer-remote') {
+      merged.set(remoteItem.id, remoteItem);
+      continue;
+    }
+    const localUpdatedAt = getRecordUpdatedAt(localItem);
+    const remoteUpdatedAt = getRecordUpdatedAt(remoteItem);
+    merged.set(remoteItem.id, remoteUpdatedAt >= localUpdatedAt ? remoteItem : localItem);
+  }
+  return Array.from(merged.values());
+};
+
+const mergeCollaborationMembers = (
+  localMembers: CollaborationMember[],
+  remoteMembers: CollaborationMember[],
+  policy: ConflictPolicy
+) => {
+  const localMap = new Map(localMembers.map((member) => [member.id, member]));
+  const merged = new Map<string, CollaborationMember>();
+
+  for (const remoteMember of remoteMembers) {
+    const localMember = localMap.get(remoteMember.id);
+    if (!localMember) {
+      merged.set(remoteMember.id, remoteMember);
+      continue;
+    }
+    if (policy === 'prefer-local') {
+      merged.set(remoteMember.id, localMember);
+      continue;
+    }
+    if (policy === 'prefer-remote') {
+      merged.set(remoteMember.id, remoteMember);
+      continue;
+    }
+    const localTs = toMillis(localMember.lastSeenAt, localMember.joinedAt, localMember.invitedAt);
+    const remoteTs = toMillis(remoteMember.lastSeenAt, remoteMember.joinedAt, remoteMember.invitedAt);
+    const next: CollaborationMember =
+      remoteTs > localTs
+        ? remoteMember
+        : {
+            ...localMember,
+            status: localMember.status === 'active' || remoteMember.status === 'active' ? 'active' : 'invited',
+            role: remoteTs > localTs ? remoteMember.role : localMember.role
+          };
+    merged.set(remoteMember.id, next);
+  }
+
+  for (const localMember of localMembers) {
+    if (!merged.has(localMember.id)) {
+      merged.set(localMember.id, localMember);
+    }
+  }
+
+  return reconcileCollaborationMembers(Array.from(merged.values()));
+};
+
+const collaborationMembersEqual = (left: CollaborationMember[], right: CollaborationMember[]) =>
+  left.length === right.length &&
+  left.every((member, index) => {
+    const candidate = right[index];
+    return (
+      candidate?.id === member.id &&
+      candidate.name === member.name &&
+      candidate.contact === member.contact &&
+      candidate.role === member.role &&
+      candidate.status === member.status &&
+      candidate.presence === member.presence &&
+      candidate.inviteCode === member.inviteCode &&
+      candidate.invitedAt === member.invitedAt &&
+      candidate.inviteAcceptedAt === member.inviteAcceptedAt &&
+      candidate.inviteExpiresAt === member.inviteExpiresAt &&
+      candidate.joinedAt === member.joinedAt &&
+      candidate.lastSeenAt === member.lastSeenAt
+    );
+  });
+
 type AppStoreContextValue = {
   state: AppState | null;
   loading: boolean;
   locked: boolean;
   lockNow: () => void;
-  unlock: (pin?: string) => Promise<boolean>;
+  unlock: (secret?: string, method?: UnlockSecretMethod) => Promise<boolean>;
   unlockWithWebAuthn: () => Promise<boolean>;
   unlockWithBiometric: () => Promise<boolean>;
   twoFactorPending: boolean;
+  twoFactorMode: TwoFactorMethod;
+  availableTwoFactorModes: TwoFactorMethod[];
+  setTwoFactorMode: (mode: TwoFactorMethod) => Promise<void>;
   verifyTwoFactor: (code: string) => Promise<boolean>;
   resendTwoFactor: () => Promise<void>;
   updateSettings: (updates: Partial<AppSettings>) => void;
@@ -94,6 +283,7 @@ type AppStoreContextValue = {
   updateTemplate: (templateId: string, updates: Partial<EventTemplate>) => void;
   deleteTemplate: (templateId: string) => void;
   inviteCollaborator: (name: string, contact: string, role: CollaborationRole) => void;
+  acceptCollaboratorInvite: (inviteCode: string) => boolean;
   updateCollaborator: (memberId: string, updates: Partial<CollaborationMember>) => void;
   removeCollaborator: (memberId: string) => void;
   setCollaborationRole: (role: CollaborationRole) => void;
@@ -135,6 +325,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   const [locked, setLocked] = useState(false);
   const [twoFactorPending, setTwoFactorPending] = useState(false);
   const [twoFactorVerified, setTwoFactorVerified] = useState(false);
+  const [selectedTwoFactorMode, setSelectedTwoFactorMode] = useState<TwoFactorMethod>('otp');
   const stateRef = useRef<AppState | null>(null);
   const syncHandleRef = useRef<ReturnType<typeof createP2PSync> | null>(null);
   const syncSenderId = useRef(crypto.randomUUID());
@@ -151,6 +342,33 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     () => (state ? hasCollaborationAdminAccess(state.settings) : true),
     [state?.settings.collaborationEnabled, state?.settings.collaborationMode, state?.settings.collaborationRole]
   );
+  const availableTwoFactorModes = useMemo<TwoFactorMethod[]>(() => {
+    if (!state?.settings.twoFactorEnabled) {
+      return [];
+    }
+    const modes: TwoFactorMethod[] = [];
+    if (state.settings.twoFactorOtpEnabled) {
+      modes.push('otp');
+    }
+    if (state.settings.twoFactorTotpEnabled && Boolean(state.securityPrefs.totpSecret)) {
+      modes.push('totp');
+    }
+    return modes;
+  }, [
+    state?.settings.twoFactorEnabled,
+    state?.settings.twoFactorOtpEnabled,
+    state?.settings.twoFactorTotpEnabled,
+    state?.securityPrefs.totpSecret
+  ]);
+  const activeTwoFactorMode = useMemo<TwoFactorMethod>(() => {
+    if (availableTwoFactorModes.includes(selectedTwoFactorMode)) {
+      return selectedTwoFactorMode;
+    }
+    if (availableTwoFactorModes.includes(state?.settings.twoFactorMode ?? 'otp')) {
+      return (state?.settings.twoFactorMode ?? 'otp') as TwoFactorMethod;
+    }
+    return availableTwoFactorModes[0] ?? 'otp';
+  }, [availableTwoFactorModes, selectedTwoFactorMode, state?.settings.twoFactorMode]);
   const lockNow = useCallback(() => {
     setLocked(true);
     setTwoFactorPending(false);
@@ -193,13 +411,24 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       if (!prev) {
         return prev;
       }
+      const nextSettings: AppSettings = {
+        ...prev.settings,
+        ...updates,
+        networkLock: updates.networkLock ?? prev.settings.networkLock
+      };
+      if ('collaborationMembers' in updates && updates.collaborationMembers) {
+        nextSettings.collaborationMembers = reconcileCollaborationMembers(updates.collaborationMembers);
+      }
+      if ('twoFactorOtpEnabled' in updates || 'twoFactorTotpEnabled' in updates) {
+        nextSettings.twoFactorEnabled = Boolean(
+          nextSettings.twoFactorOtpEnabled || nextSettings.twoFactorTotpEnabled
+        );
+      } else if ('twoFactorEnabled' in updates) {
+        nextSettings.twoFactorEnabled = Boolean(nextSettings.twoFactorEnabled);
+      }
       return {
         ...prev,
-        settings: {
-          ...prev.settings,
-          ...updates,
-          networkLock: updates.networkLock ?? prev.settings.networkLock
-        }
+        settings: nextSettings
       };
     });
   }, []);
@@ -219,6 +448,73 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  const reconcilePresence = useCallback((touchLocalHeartbeat: boolean) => {
+    setState((prev) => {
+      if (!prev || !prev.settings.collaborationEnabled) {
+        return prev;
+      }
+      const baseMembers = reconcileCollaborationMembers(prev.settings.collaborationMembers);
+      if (!touchLocalHeartbeat) {
+        if (collaborationMembersEqual(prev.settings.collaborationMembers, baseMembers)) {
+          return prev;
+        }
+        return {
+          ...prev,
+          settings: {
+            ...prev.settings,
+            collaborationMembers: baseMembers
+          }
+        };
+      }
+
+      const activeProfile = prev.profiles.find((profile) => profile.id === prev.settings.activeProfileId);
+      const localContacts = new Set(
+        [activeProfile?.phone, prev.settings.notificationEmail, prev.settings.notificationPhone]
+          .map((value) => (typeof value === 'string' ? normalizeContact(value) : ''))
+          .filter(Boolean)
+      );
+      if (localContacts.size === 0) {
+        if (collaborationMembersEqual(prev.settings.collaborationMembers, baseMembers)) {
+          return prev;
+        }
+        return {
+          ...prev,
+          settings: {
+            ...prev.settings,
+            collaborationMembers: baseMembers
+          }
+        };
+      }
+
+      const heartbeatAt = nowIso();
+      const nextMembers: CollaborationMember[] = baseMembers.map((member) => {
+        if (member.status !== 'active') {
+          return member;
+        }
+        if (!localContacts.has(normalizeContact(member.contact))) {
+          return member;
+        }
+        return {
+          ...member,
+          lastSeenAt: heartbeatAt,
+          presence: 'online' as const
+        };
+      });
+
+      if (collaborationMembersEqual(prev.settings.collaborationMembers, nextMembers)) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          collaborationMembers: nextMembers
+        }
+      };
+    });
+  }, []);
+
   useEffect(() => {
     const cached = readCachedState(30);
     if (cached) {
@@ -228,6 +524,10 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       .then((data) => {
         setState(data);
         setTwoFactorVerified(isTwoFactorVerified());
+        const defaultMode = getDefaultTwoFactorMethod(data.settings, data.securityPrefs);
+        if (defaultMode) {
+          setSelectedTwoFactorMode(defaultMode);
+        }
         setLocked(
           Boolean(
             data.securityPrefs.pinEnabled ||
@@ -247,6 +547,31 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   }, [state]);
 
   useEffect(() => {
+    if (!state?.settings.collaborationEnabled) {
+      return;
+    }
+    reconcilePresence(true);
+    const interval = window.setInterval(() => {
+      reconcilePresence(document.visibilityState === 'visible');
+    }, 60 * 1000);
+    const handleVisibility = () => {
+      reconcilePresence(document.visibilityState === 'visible');
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [
+    reconcilePresence,
+    state?.settings.activeProfileId,
+    state?.settings.collaborationEnabled,
+    state?.settings.collaborationMembers,
+    state?.settings.notificationEmail,
+    state?.settings.notificationPhone
+  ]);
+
+  useEffect(() => {
     const handleOnline = () => {
       const current = stateRef.current;
       if (!current) {
@@ -258,7 +583,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
           profiles: current.profiles,
           calendars: current.calendars,
           events: current.events,
-          templates: current.templates
+          templates: current.templates,
+          collaboration: {
+            enabled: current.settings.collaborationEnabled,
+            mode: current.settings.collaborationMode,
+            members: reconcileCollaborationMembers(current.settings.collaborationMembers)
+          }
         });
       }
       if (current.settings.cacheEnabled) {
@@ -387,12 +717,16 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   ]);
 
   useEffect(() => {
-    if (!state?.settings.twoFactorEnabled) {
+    if (!state?.settings.twoFactorEnabled || availableTwoFactorModes.length === 0) {
       setTwoFactorPending(false);
       setTwoFactorVerified(false);
       clearTwoFactorSession();
+      return;
     }
-  }, [state?.settings.twoFactorEnabled]);
+    if (!availableTwoFactorModes.includes(selectedTwoFactorMode)) {
+      setSelectedTwoFactorMode(availableTwoFactorModes[0]);
+    }
+  }, [availableTwoFactorModes, selectedTwoFactorMode, state?.settings.twoFactorEnabled]);
 
   useEffect(() => {
     if (!state) {
@@ -408,12 +742,30 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         if (!prev) {
           return prev;
         }
+        const policy = prev.settings.syncConflictPolicy ?? 'last-write-wins';
+        const nextProfiles = mergeEntitiesById(prev.profiles, message.payload.profiles ?? [], policy);
+        const nextCalendars = mergeEntitiesById(prev.calendars, message.payload.calendars ?? [], policy);
+        const nextEvents = mergeEntitiesById(prev.events, message.payload.events ?? [], policy);
+        const nextTemplates = mergeEntitiesById(prev.templates, message.payload.templates ?? [], policy);
+        const nextCollaborationMembers = message.payload.collaboration
+          ? mergeCollaborationMembers(
+              prev.settings.collaborationMembers,
+              message.payload.collaboration.members ?? [],
+              policy
+            )
+          : reconcileCollaborationMembers(prev.settings.collaborationMembers);
         return {
           ...prev,
-          profiles: message.payload.profiles,
-          calendars: message.payload.calendars,
-          events: message.payload.events,
-          templates: message.payload.templates ?? prev.templates
+          profiles: nextProfiles,
+          calendars: nextCalendars,
+          events: nextEvents,
+          templates: nextTemplates,
+          settings: {
+            ...prev.settings,
+            collaborationEnabled: message.payload.collaboration?.enabled ?? prev.settings.collaborationEnabled,
+            collaborationMode: message.payload.collaboration?.mode ?? prev.settings.collaborationMode,
+            collaborationMembers: nextCollaborationMembers
+          }
         };
       });
     };
@@ -439,11 +791,17 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     }
     let cancelled = false;
     const broadcast = async () => {
+      const collaboration = {
+        enabled: state.settings.collaborationEnabled,
+        mode: state.settings.collaborationMode,
+        members: reconcileCollaborationMembers(state.settings.collaborationMembers)
+      };
       const snapshot = JSON.stringify({
         profiles: state.profiles,
         calendars: state.calendars,
         events: state.events,
-        templates: state.templates
+        templates: state.templates,
+        collaboration
       });
       const hash = await hashSnapshot(snapshot);
       if (cancelled || syncHashRef.current === hash) {
@@ -454,14 +812,23 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         profiles: state.profiles,
         calendars: state.calendars,
         events: state.events,
-        templates: state.templates
+        templates: state.templates,
+        collaboration
       });
     };
     void broadcast();
     return () => {
       cancelled = true;
     };
-  }, [state?.profiles, state?.calendars, state?.events, state?.templates]);
+  }, [
+    state?.profiles,
+    state?.calendars,
+    state?.events,
+    state?.templates,
+    state?.settings.collaborationEnabled,
+    state?.settings.collaborationMode,
+    state?.settings.collaborationMembers
+  ]);
 
   useEffect(() => {
     reminderHandleRef.current?.stop();
@@ -689,7 +1056,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       return {
         ...prev,
         profiles: prev.profiles.map((profile) =>
-          profile.id === profileId ? { ...profile, name, displayName: name } : profile
+          profile.id === profileId ? { ...profile, name, displayName: name, updatedAt: nowIso() } : profile
         )
       };
     });
@@ -704,7 +1071,11 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         displayName: string;
         avatarEmoji: string;
         avatarColor: string;
+        avatarUrl: string;
         bio: string;
+        phone: string;
+        location: string;
+        preferredNotification: 'sms' | 'email';
       }>
     ) => {
       if (!guardWorkspaceWrite('updateProfileDetails')) {
@@ -717,7 +1088,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         return {
           ...prev,
           profiles: prev.profiles.map((profile) =>
-            profile.id === profileId ? { ...profile, ...updates } : profile
+            profile.id === profileId ? { ...profile, ...updates, updatedAt: nowIso() } : profile
           )
         };
       });
@@ -808,7 +1179,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       return {
         ...prev,
         calendars: prev.calendars.map((calendar) =>
-          calendar.id === calendarId ? { ...calendar, isVisible: !calendar.isVisible } : calendar
+          calendar.id === calendarId
+            ? { ...calendar, isVisible: !calendar.isVisible, updatedAt: nowIso() }
+            : calendar
         )
       };
     });
@@ -826,12 +1199,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       if (!existing) {
         return {
           ...prev,
-          events: [...prev.events, event]
+          events: [...prev.events, { ...event, updatedAt: nowIso() }]
         };
       }
       return {
         ...prev,
-        events: prev.events.map((item) => (item.id === event.id ? event : item))
+        events: prev.events.map((item) => (item.id === event.id ? { ...event, updatedAt: nowIso() } : item))
       };
     });
     logAuditEvent({
@@ -864,7 +1237,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     const nextTemplate: EventTemplate = {
       ...template,
       id: crypto.randomUUID(),
-      createdAt: new Date().toISOString()
+      createdAt: nowIso(),
+      updatedAt: nowIso()
     };
     setState((prev) => {
       if (!prev) {
@@ -893,7 +1267,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       return {
         ...prev,
         templates: prev.templates.map((template) =>
-          template.id === templateId ? { ...template, ...updates } : template
+          template.id === templateId ? { ...template, ...updates, updatedAt: nowIso() } : template
         )
       };
     });
@@ -926,14 +1300,16 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       if (!trimmedName || !trimmedContact) {
         return;
       }
-      const now = new Date().toISOString();
-      const normalizedContact = trimmedContact.toLowerCase();
+      const now = nowIso();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const normalizedContact = normalizeContact(trimmedContact);
+      const inviteCode = createInviteCode();
       setState((prev) => {
         if (!prev) {
           return prev;
         }
         const existingIndex = prev.settings.collaborationMembers.findIndex(
-          (member) => member.contact.trim().toLowerCase() === normalizedContact
+          (member) => normalizeContact(member.contact) === normalizedContact
         );
         const nextMember: CollaborationMember = {
           id: crypto.randomUUID(),
@@ -941,13 +1317,28 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
           contact: trimmedContact,
           role,
           status: 'invited',
-          invitedAt: now
+          presence: 'offline',
+          inviteCode,
+          invitedAt: now,
+          inviteExpiresAt: expiresAt
         };
         const nextMembers: CollaborationMember[] =
           existingIndex >= 0
             ? prev.settings.collaborationMembers.map((member, index) =>
                 index === existingIndex
-                  ? { ...member, name: trimmedName, role, status: 'invited' as const, invitedAt: now }
+                  ? {
+                      ...member,
+                      name: trimmedName,
+                      role,
+                      status: 'invited' as const,
+                      presence: 'offline',
+                      inviteCode,
+                      invitedAt: now,
+                      inviteExpiresAt: expiresAt,
+                      inviteAcceptedAt: undefined,
+                      joinedAt: undefined,
+                      lastSeenAt: undefined
+                    }
                   : member
               )
             : [...prev.settings.collaborationMembers, nextMember];
@@ -955,18 +1346,70 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
           ...prev,
           settings: {
             ...prev.settings,
-            collaborationMembers: nextMembers
+            collaborationMembers: reconcileCollaborationMembers(nextMembers)
           }
         };
       });
       logAuditEvent({
         action: 'collaboration.member_invited',
         category: 'collaboration',
-        metadata: { contact: trimmedContact, role }
+        metadata: { contact: trimmedContact, role, inviteCode }
       });
     },
     [guardCollaborationAdmin]
   );
+
+  const acceptCollaboratorInvite = useCallback((inviteCode: string) => {
+    const trimmedCode = inviteCode.trim().toUpperCase();
+    if (!trimmedCode) {
+      return false;
+    }
+    const current = stateRef.current;
+    if (!current) {
+      return false;
+    }
+    const matchingMember = current.settings.collaborationMembers.find(
+      (member) => (member.inviteCode ?? '').toUpperCase() === trimmedCode
+    );
+    if (!matchingMember) {
+      return false;
+    }
+    if (matchingMember.inviteExpiresAt && toMillis(matchingMember.inviteExpiresAt) < Date.now()) {
+      return false;
+    }
+    setState((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      const now = nowIso();
+      const nextMembers = prev.settings.collaborationMembers.map((member) => {
+        if ((member.inviteCode ?? '').toUpperCase() !== trimmedCode) {
+          return member;
+        }
+        return {
+          ...member,
+          status: 'active' as const,
+          presence: 'online' as const,
+          inviteAcceptedAt: now,
+          joinedAt: member.joinedAt ?? now,
+          lastSeenAt: now
+        };
+      });
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          collaborationMembers: reconcileCollaborationMembers(nextMembers)
+        }
+      };
+    });
+    logAuditEvent({
+      action: 'collaboration.invite_accepted',
+      category: 'collaboration',
+      metadata: { inviteCode: trimmedCode }
+    });
+    return true;
+  }, []);
 
   const updateCollaborator = useCallback(
     (memberId: string, updates: Partial<CollaborationMember>) => {
@@ -981,15 +1424,18 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
           ...prev,
           settings: {
             ...prev.settings,
-            collaborationMembers: prev.settings.collaborationMembers.map((member) =>
-              member.id === memberId
-                ? {
-                    ...member,
-                    ...updates,
-                    contact: updates.contact ? updates.contact.trim() : member.contact,
-                    name: updates.name ? updates.name.trim() : member.name
-                  }
-                : member
+            collaborationMembers: reconcileCollaborationMembers(
+              prev.settings.collaborationMembers.map((member) =>
+                member.id === memberId
+                  ? {
+                      ...member,
+                      ...updates,
+                      contact: updates.contact ? updates.contact.trim() : member.contact,
+                      name: updates.name ? updates.name.trim() : member.name,
+                      lastSeenAt: updates.status === 'active' ? updates.lastSeenAt ?? nowIso() : member.lastSeenAt
+                    }
+                  : member
+              )
             )
           }
         };
@@ -1012,7 +1458,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
           ...prev,
           settings: {
             ...prev.settings,
-            collaborationMembers: prev.settings.collaborationMembers.filter((member) => member.id !== memberId)
+            collaborationMembers: reconcileCollaborationMembers(
+              prev.settings.collaborationMembers.filter((member) => member.id !== memberId)
+            )
           }
         };
       });
@@ -1040,9 +1488,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     []
   );
 
-  const ensureTwoFactor = useCallback(async (): Promise<'pending' | 'clear' | 'failed'> => {
+  const ensureTwoFactor = useCallback(async (): Promise<TwoFactorStatus> => {
     if (!state?.settings.twoFactorEnabled) {
       return 'clear';
+    }
+    if (availableTwoFactorModes.length === 0) {
+      return 'failed';
     }
     if (twoFactorVerified) {
       return 'clear';
@@ -1050,7 +1501,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     if (!twoFactorPending) {
       setTwoFactorPending(true);
       try {
-        if (state.settings.twoFactorMode === 'totp') {
+        if (activeTwoFactorMode === 'totp') {
           if (!state.securityPrefs.totpSecret) {
             setTwoFactorPending(false);
             return 'failed';
@@ -1065,17 +1516,45 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     }
     return 'pending';
   }, [
+    activeTwoFactorMode,
+    availableTwoFactorModes.length,
+    state?.securityPrefs.totpSecret,
     state?.settings.twoFactorChannel,
     state?.settings.twoFactorDestination,
     state?.settings.twoFactorEnabled,
-    state?.settings.twoFactorMode,
-    state?.securityPrefs.totpSecret,
     twoFactorPending,
     twoFactorVerified
   ]);
 
+  const setTwoFactorMode = useCallback(
+    async (mode: TwoFactorMethod) => {
+      if (!availableTwoFactorModes.includes(mode)) {
+        return;
+      }
+      setSelectedTwoFactorMode(mode);
+      updateSettings({ twoFactorMode: mode });
+      if (!twoFactorPending) {
+        return;
+      }
+      if (mode === 'otp') {
+        try {
+          await startTwoFactorChallenge(state?.settings.twoFactorChannel ?? 'email', state?.settings.twoFactorDestination);
+        } catch {
+          setTwoFactorPending(false);
+        }
+      }
+    },
+    [
+      availableTwoFactorModes,
+      state?.settings.twoFactorChannel,
+      state?.settings.twoFactorDestination,
+      twoFactorPending,
+      updateSettings
+    ]
+  );
+
   const unlock = useCallback(
-    async (secret?: string) => {
+    async (secret?: string, method: UnlockSecretMethod = 'auto') => {
       if (!state) {
         return false;
       }
@@ -1099,7 +1578,10 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       if (!secret) {
         return false;
       }
+      const allowPinChecks = method === 'auto' || method === 'pin';
+      const allowPassphraseChecks = method === 'auto' || method === 'passphrase';
       const matchesPrimary =
+        allowPinChecks &&
         state.securityPrefs.pinEnabled &&
         state.securityPrefs.pinHash &&
         state.securityPrefs.pinSalt
@@ -1110,6 +1592,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
             })
           : false;
       const matchesDecoy =
+        allowPinChecks &&
         state.securityPrefs.decoyPinEnabled &&
         state.securityPrefs.decoyPinHash &&
         state.securityPrefs.decoyPinSalt
@@ -1147,6 +1630,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         return true;
       }
       const matchesLocal =
+        allowPassphraseChecks &&
         state.securityPrefs.localAuthEnabled &&
         state.securityPrefs.localAuthHash &&
         state.securityPrefs.localAuthSalt
@@ -1219,7 +1703,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   const verifyTwoFactor = useCallback(
     async (code: string) => {
       const ok =
-        state?.settings.twoFactorMode === 'totp' && state.securityPrefs.totpSecret
+        activeTwoFactorMode === 'totp' && state?.securityPrefs.totpSecret
           ? await verifyTotpCode(code, state.securityPrefs.totpSecret)
           : await verifyTwoFactorCode(code);
       if (ok) {
@@ -1230,22 +1714,19 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       }
       return ok;
     },
-    [state?.securityPrefs.totpSecret, state?.settings.twoFactorMode]
+    [activeTwoFactorMode, state?.securityPrefs.totpSecret]
   );
 
   const resendTwoFactor = useCallback(async () => {
-    if (!state?.settings.twoFactorEnabled) {
-      return;
-    }
-    if (state.settings.twoFactorMode === 'totp') {
+    if (!state?.settings.twoFactorEnabled || activeTwoFactorMode !== 'otp') {
       return;
     }
     await startTwoFactorChallenge(state.settings.twoFactorChannel, state.settings.twoFactorDestination);
   }, [
+    activeTwoFactorMode,
     state?.settings.twoFactorChannel,
     state?.settings.twoFactorDestination,
-    state?.settings.twoFactorEnabled,
-    state?.settings.twoFactorMode
+    state?.settings.twoFactorEnabled
   ]);
 
 
@@ -1329,7 +1810,37 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     if (!guardWorkspaceWrite('replaceState')) {
       return;
     }
-    setState(next);
+    const normalizedNext: AppState = {
+      ...next,
+      profiles: next.profiles.map((profile) => ({
+        ...profile,
+        updatedAt: profile.updatedAt ?? profile.createdAt ?? nowIso()
+      })),
+      calendars: next.calendars.map((calendar) => ({
+        ...calendar,
+        updatedAt: calendar.updatedAt ?? calendar.createdAt ?? nowIso()
+      })),
+      events: next.events.map((event) => ({
+        ...event,
+        updatedAt: event.updatedAt ?? event.end ?? event.start ?? nowIso()
+      })),
+      templates: next.templates.map((template) => ({
+        ...template,
+        updatedAt: template.updatedAt ?? template.createdAt ?? nowIso()
+      })),
+      settings: {
+        ...next.settings,
+        syncConflictPolicy: next.settings.syncConflictPolicy ?? 'last-write-wins',
+        twoFactorOtpEnabled:
+          next.settings.twoFactorOtpEnabled ??
+          (next.settings.twoFactorEnabled && next.settings.twoFactorMode === 'otp'),
+        twoFactorTotpEnabled:
+          next.settings.twoFactorTotpEnabled ??
+          (next.settings.twoFactorEnabled && next.settings.twoFactorMode === 'totp'),
+        collaborationMembers: reconcileCollaborationMembers(next.settings.collaborationMembers ?? [])
+      }
+    };
+    setState(normalizedNext);
   }, [guardWorkspaceWrite]);
 
   const exportEncrypted = useCallback(
@@ -1377,31 +1888,55 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         autoLockOnBlur: decrypted.settings.autoLockOnBlur ?? false,
         autoLockGraceSeconds: decrypted.settings.autoLockGraceSeconds ?? 0,
         privacyScreenHotkeyEnabled: decrypted.settings.privacyScreenHotkeyEnabled ?? true,
+        syncConflictPolicy: decrypted.settings.syncConflictPolicy ?? 'last-write-wins',
         collaborationRole: decrypted.settings.collaborationRole ?? 'owner',
-        collaborationMembers: decrypted.settings.collaborationMembers ?? [],
+        collaborationMembers: reconcileCollaborationMembers(decrypted.settings.collaborationMembers ?? []),
+        twoFactorOtpEnabled:
+          decrypted.settings.twoFactorOtpEnabled ??
+          (decrypted.settings.twoFactorEnabled && (decrypted.settings.twoFactorMode ?? 'otp') === 'otp'),
+        twoFactorTotpEnabled:
+          decrypted.settings.twoFactorTotpEnabled ??
+          (decrypted.settings.twoFactorEnabled && (decrypted.settings.twoFactorMode ?? 'otp') === 'totp'),
         activeProfileId: activeProfileExists
           ? decrypted.settings.activeProfileId
           : decrypted.profiles[0]?.id ?? decrypted.settings.activeProfileId
       };
-      setState({
-        profiles: decrypted.profiles,
-        calendars: decrypted.calendars ?? [],
-        events: decrypted.events ?? [],
-        templates: decrypted.templates,
+      const normalizedImportedState: AppState = {
+        profiles: decrypted.profiles.map((profile) => ({
+          ...profile,
+          updatedAt: profile.updatedAt ?? profile.createdAt ?? nowIso()
+        })),
+        calendars: (decrypted.calendars ?? []).map((calendar) => ({
+          ...calendar,
+          updatedAt: calendar.updatedAt ?? calendar.createdAt ?? nowIso()
+        })),
+        events: (decrypted.events ?? []).map((event) => ({
+          ...event,
+          updatedAt: event.updatedAt ?? event.end ?? event.start ?? nowIso()
+        })),
+        templates: (decrypted.templates ?? []).map((template) => ({
+          ...template,
+          updatedAt: template.updatedAt ?? template.createdAt ?? nowIso()
+        })),
         settings,
         securityPrefs: {
           ...baseSecurityPrefs,
           ...decrypted.securityPrefs
         }
-      });
+      };
+      setState(normalizedImportedState);
+      const preferredMode = getDefaultTwoFactorMethod(normalizedImportedState.settings, normalizedImportedState.securityPrefs);
+      if (preferredMode) {
+        setSelectedTwoFactorMode(preferredMode);
+      }
       setLocked(
         Boolean(
-          decrypted.securityPrefs.pinEnabled ||
-            decrypted.securityPrefs.decoyPinEnabled ||
-            decrypted.securityPrefs.localAuthEnabled ||
-            decrypted.securityPrefs.webAuthnEnabled ||
-            decrypted.settings.biometricEnabled ||
-            decrypted.settings.twoFactorEnabled
+          normalizedImportedState.securityPrefs.pinEnabled ||
+            normalizedImportedState.securityPrefs.decoyPinEnabled ||
+            normalizedImportedState.securityPrefs.localAuthEnabled ||
+            normalizedImportedState.securityPrefs.webAuthnEnabled ||
+            normalizedImportedState.settings.biometricEnabled ||
+            normalizedImportedState.settings.twoFactorEnabled
         )
       );
     },
@@ -1427,6 +1962,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       unlockWithWebAuthn,
       unlockWithBiometric,
       twoFactorPending,
+      twoFactorMode: activeTwoFactorMode,
+      availableTwoFactorModes,
+      setTwoFactorMode,
       verifyTwoFactor,
       resendTwoFactor,
       updateSettings,
@@ -1450,6 +1988,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       updateTemplate,
       deleteTemplate,
       inviteCollaborator,
+      acceptCollaboratorInvite,
       updateCollaborator,
       removeCollaborator,
       setCollaborationRole,
@@ -1471,6 +2010,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       unlockWithWebAuthn,
       unlockWithBiometric,
       twoFactorPending,
+      activeTwoFactorMode,
+      availableTwoFactorModes,
+      setTwoFactorMode,
       verifyTwoFactor,
       resendTwoFactor,
       updateSettings,
@@ -1494,6 +2036,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       updateTemplate,
       deleteTemplate,
       inviteCollaborator,
+      acceptCollaboratorInvite,
       updateCollaborator,
       removeCollaborator,
       setCollaborationRole,

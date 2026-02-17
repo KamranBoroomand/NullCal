@@ -49,9 +49,12 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     syncStrategy: 'offline',
     syncTrustedDevices: false,
     syncShareToken: undefined,
+    syncConflictPolicy: 'last-write-wins',
     tamperProofLog: false,
     twoFactorEnabled: false,
     twoFactorMode: 'otp',
+    twoFactorOtpEnabled: false,
+    twoFactorTotpEnabled: false,
     twoFactorChannel: 'email',
     twoFactorDestination: undefined,
     biometricEnabled: false,
@@ -97,7 +100,8 @@ const normalizeCalendars = (calendars: Calendar[]): Calendar[] =>
     return {
       ...calendar,
       isVisible: calendar.isVisible ?? legacyVisible ?? true,
-      createdAt: calendar.createdAt ?? new Date().toISOString()
+      createdAt: calendar.createdAt ?? new Date().toISOString(),
+      updatedAt: calendar.updatedAt ?? calendar.createdAt ?? new Date().toISOString()
     };
   });
 
@@ -112,8 +116,21 @@ const pickAvatar = (name: string) => {
 const normalizeProfiles = (profiles: Profile[]) =>
   profiles.map((profile) => ({
     ...profile,
+    updatedAt: profile.updatedAt ?? profile.createdAt ?? new Date().toISOString(),
     displayName: profile.displayName ?? profile.name,
     ...(!profile.avatarEmoji || !profile.avatarColor ? pickAvatar(profile.name) : {})
+  }));
+
+const normalizeEvents = (events: CalendarEvent[]): CalendarEvent[] =>
+  events.map((event) => ({
+    ...event,
+    updatedAt: event.updatedAt ?? event.end ?? event.start ?? new Date().toISOString()
+  }));
+
+const normalizeTemplates = (templates: AppState['templates']): AppState['templates'] =>
+  templates.map((template) => ({
+    ...template,
+    updatedAt: template.updatedAt ?? template.createdAt ?? new Date().toISOString()
   }));
 
 export const createCalendar = (
@@ -125,7 +142,8 @@ export const createCalendar = (
   name,
   color,
   isVisible: true,
-  createdAt: new Date().toISOString()
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
 });
 
 export const renameCalendar = (
@@ -135,7 +153,9 @@ export const renameCalendar = (
   calendars: Calendar[]
 ): Calendar[] =>
   calendars.map((calendar) =>
-    calendar.id === calendarId && calendar.profileId === profileId ? { ...calendar, name } : calendar
+    calendar.id === calendarId && calendar.profileId === profileId
+      ? { ...calendar, name, updatedAt: new Date().toISOString() }
+      : calendar
   );
 
 export const recolorCalendar = (
@@ -145,7 +165,9 @@ export const recolorCalendar = (
   calendars: Calendar[]
 ): Calendar[] =>
   calendars.map((calendar) =>
-    calendar.id === calendarId && calendar.profileId === profileId ? { ...calendar, color } : calendar
+    calendar.id === calendarId && calendar.profileId === profileId
+      ? { ...calendar, color, updatedAt: new Date().toISOString() }
+      : calendar
   );
 
 export const deleteCalendar = (
@@ -201,7 +223,7 @@ const migrateLegacy = (): AppState | null => {
     return {
       profiles,
       calendars,
-      events,
+      events: normalizeEvents(events),
       templates: [],
       settings,
       securityPrefs: defaultSecurityPrefs
@@ -215,8 +237,8 @@ export const loadAppState = async (): Promise<AppState> => {
   const db = await openNullCalDB();
   const profiles = normalizeProfiles(await db.getAll('profiles'));
   const calendars = normalizeCalendars(await db.getAll('calendars'));
-  const events = await db.getAll('events');
-  const templates = await db.getAll('templates');
+  const events = normalizeEvents(await db.getAll('events'));
+  const templates = normalizeTemplates(await db.getAll('templates'));
   const settings = await db.get('settings', 'app');
   const securityPrefs = await db.get('securityPrefs', 'security');
 
@@ -234,9 +256,22 @@ export const loadAppState = async (): Promise<AppState> => {
       syncStrategy: resolvedSettings.syncStrategy ?? 'offline',
       syncTrustedDevices: resolvedSettings.syncTrustedDevices ?? false,
       syncShareToken: resolvedSettings.syncShareToken ?? undefined,
+      syncConflictPolicy: resolvedSettings.syncConflictPolicy ?? 'last-write-wins',
       tamperProofLog: resolvedSettings.tamperProofLog ?? false,
-      twoFactorEnabled: resolvedSettings.twoFactorEnabled ?? false,
+      twoFactorEnabled:
+        resolvedSettings.twoFactorEnabled ??
+        resolvedSettings.twoFactorOtpEnabled ??
+        resolvedSettings.twoFactorTotpEnabled ??
+        false,
       twoFactorMode: resolvedSettings.twoFactorMode ?? 'otp',
+      twoFactorOtpEnabled:
+        resolvedSettings.twoFactorOtpEnabled ??
+        (resolvedSettings.twoFactorEnabled && (resolvedSettings.twoFactorMode ?? 'otp') === 'otp') ??
+        false,
+      twoFactorTotpEnabled:
+        resolvedSettings.twoFactorTotpEnabled ??
+        (resolvedSettings.twoFactorEnabled && (resolvedSettings.twoFactorMode ?? 'otp') === 'totp') ??
+        false,
       twoFactorChannel: resolvedSettings.twoFactorChannel ?? 'email',
       twoFactorDestination: resolvedSettings.twoFactorDestination ?? undefined,
       biometricEnabled: resolvedSettings.biometricEnabled ?? false,
@@ -254,7 +289,13 @@ export const loadAppState = async (): Promise<AppState> => {
       collaborationMode: resolvedSettings.collaborationMode ?? 'private',
       collaborationEnabled: resolvedSettings.collaborationEnabled ?? false,
       collaborationRole: resolvedSettings.collaborationRole ?? 'owner',
-      collaborationMembers: resolvedSettings.collaborationMembers ?? [],
+      collaborationMembers: (resolvedSettings.collaborationMembers ?? []).map((member) => ({
+        ...member,
+        presence:
+          member.status === 'active'
+            ? member.presence ?? 'away'
+            : member.presence ?? 'offline'
+      })),
       notesShareToken: resolvedSettings.notesShareToken ?? undefined,
       highContrast: resolvedSettings.highContrast ?? false,
       textScale: resolvedSettings.textScale ?? 1,

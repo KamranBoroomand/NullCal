@@ -50,6 +50,7 @@ const SafetyCenter = () => {
     resetProfile,
     updateProfileDetails,
     inviteCollaborator,
+    acceptCollaboratorInvite,
     updateCollaborator,
     removeCollaborator,
     setCollaborationRole,
@@ -107,6 +108,7 @@ const SafetyCenter = () => {
   const [collabInviteName, setCollabInviteName] = useState('');
   const [collabInviteContact, setCollabInviteContact] = useState('');
   const [collabInviteRole, setCollabInviteRole] = useState<CollaborationRole>('viewer');
+  const [collabInviteCode, setCollabInviteCode] = useState('');
   const holdTimer = useRef<number | null>(null);
   const profileRecoveryRef = useRef(false);
   const [searchParams] = useSearchParams();
@@ -225,7 +227,12 @@ const SafetyCenter = () => {
       methods.push('PIN');
     }
     if (state.settings.twoFactorEnabled) {
-      methods.push(state.settings.twoFactorMode === 'totp' ? 'TOTP' : '2FA');
+      if (state.settings.twoFactorOtpEnabled) {
+        methods.push('OTP');
+      }
+      if (state.settings.twoFactorTotpEnabled) {
+        methods.push('TOTP');
+      }
     }
     if (state.settings.biometricEnabled) {
       methods.push('Biometric');
@@ -235,7 +242,8 @@ const SafetyCenter = () => {
     state?.securityPrefs.pinEnabled,
     state?.settings.biometricEnabled,
     state?.settings.twoFactorEnabled,
-    state?.settings.twoFactorMode
+    state?.settings.twoFactorOtpEnabled,
+    state?.settings.twoFactorTotpEnabled
   ]);
   const lastSyncAt = useMemo(() => new Date().toLocaleString(), []);
 
@@ -657,6 +665,7 @@ const SafetyCenter = () => {
       updateSettings({
         twoFactorEnabled: true,
         twoFactorMode: 'otp',
+        twoFactorOtpEnabled: true,
         twoFactorChannel,
         twoFactorDestination: destination
       });
@@ -690,7 +699,7 @@ const SafetyCenter = () => {
       return;
     }
     updateSecurityPrefs({ totpEnabled: true, totpSecret: totpDraftSecret });
-    updateSettings({ twoFactorEnabled: true, twoFactorMode: 'totp' });
+    updateSettings({ twoFactorEnabled: true, twoFactorMode: 'totp', twoFactorTotpEnabled: true });
     setTotpSecret(totpDraftSecret);
     setTotpDraftSecret('');
     setTotpCode('');
@@ -699,19 +708,27 @@ const SafetyCenter = () => {
   };
 
   const handleDisableTwoFactor = () => {
-    updateSettings({ twoFactorEnabled: false, twoFactorMode: 'otp' });
+    updateSettings({
+      twoFactorMode: 'otp',
+      twoFactorOtpEnabled: false,
+      twoFactorEnabled: Boolean(state.settings.twoFactorTotpEnabled)
+    });
     setTwoFactorCode('');
     setTwoFactorSent(false);
-    notify('Two-factor authentication disabled.', 'info');
+    notify('SMS/email verification disabled.', 'info');
   };
 
   const handleDisableTotp = () => {
-    updateSettings({ twoFactorEnabled: false, twoFactorMode: 'otp' });
+    updateSettings({
+      twoFactorMode: 'otp',
+      twoFactorTotpEnabled: false,
+      twoFactorEnabled: Boolean(state.settings.twoFactorOtpEnabled)
+    });
     updateSecurityPrefs({ totpEnabled: false, totpSecret: undefined });
     setTotpSecret('');
     setTotpDraftSecret('');
     setTotpCode('');
-    notify('Authenticator app disabled.', 'info');
+    notify('Authenticator verification disabled.', 'info');
   };
 
   const handleToggleSyncEnabled = (enabled: boolean) => {
@@ -877,6 +894,20 @@ const SafetyCenter = () => {
     setCollabInviteContact('');
     setCollabInviteRole('viewer');
     notify('Collaborator invited.', 'success');
+  };
+
+  const handleAcceptInvite = () => {
+    if (!collabInviteCode.trim()) {
+      notify('Enter an invite code.', 'error');
+      return;
+    }
+    const accepted = acceptCollaboratorInvite(collabInviteCode);
+    if (!accepted) {
+      notify('Invite code is invalid or expired.', 'error');
+      return;
+    }
+    setCollabInviteCode('');
+    notify('Collaborator invite accepted.', 'success');
   };
 
   const handleRoleChange = (role: CollaborationRole) => {
@@ -1201,6 +1232,29 @@ const SafetyCenter = () => {
                     </option>
                   </select>
                 </label>
+                <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.3em] text-muted">
+                  Conflict policy
+                  <select
+                    value={state.settings.syncConflictPolicy}
+                    onChange={(event) =>
+                      updateSettings({
+                        syncConflictPolicy: event.target.value as AppSettings['syncConflictPolicy']
+                      })
+                    }
+                    className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                    disabled={state.settings.syncStrategy === 'offline'}
+                  >
+                    <option value="last-write-wins" className="bg-panel2">
+                      Last write wins
+                    </option>
+                    <option value="prefer-local" className="bg-panel2">
+                      Prefer local edits
+                    </option>
+                    <option value="prefer-remote" className="bg-panel2">
+                      Prefer remote edits
+                    </option>
+                  </select>
+                </label>
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
                   <div className="min-w-0">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Trusted device sharing</p>
@@ -1302,160 +1356,175 @@ const SafetyCenter = () => {
                       </span>
                     )}
                   </div>
-                  {!state.settings.twoFactorEnabled && (
-                    <div className="mt-3 grid gap-3 text-xs text-muted">
-                      <label className="flex min-w-0 flex-col gap-2 text-[10px] uppercase tracking-[0.3em] text-muted">
-                        MFA method
-                        <select
-                          value={twoFactorMode}
-                          onChange={(event) => {
-                            setTwoFactorMode(event.target.value as 'otp' | 'totp');
-                            setTwoFactorSent(false);
-                            setTwoFactorCode('');
-                          }}
-                          className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
-                        >
-                          <option value="otp" className="bg-panel2">
-                            SMS or email code
-                          </option>
-                          <option value="totp" className="bg-panel2">
-                            Authenticator app (TOTP)
-                          </option>
-                        </select>
-                      </label>
-                      {twoFactorMode === 'otp' && (
-                        <>
-                          {state.settings.networkLock && (
-                            <p className="rounded-xl border border-grid bg-panel px-3 py-2 text-[11px] text-muted">
-                              Network lock is enabled. Remote email/SMS delivery is blocked unless a local fallback is
-                              available.
-                            </p>
-                          )}
-                          <label className="flex min-w-0 flex-col gap-2 text-[10px] uppercase tracking-[0.3em] text-muted">
-                            Delivery channel
-                            <select
-                              value={twoFactorChannel}
-                              onChange={(event) => {
-                                setTwoFactorChannel(event.target.value as 'email' | 'sms');
-                                setTwoFactorSent(false);
-                                setTwoFactorCode('');
-                              }}
-                              className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
-                            >
-                              <option value="email" className="bg-panel2">
-                                Email
-                              </option>
-                              <option value="sms" className="bg-panel2">
-                                SMS
-                              </option>
-                            </select>
-                          </label>
-                          <input
-                            type={twoFactorChannel === 'email' ? 'email' : 'tel'}
-                            placeholder={twoFactorChannel === 'email' ? 'Email address' : 'Phone number'}
-                            value={twoFactorDestination}
+                  <div className="mt-3 grid gap-3 text-xs text-muted">
+                    <label className="flex min-w-0 flex-col gap-2 text-[10px] uppercase tracking-[0.3em] text-muted">
+                      MFA method
+                      <select
+                        value={twoFactorMode}
+                        onChange={(event) => {
+                          setTwoFactorMode(event.target.value as 'otp' | 'totp');
+                          setTwoFactorSent(false);
+                          setTwoFactorCode('');
+                        }}
+                        className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                      >
+                        <option value="otp" className="bg-panel2">
+                          SMS or email code
+                        </option>
+                        <option value="totp" className="bg-panel2">
+                          Authenticator app (TOTP)
+                        </option>
+                      </select>
+                    </label>
+                    {twoFactorMode === 'otp' && (
+                      <>
+                        {state.settings.networkLock && (
+                          <p className="rounded-xl border border-grid bg-panel px-3 py-2 text-[11px] text-muted">
+                            Network lock is enabled. Remote email/SMS delivery is blocked unless a local fallback is
+                            available.
+                          </p>
+                        )}
+                        <label className="flex min-w-0 flex-col gap-2 text-[10px] uppercase tracking-[0.3em] text-muted">
+                          Delivery channel
+                          <select
+                            value={twoFactorChannel}
                             onChange={(event) => {
-                              setTwoFactorDestination(event.target.value);
+                              setTwoFactorChannel(event.target.value as 'email' | 'sms');
                               setTwoFactorSent(false);
                               setTwoFactorCode('');
                             }}
-                            className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
-                          />
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={handleStartTwoFactor}
-                              className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted disabled:cursor-not-allowed disabled:opacity-60"
-                              disabled={twoFactorSendPending || twoFactorVerifyPending}
-                            >
-                              {twoFactorSendPending ? 'Sending...' : 'Send code'}
-                            </button>
-                            {twoFactorSent && (
-                              <>
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  placeholder="Verification code"
-                                  value={twoFactorCode}
-                                  onChange={(event) => setTwoFactorCode(event.target.value)}
-                                  className="min-w-0 flex-1 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
-                                  disabled={twoFactorVerifyPending}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={handleVerifyTwoFactorSetup}
-                                  className="rounded-full bg-accent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] disabled:cursor-not-allowed disabled:opacity-60"
-                                  disabled={twoFactorSendPending || twoFactorVerifyPending}
-                                >
-                                  {twoFactorVerifyPending ? 'Verifying...' : 'Verify & enable'}
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </>
-                      )}
-                      {twoFactorMode === 'totp' && (
-                        <div className="grid gap-3">
+                            className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                          >
+                            <option value="email" className="bg-panel2">
+                              Email
+                            </option>
+                            <option value="sms" className="bg-panel2">
+                              SMS
+                            </option>
+                          </select>
+                        </label>
+                        <input
+                          type={twoFactorChannel === 'email' ? 'email' : 'tel'}
+                          placeholder={twoFactorChannel === 'email' ? 'Email address' : 'Phone number'}
+                          value={twoFactorDestination}
+                          onChange={(event) => {
+                            setTwoFactorDestination(event.target.value);
+                            setTwoFactorSent(false);
+                            setTwoFactorCode('');
+                          }}
+                          className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                        />
+                        <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={handleGenerateTotp}
-                            className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted"
+                            onClick={handleStartTwoFactor}
+                            className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={twoFactorSendPending || twoFactorVerifyPending}
                           >
-                            Generate secret
+                            {twoFactorSendPending ? 'Sending...' : 'Send code'}
                           </button>
-                          {(totpDraftSecret || totpSecret) && (
-                            <div className="rounded-2xl border border-grid bg-panel px-3 py-2 text-[11px] text-text">
-                              <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Setup key</p>
-                              <p className="mt-1 break-all">{totpDraftSecret || totpSecret}</p>
-                              <p className="mt-2 text-[11px] text-muted">
-                                URI:{' '}
-                                {buildTotpUri(
-                                  activeProfile?.displayName ?? activeProfile?.name ?? 'nullcal',
-                                  totpDraftSecret || totpSecret
-                                )}
-                              </p>
-                            </div>
+                          {twoFactorSent && (
+                            <>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="Verification code"
+                                value={twoFactorCode}
+                                onChange={(event) => setTwoFactorCode(event.target.value)}
+                                className="min-w-0 flex-1 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                                disabled={twoFactorVerifyPending}
+                              />
+                              <button
+                                type="button"
+                                onClick={handleVerifyTwoFactorSetup}
+                                className="rounded-full bg-accent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] disabled:cursor-not-allowed disabled:opacity-60"
+                                disabled={twoFactorSendPending || twoFactorVerifyPending}
+                              >
+                                {twoFactorVerifyPending ? 'Verifying...' : 'Verify & enable'}
+                              </button>
+                            </>
                           )}
-                          <div className="flex flex-wrap gap-2">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              placeholder="Authenticator code"
-                              value={totpCode}
-                              onChange={(event) => setTotpCode(event.target.value)}
-                              className="min-w-0 flex-1 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
-                            />
-                            <button
-                              type="button"
-                              onClick={handleEnableTotp}
-                              className="rounded-full bg-accent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
-                            >
-                              Verify & enable
-                            </button>
-                          </div>
                         </div>
-                      )}
-                    </div>
-                  )}
-                  {state.settings.twoFactorEnabled && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
-                      <span className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted">
-                        {state.settings.twoFactorMode === 'totp'
-                          ? 'AUTHENTICATOR'
-                          : state.settings.twoFactorChannel.toUpperCase()}
-                      </span>
-                      {state.settings.twoFactorMode !== 'totp' && state.settings.twoFactorDestination && (
-                        <span className="text-[11px] text-text">{state.settings.twoFactorDestination}</span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={state.settings.twoFactorMode === 'totp' ? handleDisableTotp : handleDisableTwoFactor}
-                        className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
-                      >
-                        Disable 2FA
-                      </button>
-                    </div>
-                  )}
+                      </>
+                    )}
+                    {twoFactorMode === 'totp' && (
+                      <div className="grid gap-3">
+                        <button
+                          type="button"
+                          onClick={handleGenerateTotp}
+                          className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted"
+                        >
+                          Generate secret
+                        </button>
+                        {(totpDraftSecret || totpSecret) && (
+                          <div className="rounded-2xl border border-grid bg-panel px-3 py-2 text-[11px] text-text">
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Setup key</p>
+                            <p className="mt-1 break-all">{totpDraftSecret || totpSecret}</p>
+                            <p className="mt-2 text-[11px] text-muted">
+                              URI:{' '}
+                              {buildTotpUri(
+                                activeProfile?.displayName ?? activeProfile?.name ?? 'nullcal',
+                                totpDraftSecret || totpSecret
+                              )}
+                            </p>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-2">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="Authenticator code"
+                            value={totpCode}
+                            onChange={(event) => setTotpCode(event.target.value)}
+                            className="min-w-0 flex-1 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleEnableTotp}
+                            className="rounded-full bg-accent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--accentText)]"
+                          >
+                            Verify & enable
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
+                    {state.settings.twoFactorOtpEnabled && (
+                      <>
+                        <span className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted">
+                          {state.settings.twoFactorChannel.toUpperCase()}
+                        </span>
+                        {state.settings.twoFactorDestination && (
+                          <span className="text-[11px] text-text">{state.settings.twoFactorDestination}</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleDisableTwoFactor}
+                          className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                        >
+                          Disable SMS/Email
+                        </button>
+                      </>
+                    )}
+                    {state.settings.twoFactorTotpEnabled && (
+                      <>
+                        <span className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted">
+                          AUTHENTICATOR
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleDisableTotp}
+                          className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                        >
+                          Disable authenticator
+                        </button>
+                      </>
+                    )}
+                    {!state.settings.twoFactorEnabled && (
+                      <span className="text-[11px] text-muted">No verification methods enabled yet.</span>
+                    )}
+                  </div>
                 </div>
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
                   <div className="min-w-0">
@@ -2019,6 +2088,21 @@ const SafetyCenter = () => {
                         Invite
                       </button>
                     </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                      <input
+                        value={collabInviteCode}
+                        onChange={(event) => setCollabInviteCode(event.target.value)}
+                        placeholder="Accept invite code"
+                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAcceptInvite}
+                        className="rounded-full border border-grid px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-muted"
+                      >
+                        Accept invite
+                      </button>
+                    </div>
                     <div className="mt-3 space-y-2">
                       {state.settings.collaborationMembers.length === 0 && (
                         <p className="text-[11px] text-muted">No collaborators added yet.</p>
@@ -2031,17 +2115,31 @@ const SafetyCenter = () => {
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm text-text">{member.name}</p>
                             <p className="truncate text-[11px] text-muted">{member.contact}</p>
+                            {member.inviteCode && member.status === 'invited' && (
+                              <p className="truncate text-[11px] text-muted">Invite code: {member.inviteCode}</p>
+                            )}
+                            {member.lastSeenAt && (
+                              <p className="truncate text-[11px] text-muted">
+                                Last seen: {formatDate(member.lastSeenAt)}
+                              </p>
+                            )}
                           </div>
                           <span className="rounded-full border border-grid px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-muted">
                             {member.status}
                           </span>
+                          {member.status === 'active' && (
+                            <span className="rounded-full border border-grid px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-accent">
+                              {member.presence ?? 'away'}
+                            </span>
+                          )}
                           <select
                             value={member.role}
                             onChange={(event) =>
                               updateCollaborator(member.id, {
                                 role: event.target.value as CollaborationRole,
                                 status: 'active',
-                                joinedAt: member.joinedAt ?? new Date().toISOString()
+                                joinedAt: member.joinedAt ?? new Date().toISOString(),
+                                lastSeenAt: new Date().toISOString()
                               })
                             }
                             className="rounded-xl border border-grid bg-panel2 px-2 py-1 text-[11px] text-text"

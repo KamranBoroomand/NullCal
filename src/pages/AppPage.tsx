@@ -687,6 +687,7 @@ const AppPage = () => {
                   <input
                     value={draft.title}
                     onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+                    data-testid="event-title-input"
                     className="mt-1 w-full rounded-lg border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                   />
                 </label>
@@ -1020,6 +1021,7 @@ const AppPage = () => {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <button
                 onClick={handleDeleteEvent}
+                data-testid="event-delete-button"
                 className="rounded-full border border-grid px-4 py-2 text-xs text-muted transition hover:text-text"
               >
                 {draft.id ? 'Delete' : 'Cancel'}
@@ -1029,6 +1031,7 @@ const AppPage = () => {
                   <button
                     type="button"
                     onClick={() => setWizardStep((prev) => Math.max(0, prev - 1))}
+                    data-testid="event-wizard-back-button"
                     className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-text"
                   >
                     {t('wizard.back')}
@@ -1038,6 +1041,7 @@ const AppPage = () => {
                   <button
                     type="button"
                     onClick={() => setWizardStep((prev) => Math.min(totalSteps - 1, prev + 1))}
+                    data-testid="event-wizard-next-button"
                     className="rounded-full bg-panel px-4 py-2 text-xs uppercase tracking-[0.2em] text-text transition hover:border-accent/60"
                   >
                     {t('wizard.next')}
@@ -1046,6 +1050,7 @@ const AppPage = () => {
                 {isLastStep && (
                   <button
                     onClick={handleSaveEvent}
+                    data-testid="event-wizard-finish-button"
                     className="rounded-full bg-accent px-6 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accentText)] shadow-glow transition"
                   >
                     {t('wizard.finish')}

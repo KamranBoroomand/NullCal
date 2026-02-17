@@ -10,6 +10,7 @@ export type Profile = {
   location?: string;
   preferredNotification?: 'sms' | 'email';
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type Calendar = {
@@ -19,6 +20,7 @@ export type Calendar = {
   color: string;
   isVisible: boolean;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type CalendarEvent = {
@@ -28,6 +30,7 @@ export type CalendarEvent = {
   title: string;
   start: string;
   end: string;
+  updatedAt?: string;
   location?: string;
   notes?: string;
   label?: string;
@@ -43,6 +46,7 @@ export type EventTemplate = {
   name: string;
   title: string;
   durationMinutes: number;
+  updatedAt?: string;
   location?: string;
   notes?: string;
   label?: string;
@@ -55,6 +59,7 @@ export type EventTemplate = {
 };
 
 export type CollaborationRole = 'owner' | 'editor' | 'viewer';
+export type CollaborationPresence = 'online' | 'away' | 'offline';
 
 export type CollaborationMember = {
   id: string;
@@ -62,7 +67,11 @@ export type CollaborationMember = {
   contact: string;
   role: CollaborationRole;
   status: 'invited' | 'active';
+  presence?: CollaborationPresence;
+  inviteCode?: string;
   invitedAt: string;
+  inviteAcceptedAt?: string;
+  inviteExpiresAt?: string;
   joinedAt?: string;
   lastSeenAt?: string;
 };
@@ -87,9 +96,12 @@ export type AppSettings = {
   syncStrategy: 'offline' | 'ipfs' | 'p2p';
   syncTrustedDevices: boolean;
   syncShareToken?: string;
+  syncConflictPolicy: 'last-write-wins' | 'prefer-local' | 'prefer-remote';
   tamperProofLog: boolean;
   twoFactorEnabled: boolean;
   twoFactorMode: 'otp' | 'totp';
+  twoFactorOtpEnabled: boolean;
+  twoFactorTotpEnabled: boolean;
   twoFactorChannel: 'email' | 'sms';
   twoFactorDestination?: string;
   biometricEnabled: boolean;

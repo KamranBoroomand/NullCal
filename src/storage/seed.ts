@@ -17,7 +17,8 @@ export const createSeedProfile = (name: string): Profile => ({
   name,
   displayName: name,
   ...pickAvatar(name),
-  createdAt: new Date().toISOString()
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
 });
 
 export const createSeedCalendars = (profileId: string): Calendar[] => [
@@ -27,7 +28,8 @@ export const createSeedCalendars = (profileId: string): Calendar[] => [
     name: 'Operations',
     color: '#f4ff00',
     isVisible: true,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   },
   {
     id: nanoid(),
@@ -35,7 +37,8 @@ export const createSeedCalendars = (profileId: string): Calendar[] => [
     name: 'Personal',
     color: '#9bff00',
     isVisible: true,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   },
   {
     id: nanoid(),
@@ -43,7 +46,8 @@ export const createSeedCalendars = (profileId: string): Calendar[] => [
     name: 'Recon',
     color: '#6b7cff',
     isVisible: true,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }
 ];
 
@@ -56,7 +60,8 @@ export const createDecoyCalendars = (profileId: string): Calendar[] => [
     name: 'Wellness',
     color: '#38f5c8',
     isVisible: true,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   },
   {
     id: nanoid(),
@@ -64,7 +69,8 @@ export const createDecoyCalendars = (profileId: string): Calendar[] => [
     name: 'Study',
     color: '#6b7cff',
     isVisible: true,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   },
   {
     id: nanoid(),
@@ -72,7 +78,8 @@ export const createDecoyCalendars = (profileId: string): Calendar[] => [
     name: 'Errands',
     color: '#ffd166',
     isVisible: true,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }
 ];
 
@@ -93,6 +100,7 @@ export const createDecoyEvents = (profileId: string, calendars: Calendar[]): Cal
       profileId,
       calendarId: calendars[0]?.id ?? nanoid(),
       title: 'Morning Run',
+      updatedAt: new Date().toISOString(),
       ...build(1, 7, 8)
     },
     {
@@ -100,6 +108,7 @@ export const createDecoyEvents = (profileId: string, calendars: Calendar[]): Cal
       profileId,
       calendarId: calendars[1]?.id ?? nanoid(),
       title: 'Language Study',
+      updatedAt: new Date().toISOString(),
       ...build(2, 18, 19)
     },
     {
@@ -107,6 +116,7 @@ export const createDecoyEvents = (profileId: string, calendars: Calendar[]): Cal
       profileId,
       calendarId: calendars[2]?.id ?? nanoid(),
       title: 'Grocery Run',
+      updatedAt: new Date().toISOString(),
       ...build(3, 16, 17)
     },
     {
@@ -114,6 +124,7 @@ export const createDecoyEvents = (profileId: string, calendars: Calendar[]): Cal
       profileId,
       calendarId: calendars[1]?.id ?? nanoid(),
       title: 'Reading Session',
+      updatedAt: new Date().toISOString(),
       ...build(4, 20, 21)
     }
   ];

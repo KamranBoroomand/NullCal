@@ -37,13 +37,13 @@ Current app routes:
 - Week and month scheduling views (FullCalendar) with drag/drop and resize
 - Event creation wizard with reminders, recurrence, attendees, notes, and reusable templates
 - 47 theme packs with dark/light variants and instant palette switching
-- Local lock screen with PIN, decoy PIN, local passphrase, passkey, and biometric unlock options
-- Two-factor support (OTP/TOTP flows) plus privacy-screen hotkey (`Cmd/Ctrl+Shift+P`)
+- Local lock screen with selectable PIN/passphrase entry, passkey, and biometric unlock options
+- Two-factor support with OTP + TOTP verification modes (including runtime method switching) plus privacy-screen hotkey (`Cmd/Ctrl+Shift+P`)
 - Encrypted export/import backups with export hygiene modes (`full`, `clean`, `minimal`)
 - Event export formats: CSV, ICS, and JSON
 - Audit log, auto-lock rules, decoy profile flow, and panic wipe
-- Relay-backed multi-device sync (`/api/sync`) plus local P2P sync
-- Collaboration roles (`owner`, `editor`, `viewer`) with team member management
+- Relay-backed multi-device sync (`/api/sync`) with durable persistence support (Cloudflare KV or file-backed Node storage) plus local P2P sync
+- Collaboration roles (`owner`, `editor`, `viewer`) with invite acceptance codes and presence/status reconciliation
 - Notification failover + retry queue (Node gateway and Worker)
 - PWA install support with service worker caching and standalone mode
 - Built-in localization support: English (`en`), Russian (`ru`), Persian (`fa`)
@@ -129,6 +129,8 @@ Environment variables:
 - `NOTIFY_QUEUE_RETRY_SEC`, `NOTIFY_QUEUE_MAX_ATTEMPTS`, `NOTIFY_QUEUE_MAX_ITEMS` -> queue retry/backlog controls
 - `NOTIFY_SYNC_TTL_SEC`, `NOTIFY_SYNC_MAX_MESSAGES`, `NOTIFY_SYNC_MAX_PULL` -> sync relay retention and pull-window controls
 - `NOTIFY_SYNC_MAX_REQUEST_BYTES` -> max accepted sync snapshot payload bytes (default: `524288`)
+- `NOTIFY_SYNC_DB_PATH` -> optional file path for durable sync storage in the Node gateway (default: `.nullcal-sync-store.json`)
+- `SYNC_KV` -> optional Cloudflare KV binding for durable sync storage in `server/notify-worker.mjs`
 
 ## Notification Gateway (Email/SMS)
 
@@ -213,6 +215,11 @@ npx wrangler secret put NOTIFY_SYNC_MAX_REQUEST_BYTES
 npx wrangler secret put NOTIFY_REQUEST_TOKEN
 ```
 
+Optional durable sync persistence on Workers:
+
+- Add a KV binding named `SYNC_KV` and attach it to the worker.
+- When `SYNC_KV` is bound, sync snapshots are persisted in KV; otherwise the worker falls back to in-memory storage.
+
 3. Build frontend against worker URL:
 
 ```bash
@@ -242,10 +249,11 @@ The workflow already reads this variable during build.
 - `npm run preview` -> preview built output locally
 - `npm run lint` -> run hook dependency order validator
 - `npm run typecheck` -> TypeScript compile check (`tsc --noEmit`)
-- `npm run test` -> run unit + integration + e2e smoke suites
+- `npm run test` -> run unit + integration + e2e suites
+- `npm run test:e2e` -> run build smoke + browser journey coverage
+- `npm run test:e2e:browser` -> run Playwright browser journey tests
 - `npm run test:unit` -> run unit tests
 - `npm run test:integration` -> run integration tests
-- `npm run test:e2e` -> run build/e2e smoke tests
 
 ## Deployment
 
@@ -281,7 +289,7 @@ Important for OTP email/SMS on GitHub Pages:
 
 ## Roadmap
 
-- Move relay sync storage from in-memory to durable backing (KV/DB) for long retention
-- Add collaborator invite acceptance + presence/status reconciliation
-- Expand automated coverage with browser journey tests for core calendar workflows
-- Add conflict-resolution policies for concurrent multi-device edits
+- [x] Move relay sync storage from in-memory to durable backing (KV/DB) for long retention
+- [x] Add collaborator invite acceptance + presence/status reconciliation
+- [x] Expand automated coverage with browser journey tests for core calendar workflows
+- [x] Add conflict-resolution policies for concurrent multi-device edits

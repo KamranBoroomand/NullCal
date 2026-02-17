@@ -15,7 +15,8 @@
     "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "test:unit": "node --test tests/unit/*.test.mjs",
     "test:integration": "node --test tests/integration/*.test.mjs",
-    "test:e2e": "node --test tests/e2e/*.test.mjs"
+    "test:e2e": "node --test tests/e2e/*.test.mjs && npm run test:e2e:browser",
+    "test:e2e:browser": "node scripts/run-browser-e2e.cjs"
   },
   "dependencies": {
     "@fullcalendar/core": "6.1.15",
