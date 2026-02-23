@@ -544,13 +544,50 @@ const sanitizeSyncPayload = (payload) => {
   if (payload.collaboration && typeof payload.collaboration === 'object' && !Array.isArray(payload.collaboration)) {
     const modeRaw = `${payload.collaboration.mode ?? 'private'}`.trim().toLowerCase();
     const mode = modeRaw === 'shared' || modeRaw === 'team' ? modeRaw : 'private';
+    let calendarPermissions = {};
+    if (
+      payload.collaboration.calendarPermissions &&
+      typeof payload.collaboration.calendarPermissions === 'object' &&
+      !Array.isArray(payload.collaboration.calendarPermissions)
+    ) {
+      for (const [calendarId, preset] of Object.entries(payload.collaboration.calendarPermissions)) {
+        const normalizedCalendarId = `${calendarId}`.trim();
+        if (!hasValue(normalizedCalendarId) || normalizedCalendarId.length > 200) {
+          continue;
+        }
+        if (preset === 'owner-only' || preset === 'owner-editor') {
+          calendarPermissions[normalizedCalendarId] = preset;
+        }
+      }
+    }
     collaboration = {
       enabled: Boolean(payload.collaboration.enabled),
       mode,
-      members: Array.isArray(payload.collaboration.members) ? payload.collaboration.members : []
+      members: Array.isArray(payload.collaboration.members) ? payload.collaboration.members : [],
+      calendarPermissions
     };
   }
   return { profiles, calendars, events, templates, collaboration };
+};
+
+const sanitizeEncryptedSyncPayload = (value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new HttpError(400, 'Encrypted sync payload must be an object.');
+  }
+  const version = Number(value.version ?? 0);
+  const salt = `${value.salt ?? ''}`.trim();
+  const iv = `${value.iv ?? ''}`.trim();
+  const ciphertext = `${value.ciphertext ?? ''}`.trim();
+  if (version !== 1) {
+    throw new HttpError(400, 'Encrypted sync payload version is invalid.');
+  }
+  if (!hasValue(salt) || !hasValue(iv) || !hasValue(ciphertext)) {
+    throw new HttpError(400, 'Encrypted sync payload is incomplete.');
+  }
+  if (salt.length > 4096 || iv.length > 4096 || ciphertext.length > 2 * 1024 * 1024) {
+    throw new HttpError(400, 'Encrypted sync payload is too large.');
+  }
+  return { version: 1, salt, iv, ciphertext };
 };
 
 const validateSyncWritePayload = (body) => {
@@ -572,8 +609,13 @@ const validateSyncWritePayload = (body) => {
   if (!Number.isFinite(sentAt)) {
     throw new HttpError(400, 'Sync sentAt is invalid.');
   }
-  const payload = sanitizeSyncPayload(body.payload);
-  return { token, senderId, sentAt, payload };
+  const payloadEncodingRaw = `${body.payloadEncoding ?? ''}`.trim().toLowerCase();
+  const payloadEncoding = payloadEncodingRaw === 'e2ee-v1' ? 'e2ee-v1' : undefined;
+  if (body.payloadCiphertext === undefined) {
+    throw new HttpError(400, 'Encrypted sync payload is required.');
+  }
+  const payloadCiphertext = sanitizeEncryptedSyncPayload(body.payloadCiphertext);
+  return { token, senderId, sentAt, payloadEncoding: payloadEncoding ?? 'e2ee-v1', payloadCiphertext };
 };
 
 const hasSyncKV = (env) =>
@@ -655,6 +697,8 @@ const writeSyncMessage = async (env, token, message) => {
     senderId: message.senderId,
     sentAt: message.sentAt,
     payload: message.payload,
+    payloadCiphertext: message.payloadCiphertext,
+    payloadEncoding: message.payloadEncoding,
     recordedAt: Date.now()
   };
   entry.messages.push(record);

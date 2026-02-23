@@ -43,10 +43,13 @@ Current app routes:
 - Event export formats: CSV, ICS, and JSON
 - Audit log, auto-lock rules, decoy profile flow, and panic wipe
 - Relay-backed multi-device sync (`/api/sync`) with durable persistence support (Cloudflare KV or file-backed Node storage) plus local P2P sync
-- Collaboration roles (`owner`, `editor`, `viewer`) with invite acceptance codes and presence/status reconciliation
+- End-to-end encrypted relay sync payloads (relay stores ciphertext only)
+- Collaboration roles (`owner`, `editor`, `viewer`) with invite links, invite acceptance codes, presence/status reconciliation, and per-calendar permission presets
 - Notification failover + retry queue (Node gateway and Worker)
+- Background reminder retry visibility in Safety Center, plus service-worker retry support for `/api/notify`
 - PWA install support with service worker caching and standalone mode
 - Built-in localization support: English (`en`), Russian (`ru`), Persian (`fa`)
+- Backup key rotation flow and one-time recovery code support for locked profiles
 
 ## Tech Stack
 
@@ -252,6 +255,9 @@ The workflow already reads this variable during build.
 - `npm run test` -> run unit + integration + e2e suites
 - `npm run test:e2e` -> run build smoke + browser journey coverage
 - `npm run test:e2e:browser` -> run Playwright browser journey tests
+- `npm run test:a11y` -> run Playwright accessibility checks
+- `npm run test:visual` -> run Playwright visual regression snapshots
+- `npm run test:visual:update` -> generate/update visual snapshot baselines
 - `npm run test:unit` -> run unit tests
 - `npm run test:integration` -> run integration tests
 
@@ -286,10 +292,13 @@ Important for OTP email/SMS on GitHub Pages:
 - Panic wipe removes IndexedDB, localStorage state, caches, and service workers.
 - Network lock can be toggled in Safety Center. It blocks fetch/XHR/WebSocket/EventSource/sendBeacon at runtime.
 - Notification gateway hardening includes origin enforcement, payload size limits, recipient allowlists, request-token enforcement (default), and per-IP rate limiting.
+- Relay sync messages can be wrapped as `e2ee-v1` encrypted payloads; the relay stores ciphertext and metadata.
+- Recovery codes are one-time unlock secrets: successful use clears the stored recovery hash.
 
 ## Roadmap
 
-- [x] Move relay sync storage from in-memory to durable backing (KV/DB) for long retention
-- [x] Add collaborator invite acceptance + presence/status reconciliation
-- [x] Expand automated coverage with browser journey tests for core calendar workflows
-- [x] Add conflict-resolution policies for concurrent multi-device edits
+- [x] End-to-end encrypt relay sync payloads (server stores ciphertext only)
+- [x] Add per-calendar permission presets and time-bound invite links
+- [x] Ship background reminder delivery improvements (service worker + offline retry visibility)
+- [x] Expand automated coverage with accessibility checks and visual regression snapshots
+- [x] Add key-rotation and recovery UX for encrypted backups and locked profiles

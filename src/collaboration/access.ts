@@ -1,4 +1,4 @@
-import type { AppSettings } from '../storage/types';
+import type { AppSettings, CalendarPermissionPreset } from '../storage/types';
 
 const isCollaborationContext = (settings: AppSettings) =>
   settings.collaborationEnabled && settings.collaborationMode !== 'private';
@@ -15,4 +15,22 @@ export const hasCollaborationAdminAccess = (settings: AppSettings) => {
     return true;
   }
   return settings.collaborationRole === 'owner';
+};
+
+export const resolveCalendarPermissionPreset = (
+  settings: AppSettings,
+  calendarId: string
+): CalendarPermissionPreset => settings.collaborationCalendarPermissions?.[calendarId] ?? 'owner-editor';
+
+export const hasCalendarWriteAccess = (settings: AppSettings, calendarId: string) => {
+  if (!isCollaborationContext(settings)) {
+    return true;
+  }
+  if (settings.collaborationRole === 'owner') {
+    return true;
+  }
+  if (settings.collaborationRole !== 'editor') {
+    return false;
+  }
+  return resolveCalendarPermissionPreset(settings, calendarId) === 'owner-editor';
 };

@@ -1,6 +1,7 @@
 const { spawnSync } = require('node:child_process');
 
 const isCI = process.env.CI === '1' || process.env.CI === 'true';
+const extraArgs = process.argv.slice(2);
 const cliPath = (() => {
   try {
     return require.resolve('@playwright/test/cli');
@@ -27,7 +28,7 @@ if (!cliPath) {
   process.exit(1);
 }
 
-const testRun = spawnSync(process.execPath, [cliPath, 'test', '--config=playwright.config.mjs'], {
+const testRun = spawnSync(process.execPath, [cliPath, 'test', '--config=playwright.config.mjs', ...extraArgs], {
   stdio: 'inherit'
 });
 

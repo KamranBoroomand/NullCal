@@ -60,6 +60,7 @@ export type EventTemplate = {
 
 export type CollaborationRole = 'owner' | 'editor' | 'viewer';
 export type CollaborationPresence = 'online' | 'away' | 'offline';
+export type CalendarPermissionPreset = 'owner-only' | 'owner-editor';
 
 export type CollaborationMember = {
   id: string;
@@ -69,6 +70,7 @@ export type CollaborationMember = {
   status: 'invited' | 'active';
   presence?: CollaborationPresence;
   inviteCode?: string;
+  inviteLink?: string;
   invitedAt: string;
   inviteAcceptedAt?: string;
   inviteExpiresAt?: string;
@@ -97,6 +99,7 @@ export type AppSettings = {
   syncTrustedDevices: boolean;
   syncShareToken?: string;
   syncConflictPolicy: 'last-write-wins' | 'prefer-local' | 'prefer-remote';
+  collaborationCalendarPermissions?: Record<string, CalendarPermissionPreset>;
   tamperProofLog: boolean;
   twoFactorEnabled: boolean;
   twoFactorMode: 'otp' | 'totp';
@@ -121,6 +124,8 @@ export type AppSettings = {
   collaborationRole: CollaborationRole;
   collaborationMembers: CollaborationMember[];
   notesShareToken?: string;
+  backupKeyVersion?: number;
+  backupKeyRotatedAt?: string;
   lastExportAt?: string;
   highContrast?: boolean;
   textScale?: number;
@@ -149,6 +154,11 @@ export type SecurityPrefs = {
   biometricCredentialId?: string;
   totpEnabled?: boolean;
   totpSecret?: string;
+  recoveryCodeHash?: string;
+  recoveryCodeSalt?: string;
+  recoveryCodeIterations?: number;
+  recoveryCodeGeneratedAt?: string;
+  recoveryCodeUsedAt?: string;
 };
 
 export type AppState = {

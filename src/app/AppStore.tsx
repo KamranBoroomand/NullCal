@@ -21,6 +21,7 @@ import {
 import type {
   AppSettings,
   AppState,
+  CalendarPermissionPreset,
   CalendarEvent,
   CollaborationMember,
   CollaborationRole,
@@ -40,6 +41,7 @@ import {
   verifyTwoFactorCode
 } from '../security/twoFactor';
 import { verifyTotpCode } from '../security/totp';
+import { verifyRecoveryCode } from '../security/recovery';
 import { createP2PSync } from '../sync/p2pSync';
 import { createRelaySync } from '../sync/relaySync';
 import { scheduleReminders } from '../reminders/reminderScheduler';
@@ -47,9 +49,13 @@ import { logAuditEvent } from '../storage/auditLog';
 import { clearCachedState, readCachedState, writeCachedState } from '../storage/cache';
 import { hashSnapshot } from '../security/fingerprint';
 import type { SyncMessage } from '../sync/types';
-import { hasCollaborationAdminAccess, hasCollaborationWriteAccess } from '../collaboration/access';
+import {
+  hasCalendarWriteAccess,
+  hasCollaborationAdminAccess,
+  hasCollaborationWriteAccess
+} from '../collaboration/access';
 
-type UnlockSecretMethod = 'auto' | 'pin' | 'passphrase';
+type UnlockSecretMethod = 'auto' | 'pin' | 'passphrase' | 'recovery';
 type TwoFactorMethod = 'otp' | 'totp';
 type TwoFactorStatus = 'pending' | 'clear' | 'failed';
 type ConflictPolicy = AppSettings['syncConflictPolicy'];
@@ -99,6 +105,22 @@ const resolvePresence = (status: CollaborationMember['status'], lastSeenAt?: str
     return 'away' as const;
   }
   return 'offline' as const;
+};
+
+const normalizeCalendarPermissions = (
+  value: AppSettings['collaborationCalendarPermissions']
+): Record<string, CalendarPermissionPreset> => {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+  const next: Record<string, CalendarPermissionPreset> = {};
+  for (const [calendarId, preset] of Object.entries(value)) {
+    if (!calendarId || (preset !== 'owner-only' && preset !== 'owner-editor')) {
+      continue;
+    }
+    next[calendarId] = preset;
+  }
+  return next;
 };
 
 const reconcileCollaborationMembers = (members: CollaborationMember[]): CollaborationMember[] =>
@@ -227,6 +249,7 @@ const collaborationMembersEqual = (left: CollaborationMember[], right: Collabora
       candidate.status === member.status &&
       candidate.presence === member.presence &&
       candidate.inviteCode === member.inviteCode &&
+      candidate.inviteLink === member.inviteLink &&
       candidate.invitedAt === member.invitedAt &&
       candidate.inviteAcceptedAt === member.inviteAcceptedAt &&
       candidate.inviteExpiresAt === member.inviteExpiresAt &&
@@ -282,7 +305,12 @@ type AppStoreContextValue = {
   createTemplate: (template: Omit<EventTemplate, 'id' | 'createdAt'>) => void;
   updateTemplate: (templateId: string, updates: Partial<EventTemplate>) => void;
   deleteTemplate: (templateId: string) => void;
-  inviteCollaborator: (name: string, contact: string, role: CollaborationRole) => void;
+  inviteCollaborator: (
+    name: string,
+    contact: string,
+    role: CollaborationRole,
+    options?: { expiresInHours?: number }
+  ) => void;
   acceptCollaboratorInvite: (inviteCode: string) => boolean;
   updateCollaborator: (memberId: string, updates: Partial<CollaborationMember>) => void;
   removeCollaborator: (memberId: string) => void;
@@ -306,7 +334,12 @@ const baseSecurityPrefs: SecurityPrefs = {
   webAuthnEnabled: false,
   biometricCredentialId: undefined,
   totpEnabled: false,
-  totpSecret: undefined
+  totpSecret: undefined,
+  recoveryCodeHash: undefined,
+  recoveryCodeSalt: undefined,
+  recoveryCodeIterations: undefined,
+  recoveryCodeGeneratedAt: undefined,
+  recoveryCodeUsedAt: undefined
 };
 const configuredSyncApi = import.meta.env.VITE_SYNC_API?.trim();
 const configuredNotificationApi = import.meta.env.VITE_NOTIFICATION_API?.trim();
@@ -392,6 +425,21 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     }
     return true;
   }, []);
+  const guardCalendarWrite = useCallback((action: string, calendarId: string) => {
+    const current = stateRef.current;
+    if (!current) {
+      return true;
+    }
+    if (hasCalendarWriteAccess(current.settings, calendarId)) {
+      return true;
+    }
+    logAuditEvent({
+      action: 'collaboration.calendar_write_blocked',
+      category: 'collaboration',
+      metadata: { action, calendarId }
+    });
+    return false;
+  }, []);
   const updateSettings = useCallback((updates: Partial<AppSettings>) => {
     const current = stateRef.current;
     if (current && !hasCollaborationAdminAccess(current.settings)) {
@@ -399,7 +447,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         'collaborationEnabled',
         'collaborationMode',
         'collaborationRole',
-        'collaborationMembers'
+        'collaborationMembers',
+        'collaborationCalendarPermissions'
       ];
       const triedRestrictedUpdate = adminOnlyKeys.some((key) => key in updates);
       if (triedRestrictedUpdate) {
@@ -419,6 +468,11 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       if ('collaborationMembers' in updates && updates.collaborationMembers) {
         nextSettings.collaborationMembers = reconcileCollaborationMembers(updates.collaborationMembers);
       }
+      if ('collaborationCalendarPermissions' in updates) {
+        nextSettings.collaborationCalendarPermissions = normalizeCalendarPermissions(
+          updates.collaborationCalendarPermissions
+        );
+      }
       if ('twoFactorOtpEnabled' in updates || 'twoFactorTotpEnabled' in updates) {
         nextSettings.twoFactorEnabled = Boolean(
           nextSettings.twoFactorOtpEnabled || nextSettings.twoFactorTotpEnabled
@@ -426,6 +480,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       } else if ('twoFactorEnabled' in updates) {
         nextSettings.twoFactorEnabled = Boolean(nextSettings.twoFactorEnabled);
       }
+      nextSettings.backupKeyVersion = Math.max(1, Number(nextSettings.backupKeyVersion ?? 1));
       return {
         ...prev,
         settings: nextSettings
@@ -587,7 +642,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
           collaboration: {
             enabled: current.settings.collaborationEnabled,
             mode: current.settings.collaborationMode,
-            members: reconcileCollaborationMembers(current.settings.collaborationMembers)
+            members: reconcileCollaborationMembers(current.settings.collaborationMembers),
+            calendarPermissions: normalizeCalendarPermissions(current.settings.collaborationCalendarPermissions)
           }
         });
       }
@@ -742,6 +798,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         if (!prev) {
           return prev;
         }
+        if (!message.payload) {
+          return prev;
+        }
         const policy = prev.settings.syncConflictPolicy ?? 'last-write-wins';
         const nextProfiles = mergeEntitiesById(prev.profiles, message.payload.profiles ?? [], policy);
         const nextCalendars = mergeEntitiesById(prev.calendars, message.payload.calendars ?? [], policy);
@@ -754,6 +813,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
               policy
             )
           : reconcileCollaborationMembers(prev.settings.collaborationMembers);
+        const nextCalendarPermissions = message.payload.collaboration
+          ? normalizeCalendarPermissions(message.payload.collaboration.calendarPermissions)
+          : normalizeCalendarPermissions(prev.settings.collaborationCalendarPermissions);
         return {
           ...prev,
           profiles: nextProfiles,
@@ -764,7 +826,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
             ...prev.settings,
             collaborationEnabled: message.payload.collaboration?.enabled ?? prev.settings.collaborationEnabled,
             collaborationMode: message.payload.collaboration?.mode ?? prev.settings.collaborationMode,
-            collaborationMembers: nextCollaborationMembers
+            collaborationMembers: nextCollaborationMembers,
+            collaborationCalendarPermissions: nextCalendarPermissions
           }
         };
       });
@@ -794,7 +857,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       const collaboration = {
         enabled: state.settings.collaborationEnabled,
         mode: state.settings.collaborationMode,
-        members: reconcileCollaborationMembers(state.settings.collaborationMembers)
+        members: reconcileCollaborationMembers(state.settings.collaborationMembers),
+        calendarPermissions: normalizeCalendarPermissions(state.settings.collaborationCalendarPermissions)
       };
       const snapshot = JSON.stringify({
         profiles: state.profiles,
@@ -827,7 +891,8 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     state?.templates,
     state?.settings.collaborationEnabled,
     state?.settings.collaborationMode,
-    state?.settings.collaborationMembers
+    state?.settings.collaborationMembers,
+    state?.settings.collaborationCalendarPermissions
   ]);
 
   useEffect(() => {
@@ -1036,10 +1101,23 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         return prev;
       }
       const calendars = createSeedCalendars(profileId);
+      const removedCalendarIds = prev.calendars
+        .filter((item) => item.profileId === profileId)
+        .map((item) => item.id);
+      const nextPermissions = {
+        ...(prev.settings.collaborationCalendarPermissions ?? {})
+      };
+      removedCalendarIds.forEach((calendarId) => {
+        delete nextPermissions[calendarId];
+      });
       return {
         ...prev,
         calendars: [...prev.calendars.filter((item) => item.profileId !== profileId), ...calendars],
-        events: prev.events.filter((item) => item.profileId !== profileId)
+        events: prev.events.filter((item) => item.profileId !== profileId),
+        settings: {
+          ...prev.settings,
+          collaborationCalendarPermissions: normalizeCalendarPermissions(nextPermissions)
+        }
       };
     });
     logAuditEvent({ action: 'profile.reset', category: 'profile', metadata: { profileId } });
@@ -1159,10 +1237,18 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         return prev;
       }
       const next = deleteCalendarFromState(profileId, calendarId, prev.calendars, prev.events);
+      const nextPermissions = {
+        ...(prev.settings.collaborationCalendarPermissions ?? {})
+      };
+      delete nextPermissions[calendarId];
       return {
         ...prev,
         calendars: next.calendars,
-        events: next.events
+        events: next.events,
+        settings: {
+          ...prev.settings,
+          collaborationCalendarPermissions: normalizeCalendarPermissions(nextPermissions)
+        }
       };
     });
     logAuditEvent({ action: 'calendar.deleted', category: 'calendar', metadata: { calendarId, profileId } });
@@ -1191,6 +1277,9 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
     if (!guardWorkspaceWrite('upsertEvent')) {
       return;
     }
+    if (!guardCalendarWrite('upsertEvent', event.calendarId)) {
+      return;
+    }
     setState((prev) => {
       if (!prev) {
         return prev;
@@ -1212,10 +1301,15 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       category: 'event',
       metadata: { eventId: event.id, profileId: event.profileId }
     });
-  }, [guardWorkspaceWrite]);
+  }, [guardCalendarWrite, guardWorkspaceWrite]);
 
   const deleteEvent = useCallback((eventId: string) => {
     if (!guardWorkspaceWrite('deleteEvent')) {
+      return;
+    }
+    const current = stateRef.current;
+    const target = current?.events.find((event) => event.id === eventId);
+    if (target && !guardCalendarWrite('deleteEvent', target.calendarId)) {
       return;
     }
     setState((prev) => {
@@ -1228,7 +1322,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       };
     });
     logAuditEvent({ action: 'event.deleted', category: 'event', metadata: { eventId } });
-  }, [guardWorkspaceWrite]);
+  }, [guardCalendarWrite, guardWorkspaceWrite]);
 
   const createTemplate = useCallback((template: Omit<EventTemplate, 'id' | 'createdAt'>) => {
     if (!guardWorkspaceWrite('createTemplate')) {
@@ -1291,7 +1385,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
   }, [guardWorkspaceWrite]);
 
   const inviteCollaborator = useCallback(
-    (name: string, contact: string, role: CollaborationRole) => {
+    (name: string, contact: string, role: CollaborationRole, options?: { expiresInHours?: number }) => {
       if (!guardCollaborationAdmin('inviteCollaborator')) {
         return;
       }
@@ -1301,9 +1395,15 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       const now = nowIso();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const expiresInHours = Math.max(1, Math.min(30 * 24, Math.floor(options?.expiresInHours ?? 7 * 24)));
+      const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString();
       const normalizedContact = normalizeContact(trimmedContact);
       const inviteCode = createInviteCode();
+      const inviteLink =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}${(import.meta.env.BASE_URL ?? '/').replace(/\/?$/, '/')}` +
+            `safety?invite=${encodeURIComponent(inviteCode)}&expires=${encodeURIComponent(expiresAt)}`
+          : undefined;
       setState((prev) => {
         if (!prev) {
           return prev;
@@ -1319,6 +1419,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
           status: 'invited',
           presence: 'offline',
           inviteCode,
+          inviteLink,
           invitedAt: now,
           inviteExpiresAt: expiresAt
         };
@@ -1333,6 +1434,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
                       status: 'invited' as const,
                       presence: 'offline',
                       inviteCode,
+                      inviteLink,
                       invitedAt: now,
                       inviteExpiresAt: expiresAt,
                       inviteAcceptedAt: undefined,
@@ -1353,7 +1455,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       logAuditEvent({
         action: 'collaboration.member_invited',
         category: 'collaboration',
-        metadata: { contact: trimmedContact, role, inviteCode }
+        metadata: { contact: trimmedContact, role, inviteCode, expiresAt }
       });
     },
     [guardCollaborationAdmin]
@@ -1580,6 +1682,7 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
       }
       const allowPinChecks = method === 'auto' || method === 'pin';
       const allowPassphraseChecks = method === 'auto' || method === 'passphrase';
+      const allowRecoveryChecks = method === 'auto' || method === 'recovery';
       const matchesPrimary =
         allowPinChecks &&
         state.securityPrefs.pinEnabled &&
@@ -1649,6 +1752,40 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
           setLocked(false);
           logAuditEvent({ action: 'auth.unlocked', category: 'auth' });
         }
+        return true;
+      }
+      const matchesRecovery =
+        allowRecoveryChecks &&
+        state.securityPrefs.recoveryCodeHash &&
+        state.securityPrefs.recoveryCodeSalt
+          ? await verifyRecoveryCode(secret, {
+              hash: state.securityPrefs.recoveryCodeHash,
+              salt: state.securityPrefs.recoveryCodeSalt,
+              iterations: state.securityPrefs.recoveryCodeIterations ?? 180000
+            })
+          : false;
+      if (matchesRecovery) {
+        const usedAt = nowIso();
+        setState((prev) => {
+          if (!prev) {
+            return prev;
+          }
+          return {
+            ...prev,
+            securityPrefs: {
+              ...prev.securityPrefs,
+              recoveryCodeHash: undefined,
+              recoveryCodeSalt: undefined,
+              recoveryCodeIterations: undefined,
+              recoveryCodeUsedAt: usedAt
+            }
+          };
+        });
+        setLocked(false);
+        setTwoFactorPending(false);
+        setTwoFactorVerified(false);
+        clearTwoFactorSession();
+        logAuditEvent({ action: 'auth.recovery_unlocked', category: 'auth' });
         return true;
       }
       return false;
@@ -1837,7 +1974,12 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         twoFactorTotpEnabled:
           next.settings.twoFactorTotpEnabled ??
           (next.settings.twoFactorEnabled && next.settings.twoFactorMode === 'totp'),
-        collaborationMembers: reconcileCollaborationMembers(next.settings.collaborationMembers ?? [])
+        collaborationMembers: reconcileCollaborationMembers(next.settings.collaborationMembers ?? []),
+        collaborationCalendarPermissions: normalizeCalendarPermissions(
+          next.settings.collaborationCalendarPermissions
+        ),
+        backupKeyVersion: Math.max(1, Number(next.settings.backupKeyVersion ?? 1)),
+        backupKeyRotatedAt: next.settings.backupKeyRotatedAt ?? undefined
       }
     };
     setState(normalizedNext);
@@ -1891,12 +2033,17 @@ export const AppStoreProvider = ({ children }: { children: ReactNode }) => {
         syncConflictPolicy: decrypted.settings.syncConflictPolicy ?? 'last-write-wins',
         collaborationRole: decrypted.settings.collaborationRole ?? 'owner',
         collaborationMembers: reconcileCollaborationMembers(decrypted.settings.collaborationMembers ?? []),
+        collaborationCalendarPermissions: normalizeCalendarPermissions(
+          decrypted.settings.collaborationCalendarPermissions
+        ),
         twoFactorOtpEnabled:
           decrypted.settings.twoFactorOtpEnabled ??
           (decrypted.settings.twoFactorEnabled && (decrypted.settings.twoFactorMode ?? 'otp') === 'otp'),
         twoFactorTotpEnabled:
           decrypted.settings.twoFactorTotpEnabled ??
           (decrypted.settings.twoFactorEnabled && (decrypted.settings.twoFactorMode ?? 'otp') === 'totp'),
+        backupKeyVersion: Math.max(1, Number(decrypted.settings.backupKeyVersion ?? 1)),
+        backupKeyRotatedAt: decrypted.settings.backupKeyRotatedAt ?? undefined,
         activeProfileId: activeProfileExists
           ? decrypted.settings.activeProfileId
           : decrypted.profiles[0]?.id ?? decrypted.settings.activeProfileId

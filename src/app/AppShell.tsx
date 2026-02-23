@@ -59,9 +59,9 @@ const AppShell = ({ topBar, sidebar, children, mobileNav, navOpen, onNavClose }:
             )}
           </AnimatePresence>
         </header>
-        <div className="flex-1 px-4 py-4 sm:px-6">
+        <main className="flex-1 px-4 py-4 sm:px-6">
           <div className="mx-auto w-full max-w-[1500px]">{children}</div>
-        </div>
+        </main>
         <footer className="w-full border-t border-grid px-4 py-4 text-center text-[11px] text-muted">
           “No cloud. No observers. Your time stays yours.”
         </footer>

@@ -59,16 +59,12 @@ test('worker sync route supports write/read integration flow', async () => {
         token: 'integration-sync-token',
         senderId: 'integration-client',
         sentAt: Date.now(),
-        payload: {
-          profiles: [{ id: 'p1', name: 'One' }],
-          calendars: [],
-          events: [],
-          templates: [],
-          collaboration: {
-            enabled: true,
-            mode: 'shared',
-            members: [{ id: 'm1', name: 'Alex', contact: 'alex@example.com', role: 'editor', status: 'active' }]
-          }
+        payloadEncoding: 'e2ee-v1',
+        payloadCiphertext: {
+          version: 1,
+          salt: 'c2FsdA==',
+          iv: 'aXY=',
+          ciphertext: 'aW50ZWdyYXRpb24='
         }
       })
     }),
@@ -95,5 +91,6 @@ test('worker sync route supports write/read integration flow', async () => {
   assert.equal(readPayload.ok, true);
   assert.equal(Array.isArray(readPayload.items), true);
   assert.equal(readPayload.items.length >= 1, true);
-  assert.equal(readPayload.items[0].payload.collaboration.mode, 'shared');
+  assert.equal(readPayload.items[0].payload, undefined);
+  assert.equal(readPayload.items[0].payloadEncoding, 'e2ee-v1');
 });

@@ -58,6 +58,7 @@ const ThemeBridge = ({ children }: { children: ReactNode }) => {
           open={locked}
           pinEnabled={Boolean(state?.securityPrefs.pinEnabled || state?.securityPrefs.decoyPinEnabled)}
           passwordEnabled={Boolean(state?.securityPrefs.localAuthEnabled)}
+          recoveryEnabled={Boolean(state?.securityPrefs.recoveryCodeHash)}
           webAuthnEnabled={Boolean(state?.securityPrefs.webAuthnEnabled)}
           biometricEnabled={Boolean(state?.settings.biometricEnabled && state?.securityPrefs.biometricCredentialId)}
           twoFactorPending={twoFactorPending}

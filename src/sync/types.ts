@@ -1,15 +1,18 @@
 import type {
+  CalendarPermissionPreset,
   Calendar,
   CalendarEvent,
   CollaborationMember,
   EventTemplate,
   Profile
 } from '../storage/types';
+import type { EncryptedPayload } from '../security/encryption';
 
 export type SyncCollaborationSnapshot = {
   enabled: boolean;
   mode: 'private' | 'shared' | 'team';
   members: CollaborationMember[];
+  calendarPermissions?: Record<string, CalendarPermissionPreset>;
 };
 
 export type SyncPayload = {
@@ -22,7 +25,9 @@ export type SyncPayload = {
 
 export type SyncMessage = {
   senderId: string;
-  payload: SyncPayload;
+  payload?: SyncPayload;
+  payloadCiphertext?: EncryptedPayload;
+  payloadEncoding?: 'e2ee-v1';
   sentAt: number;
   revision?: number;
 };

@@ -5,13 +5,14 @@ type LockScreenProps = {
   open: boolean;
   pinEnabled: boolean;
   passwordEnabled: boolean;
+  recoveryEnabled?: boolean;
   webAuthnEnabled: boolean;
   biometricEnabled: boolean;
   twoFactorPending: boolean;
   twoFactorMode?: 'otp' | 'totp';
   availableTwoFactorModes?: Array<'otp' | 'totp'>;
   onSelectTwoFactorMode?: (mode: 'otp' | 'totp') => Promise<void>;
-  onUnlock: (secret?: string, method?: 'auto' | 'pin' | 'passphrase') => Promise<boolean>;
+  onUnlock: (secret?: string, method?: 'auto' | 'pin' | 'passphrase' | 'recovery') => Promise<boolean>;
   onUnlockWithWebAuthn: () => Promise<boolean>;
   onUnlockWithBiometric: () => Promise<boolean>;
   onVerifyTwoFactor: (code: string) => Promise<boolean>;
@@ -24,6 +25,7 @@ const LockScreen = ({
   open,
   pinEnabled,
   passwordEnabled,
+  recoveryEnabled = false,
   webAuthnEnabled,
   biometricEnabled,
   twoFactorPending,
@@ -37,7 +39,9 @@ const LockScreen = ({
   onResendTwoFactor
 }: LockScreenProps) => {
   const [secret, setSecret] = useState('');
-  const [secretMethod, setSecretMethod] = useState<'pin' | 'passphrase'>(pinEnabled ? 'pin' : 'passphrase');
+  const [secretMethod, setSecretMethod] = useState<'pin' | 'passphrase' | 'recovery'>(
+    pinEnabled ? 'pin' : passwordEnabled ? 'passphrase' : 'recovery'
+  );
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [error, setError] = useState('');
   const [busyAction, setBusyAction] = useState<AuthAction | null>(null);
@@ -54,18 +58,21 @@ const LockScreen = ({
     setBusyAction(null);
   }, [open]);
 
+  const availableSecretMethods = [
+    pinEnabled ? ('pin' as const) : null,
+    passwordEnabled ? ('passphrase' as const) : null,
+    recoveryEnabled ? ('recovery' as const) : null
+  ].filter((value): value is 'pin' | 'passphrase' | 'recovery' => Boolean(value));
+
   useEffect(() => {
-    if (pinEnabled && passwordEnabled) {
+    if (availableSecretMethods.length === 0) {
       return;
     }
-    if (pinEnabled) {
-      setSecretMethod('pin');
+    if (availableSecretMethods.includes(secretMethod)) {
       return;
     }
-    if (passwordEnabled) {
-      setSecretMethod('passphrase');
-    }
-  }, [passwordEnabled, pinEnabled]);
+    setSecretMethod(availableSecretMethods[0]);
+  }, [availableSecretMethods, secretMethod]);
 
   const handleUnlock = async () => {
     if (busy) {
@@ -73,8 +80,11 @@ const LockScreen = ({
     }
     setBusyAction('unlock');
     try {
-      const method = pinEnabled && passwordEnabled ? secretMethod : pinEnabled ? 'pin' : passwordEnabled ? 'passphrase' : 'auto';
-      const ok = await onUnlock(secret, method);
+      const resolvedMethod =
+        availableSecretMethods.length > 1
+          ? secretMethod
+          : availableSecretMethods[0] ?? ('auto' as const);
+      const ok = await onUnlock(secret, resolvedMethod);
       if (!ok) {
         setError('Invalid credentials');
       } else {
@@ -173,14 +183,11 @@ const LockScreen = ({
     }
   };
 
-  const showSecretInput = pinEnabled || passwordEnabled;
-  const supportsSecretMethodChoice = pinEnabled && passwordEnabled;
-  const resolvedSecretMethod = supportsSecretMethodChoice
-    ? secretMethod
-    : pinEnabled
-      ? 'pin'
-      : 'passphrase';
-  const secretLabel = resolvedSecretMethod === 'pin' ? 'PIN' : 'Passphrase';
+  const showSecretInput = availableSecretMethods.length > 0;
+  const supportsSecretMethodChoice = availableSecretMethods.length > 1;
+  const resolvedSecretMethod = supportsSecretMethodChoice ? secretMethod : availableSecretMethods[0] ?? 'passphrase';
+  const secretLabel =
+    resolvedSecretMethod === 'pin' ? 'PIN' : resolvedSecretMethod === 'recovery' ? 'Recovery code' : 'Passphrase';
   const canChooseTwoFactorMode = twoFactorPending && availableTwoFactorModes.length > 1;
 
   return (
@@ -209,34 +216,28 @@ const LockScreen = ({
                   : 'Enter your verification code to finish unlocking.'
                 : resolvedSecretMethod === 'pin'
                   ? 'Enter your PIN to continue.'
+                  : resolvedSecretMethod === 'recovery'
+                    ? 'Enter your recovery code to unlock your profile.'
                   : resolvedSecretMethod === 'passphrase'
                     ? 'Enter your passphrase to continue.'
                     : 'Tap unlock to resume.'}
             </p>
             {supportsSecretMethodChoice && !twoFactorPending && (
-              <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-grid bg-panel2 p-1">
-                <button
-                  type="button"
-                  onClick={() => setSecretMethod('pin')}
-                  className={`rounded-lg px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] transition ${
-                    secretMethod === 'pin'
-                      ? 'bg-accent text-[var(--accentText)]'
-                      : 'text-muted hover:text-text'
-                  }`}
-                >
-                  PIN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSecretMethod('passphrase')}
-                  className={`rounded-lg px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] transition ${
-                    secretMethod === 'passphrase'
-                      ? 'bg-accent text-[var(--accentText)]'
-                      : 'text-muted hover:text-text'
-                  }`}
-                >
-                  Passphrase
-                </button>
+              <div className="mt-4 grid gap-2 rounded-xl border border-grid bg-panel2 p-1">
+                {availableSecretMethods.map((method) => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => setSecretMethod(method)}
+                    className={`rounded-lg px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] transition ${
+                      secretMethod === method
+                        ? 'bg-accent text-[var(--accentText)]'
+                        : 'text-muted hover:text-text'
+                    }`}
+                  >
+                    {method === 'pin' ? 'PIN' : method === 'recovery' ? 'Recovery' : 'Passphrase'}
+                  </button>
+                ))}
               </div>
             )}
             {showSecretInput && !twoFactorPending && (

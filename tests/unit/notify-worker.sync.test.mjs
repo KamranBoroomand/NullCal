@@ -22,7 +22,13 @@ test('worker sync endpoint stores and returns revisions', async () => {
         token: 'sync-token',
         senderId: 'sender-a',
         sentAt: Date.now(),
-        payload: { profiles: [], calendars: [], events: [], templates: [] }
+        payloadEncoding: 'e2ee-v1',
+        payloadCiphertext: {
+          version: 1,
+          salt: 'c2FsdA==',
+          iv: 'aXY=',
+          ciphertext: 'ZW5jcnlwdGVk'
+        }
       })
     }),
     env
@@ -51,6 +57,13 @@ test('worker sync endpoint stores and returns revisions', async () => {
   assert.equal(Array.isArray(pullBody.items), true);
   assert.equal(pullBody.items.length, 1);
   assert.equal(pullBody.items[0].senderId, 'sender-a');
+  assert.equal(pullBody.items[0].payload, undefined);
+  assert.deepEqual(pullBody.items[0].payloadCiphertext, {
+    version: 1,
+    salt: 'c2FsdA==',
+    iv: 'aXY=',
+    ciphertext: 'ZW5jcnlwdGVk'
+  });
 });
 
 test('worker sync endpoint enforces request token', async () => {
@@ -67,6 +80,27 @@ test('worker sync endpoint enforces request token', async () => {
   assert.equal(response.status, 401);
   const payload = await response.json();
   assert.equal(payload.ok, false);
+});
+
+test('worker sync endpoint rejects unencrypted payload writes', async () => {
+  const response = await worker.fetch(
+    new Request('https://example.workers.dev/api/sync', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        token: 'sync-token',
+        senderId: 'sender-a',
+        sentAt: Date.now(),
+        payload: { profiles: [], calendars: [], events: [], templates: [] }
+      })
+    }),
+    env
+  );
+
+  assert.equal(response.status, 400);
+  const payload = await response.json();
+  assert.equal(payload.ok, false);
+  assert.equal(payload.error, 'Encrypted sync payload is required.');
 });
 
 test('worker sync endpoint supports durable KV backing when configured', async () => {
@@ -91,12 +125,12 @@ test('worker sync endpoint supports durable KV backing when configured', async (
         token: 'kv-sync-token',
         senderId: 'kv-sender',
         sentAt: Date.now(),
-        payload: {
-          profiles: [],
-          calendars: [],
-          events: [],
-          templates: [],
-          collaboration: { enabled: true, mode: 'shared', members: [] }
+        payloadEncoding: 'e2ee-v1',
+        payloadCiphertext: {
+          version: 1,
+          salt: 'c2FsdA==',
+          iv: 'aXY=',
+          ciphertext: 'a3YtZW5jcnlwdGVk'
         }
       })
     }),
@@ -121,5 +155,7 @@ test('worker sync endpoint supports durable KV backing when configured', async (
   const payload = await readResponse.json();
   assert.equal(payload.ok, true);
   assert.equal(payload.items.length, 1);
-  assert.deepEqual(payload.items[0].payload.collaboration, { enabled: true, mode: 'shared', members: [] });
+  assert.equal(payload.items[0].payload, undefined);
+  assert.equal(payload.items[0].payloadEncoding, 'e2ee-v1');
+  assert.equal(payload.items[0].payloadCiphertext.ciphertext, 'a3YtZW5jcnlwdGVk');
 });

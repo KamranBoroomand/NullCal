@@ -50,6 +50,7 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     syncTrustedDevices: false,
     syncShareToken: undefined,
     syncConflictPolicy: 'last-write-wins',
+    collaborationCalendarPermissions: {},
     tamperProofLog: false,
     twoFactorEnabled: false,
     twoFactorMode: 'otp',
@@ -74,6 +75,8 @@ const buildDefaultSettings = (activeProfileId: string): AppSettings => {
     collaborationRole: 'owner',
     collaborationMembers: [],
     notesShareToken: undefined,
+    backupKeyVersion: 1,
+    backupKeyRotatedAt: undefined,
     highContrast: false,
     textScale: 1,
     keyboardNavigation: true,
@@ -91,7 +94,12 @@ const defaultSecurityPrefs: SecurityPrefs = {
   webAuthnEnabled: false,
   biometricCredentialId: undefined,
   totpEnabled: false,
-  totpSecret: undefined
+  totpSecret: undefined,
+  recoveryCodeHash: undefined,
+  recoveryCodeSalt: undefined,
+  recoveryCodeIterations: undefined,
+  recoveryCodeGeneratedAt: undefined,
+  recoveryCodeUsedAt: undefined
 };
 
 const normalizeCalendars = (calendars: Calendar[]): Calendar[] =>
@@ -257,6 +265,7 @@ export const loadAppState = async (): Promise<AppState> => {
       syncTrustedDevices: resolvedSettings.syncTrustedDevices ?? false,
       syncShareToken: resolvedSettings.syncShareToken ?? undefined,
       syncConflictPolicy: resolvedSettings.syncConflictPolicy ?? 'last-write-wins',
+      collaborationCalendarPermissions: resolvedSettings.collaborationCalendarPermissions ?? {},
       tamperProofLog: resolvedSettings.tamperProofLog ?? false,
       twoFactorEnabled:
         resolvedSettings.twoFactorEnabled ??
@@ -297,6 +306,8 @@ export const loadAppState = async (): Promise<AppState> => {
             : member.presence ?? 'offline'
       })),
       notesShareToken: resolvedSettings.notesShareToken ?? undefined,
+      backupKeyVersion: resolvedSettings.backupKeyVersion ?? 1,
+      backupKeyRotatedAt: resolvedSettings.backupKeyRotatedAt ?? undefined,
       highContrast: resolvedSettings.highContrast ?? false,
       textScale: resolvedSettings.textScale ?? 1,
       keyboardNavigation: resolvedSettings.keyboardNavigation ?? true,

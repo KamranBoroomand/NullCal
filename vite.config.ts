@@ -50,6 +50,19 @@ export default defineConfig({
               cacheName: 'nullcal-assets',
               expiration: { maxEntries: 60 }
             }
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.endsWith('/api/notify'),
+            method: 'POST',
+            handler: 'NetworkOnly',
+            options: {
+              backgroundSync: {
+                name: 'nullcal-reminder-sync-queue',
+                options: {
+                  maxRetentionTime: 24 * 60
+                }
+              }
+            }
           }
         ]
       },

@@ -1,4 +1,5 @@
 import type { SyncHandle, SyncMessage, SyncPayload } from './types';
+import { decryptPayload, encryptPayload, type EncryptedPayload } from '../security/encryption';
 
 const DEFAULT_SYNC_API = '/api';
 const DEFAULT_POLL_INTERVAL_MS = 4000;
@@ -13,7 +14,7 @@ type RelaySyncOptions = {
 type SyncPullResponse = {
   ok: boolean;
   latestRevision?: number;
-  items?: SyncMessage[];
+  items?: unknown[];
 };
 
 const hasText = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
@@ -37,17 +38,45 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(next) ? next : null;
 };
 
-const isSyncMessage = (value: unknown): value is SyncMessage => {
-  if (!value || typeof value !== 'object') {
+const isEncryptedPayload = (value: unknown): value is EncryptedPayload => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
   }
   const record = value as Record<string, unknown>;
   return (
-    hasText(record.senderId) &&
-    typeof record.payload === 'object' &&
-    record.payload !== null &&
-    toNumber(record.sentAt) !== null
+    Number(record.version) === 1 &&
+    hasText(record.salt) &&
+    hasText(record.iv) &&
+    hasText(record.ciphertext)
   );
+};
+
+const parseSyncMessage = (value: unknown): SyncMessage | null => {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (!hasText(record.senderId) || toNumber(record.sentAt) === null) {
+    return null;
+  }
+  const payload =
+    record.payload && typeof record.payload === 'object' && !Array.isArray(record.payload)
+      ? (record.payload as SyncPayload)
+      : undefined;
+  const payloadCiphertext = isEncryptedPayload(record.payloadCiphertext) ? record.payloadCiphertext : undefined;
+  if (!payload && !payloadCiphertext) {
+    return null;
+  }
+  const revision = toNumber(record.revision);
+  const payloadEncoding = hasText(record.payloadEncoding) && record.payloadEncoding === 'e2ee-v1' ? 'e2ee-v1' : undefined;
+  return {
+    senderId: record.senderId.trim(),
+    sentAt: Number(record.sentAt),
+    revision: revision ?? undefined,
+    payload,
+    payloadCiphertext,
+    payloadEncoding
+  };
 };
 
 export const createRelaySync = (
@@ -70,24 +99,43 @@ export const createRelaySync = (
   let lastRevision = 0;
   let polling = false;
 
-  const applyServerResponse = (data: SyncPullResponse) => {
+  const applyServerResponse = async (data: SyncPullResponse) => {
     if (typeof data.latestRevision === 'number') {
       lastRevision = Math.max(lastRevision, data.latestRevision);
     }
     if (!Array.isArray(data.items)) {
       return;
     }
-    data.items
-      .filter((item) => isSyncMessage(item))
-      .forEach((message) => {
-        if (message.senderId === senderId) {
-          return;
+    for (const rawItem of data.items) {
+      const message = parseSyncMessage(rawItem);
+      if (!message) {
+        continue;
+      }
+      if (message.senderId === senderId) {
+        continue;
+      }
+      if (typeof message.revision === 'number') {
+        lastRevision = Math.max(lastRevision, message.revision);
+      }
+      let payload: SyncPayload | undefined = message.payload;
+      if (!payload && message.payloadCiphertext) {
+        try {
+          const decrypted = (await decryptPayload(message.payloadCiphertext, shareToken)) as SyncPayload;
+          if (decrypted && typeof decrypted === 'object') {
+            payload = decrypted;
+          }
+        } catch {
+          payload = undefined;
         }
-        if (typeof message.revision === 'number') {
-          lastRevision = Math.max(lastRevision, message.revision);
-        }
-        onReceive(message);
+      }
+      if (!payload) {
+        continue;
+      }
+      onReceive({
+        ...message,
+        payload
       });
+    }
   };
 
   const poll = async () => {
@@ -110,7 +158,7 @@ export const createRelaySync = (
       if (!data?.ok) {
         return;
       }
-      applyServerResponse(data);
+      await applyServerResponse(data);
     } catch {
       // Network lock/offline mode can reject fetch. Retry on next interval.
     } finally {
@@ -128,19 +176,20 @@ export const createRelaySync = (
       if (closed) {
         return;
       }
-      const message: SyncMessage = {
-        senderId,
-        payload,
-        sentAt: Date.now()
-      };
-      void fetch(`${apiBase}/sync`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          token: shareToken,
-          ...message
-        })
-      })
+      void encryptPayload(payload, shareToken)
+        .then((payloadCiphertext) =>
+          fetch(`${apiBase}/sync`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              token: shareToken,
+              senderId,
+              sentAt: Date.now(),
+              payloadEncoding: 'e2ee-v1',
+              payloadCiphertext
+            })
+          })
+        )
         .then(async (response) => {
           if (!response.ok) {
             return;

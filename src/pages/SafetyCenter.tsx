@@ -9,8 +9,9 @@ import AppShell from '../app/AppShell';
 import TopBar from '../app/TopBar';
 import SideBar from '../app/SideBar';
 import ThemePicker from '../components/ThemePicker';
-import { encryptPayload } from '../security/encryption';
+import { decryptPayload, encryptPayload } from '../security/encryption';
 import { hashLocalSecret } from '../security/localAuth';
+import { generateRecoveryCode, hashRecoveryCode } from '../security/recovery';
 import { isWebAuthnSupported, registerPasskey } from '../security/webauthn';
 import { isBiometricSupported, registerBiometricCredential } from '../security/biometric';
 import { startTwoFactorChallenge, verifyTwoFactorCode } from '../security/twoFactor';
@@ -20,7 +21,7 @@ import { buildExportPayload, type ExportMode, validateExportPayload } from '../s
 import { usePrivacyScreen } from '../state/privacy';
 import { useTranslations } from '../i18n/useTranslations';
 import { translateLiteral } from '../i18n/literalTranslations';
-import type { AppSettings, CollaborationRole } from '../storage/types';
+import type { AppSettings, CalendarPermissionPreset, CollaborationRole } from '../storage/types';
 import { DEFAULT_THEME_BY_MODE, THEME_PACKS } from '../theme/themePacks';
 import { clearAuditLog, readAuditLog } from '../storage/auditLog';
 
@@ -108,7 +109,18 @@ const SafetyCenter = () => {
   const [collabInviteName, setCollabInviteName] = useState('');
   const [collabInviteContact, setCollabInviteContact] = useState('');
   const [collabInviteRole, setCollabInviteRole] = useState<CollaborationRole>('viewer');
+  const [collabInviteExpiryHours, setCollabInviteExpiryHours] = useState(168);
   const [collabInviteCode, setCollabInviteCode] = useState('');
+  const [generatedRecoveryCode, setGeneratedRecoveryCode] = useState('');
+  const [pendingReminderQueue, setPendingReminderQueue] = useState<{
+    total: number;
+    lastQueuedAt?: string;
+    lastError?: string;
+  }>({ total: 0 });
+  const [rotationFile, setRotationFile] = useState<File | null>(null);
+  const [rotationCurrentPassphrase, setRotationCurrentPassphrase] = useState('');
+  const [rotationNextPassphrase, setRotationNextPassphrase] = useState('');
+  const [rotationConfirmPassphrase, setRotationConfirmPassphrase] = useState('');
   const holdTimer = useRef<number | null>(null);
   const profileRecoveryRef = useRef(false);
   const [searchParams] = useSearchParams();
@@ -145,6 +157,37 @@ const SafetyCenter = () => {
       setTwoFactorVerifyPending(false);
     }
   }, [state?.settings.twoFactorEnabled]);
+
+  useEffect(() => {
+    const inviteCode = searchParams.get('invite');
+    if (!inviteCode) {
+      return;
+    }
+    setCollabInviteCode(inviteCode.trim().toUpperCase());
+  }, [searchParams]);
+
+  useEffect(() => {
+    let disposed = false;
+    let unsubscribe = () => {};
+    void import('../security/notifications')
+      .then(({ flushPendingNotifications, getPendingNotificationStatus, subscribePendingNotificationStatus }) => {
+        if (disposed) {
+          return;
+        }
+        setPendingReminderQueue(getPendingNotificationStatus());
+        unsubscribe = subscribePendingNotificationStatus((status) => {
+          setPendingReminderQueue(status);
+        });
+        void flushPendingNotifications();
+      })
+      .catch(() => {
+        // Ignore notification queue observer failures.
+      });
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, []);
 
   const readSessionValue = (key: string) => {
     try {
@@ -306,6 +349,7 @@ const SafetyCenter = () => {
             <input
               type="file"
               accept="application/json"
+              aria-label="Select encrypted backup file"
               onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
               className="rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
             />
@@ -431,7 +475,8 @@ const SafetyCenter = () => {
       value: state.settings.lastExportAt
         ? Date.now() - new Date(state.settings.lastExportAt).getTime() < 14 * 24 * 60 * 60 * 1000
         : false
-    }
+    },
+    { label: 'Recovery code generated', value: Boolean(state.securityPrefs.recoveryCodeHash) }
   ];
   const score = securityScoreChecklist.filter((item) => item.value).length;
   const securityChecklistSections = [
@@ -440,7 +485,8 @@ const SafetyCenter = () => {
       items: [
         { label: 'PIN enabled', value: state.securityPrefs.pinEnabled || state.securityPrefs.decoyPinEnabled },
         { label: 'Auto-lock enabled', value: state.settings.autoLockMinutes > 0 || state.settings.autoLockOnBlur },
-        { label: 'Two-factor ready', value: state.settings.twoFactorEnabled }
+        { label: 'Two-factor ready', value: state.settings.twoFactorEnabled },
+        { label: 'Recovery code generated', value: Boolean(state.securityPrefs.recoveryCodeHash) }
       ]
     },
     {
@@ -463,7 +509,8 @@ const SafetyCenter = () => {
         {
           label: 'Offline mode enforced',
           value: state.settings.networkLock
-        }
+        },
+        { label: 'Backup key rotation tracked', value: Boolean(state.settings.backupKeyRotatedAt) }
       ]
     }
   ];
@@ -791,6 +838,17 @@ const SafetyCenter = () => {
     notify(enabled ? 'Reminders enabled.' : 'Reminders disabled.', 'success');
   };
 
+  const handleRetryPendingReminders = async () => {
+    try {
+      const { flushPendingNotifications, getPendingNotificationStatus } = await import('../security/notifications');
+      await flushPendingNotifications();
+      setPendingReminderQueue(getPendingNotificationStatus());
+      notify('Pending reminder retries attempted.', 'success');
+    } catch {
+      notify('Unable to retry pending reminders.', 'error');
+    }
+  };
+
   const handleProfileSave = () => {
     if (!activeProfile) {
       return;
@@ -889,10 +947,13 @@ const SafetyCenter = () => {
       notify('Add collaborator name and contact.', 'error');
       return;
     }
-    inviteCollaborator(collabInviteName, collabInviteContact, collabInviteRole);
+    inviteCollaborator(collabInviteName, collabInviteContact, collabInviteRole, {
+      expiresInHours: collabInviteExpiryHours
+    });
     setCollabInviteName('');
     setCollabInviteContact('');
     setCollabInviteRole('viewer');
+    setCollabInviteExpiryHours(168);
     notify('Collaborator invited.', 'success');
   };
 
@@ -913,6 +974,30 @@ const SafetyCenter = () => {
   const handleRoleChange = (role: CollaborationRole) => {
     setCollaborationRole(role);
     notify(`Local collaboration role set to ${role}.`, 'success');
+  };
+
+  const handleCopyInviteLink = async (inviteLink?: string) => {
+    if (!inviteLink) {
+      notify('Invite link unavailable.', 'error');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      notify('Invite link copied.', 'success');
+    } catch {
+      notify('Unable to copy invite link.', 'error');
+    }
+  };
+
+  const handleCalendarPermissionPreset = (calendarId: string, preset: CalendarPermissionPreset) => {
+    const current = state.settings.collaborationCalendarPermissions ?? {};
+    updateSettings({
+      collaborationCalendarPermissions: {
+        ...current,
+        [calendarId]: preset
+      }
+    });
+    notify('Calendar permission preset updated.', 'success');
   };
 
   const handleToggleSharing = (enabled: boolean) => {
@@ -968,6 +1053,80 @@ const SafetyCenter = () => {
     }
     setActiveProfile(state.settings.decoyProfileId);
     notify('Switched to decoy profile.', 'success');
+  };
+
+  const handleGenerateRecovery = async () => {
+    const code = generateRecoveryCode();
+    const hashed = await hashRecoveryCode(code);
+    updateSecurityPrefs({
+      recoveryCodeHash: hashed.hash,
+      recoveryCodeSalt: hashed.salt,
+      recoveryCodeIterations: hashed.iterations,
+      recoveryCodeGeneratedAt: new Date().toISOString(),
+      recoveryCodeUsedAt: undefined
+    });
+    setGeneratedRecoveryCode(code);
+    notify('Recovery code generated. Store it in a secure location.', 'success');
+  };
+
+  const handleClearRecovery = () => {
+    updateSecurityPrefs({
+      recoveryCodeHash: undefined,
+      recoveryCodeSalt: undefined,
+      recoveryCodeIterations: undefined,
+      recoveryCodeGeneratedAt: undefined,
+      recoveryCodeUsedAt: undefined
+    });
+    setGeneratedRecoveryCode('');
+    notify('Recovery code removed.', 'info');
+  };
+
+  const handleRotateBackupKey = async () => {
+    if (!rotationFile || !rotationCurrentPassphrase || !rotationNextPassphrase) {
+      notify('Select backup file and both passphrases.', 'error');
+      return;
+    }
+    if (rotationNextPassphrase !== rotationConfirmPassphrase) {
+      notify('New passphrases do not match.', 'error');
+      return;
+    }
+    try {
+      const encryptedPayload = JSON.parse(await rotationFile.text());
+      const decrypted = (await decryptPayload(encryptedPayload, rotationCurrentPassphrase)) as Record<string, unknown>;
+      const rotatedAt = new Date().toISOString();
+      if (decrypted && typeof decrypted === 'object') {
+        const record = decrypted as {
+          settings?: { backupKeyVersion?: number; backupKeyRotatedAt?: string };
+        };
+        const nextVersion = Math.max(
+          Number(record.settings?.backupKeyVersion ?? 0),
+          Number(state.settings.backupKeyVersion ?? 1)
+        ) + 1;
+        if (record.settings && typeof record.settings === 'object') {
+          record.settings.backupKeyVersion = nextVersion;
+          record.settings.backupKeyRotatedAt = rotatedAt;
+        }
+      }
+      const rotatedPayload = await encryptPayload(decrypted, rotationNextPassphrase);
+      const blob = new Blob([JSON.stringify(rotatedPayload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `nullcal-backup-rotated-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      updateSettings({
+        backupKeyVersion: Math.max(1, Number(state.settings.backupKeyVersion ?? 1)) + 1,
+        backupKeyRotatedAt: rotatedAt
+      });
+      setRotationFile(null);
+      setRotationCurrentPassphrase('');
+      setRotationNextPassphrase('');
+      setRotationConfirmPassphrase('');
+      notify('Backup key rotated and re-encrypted export generated.', 'success');
+    } catch {
+      notify('Backup key rotation failed. Check file and passphrase.', 'error');
+    }
   };
 
   const handleCommandExport = async (mode: 'clean' | 'full') => {
@@ -1587,6 +1746,59 @@ const SafetyCenter = () => {
                   )}
                 </div>
                 <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <div className="flex min-w-0 items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted">Recovery code</p>
+                      <p className="mt-1 text-xs text-muted">
+                        One-time emergency unlock code for locked profiles.
+                      </p>
+                    </div>
+                    {state.securityPrefs.recoveryCodeHash ? (
+                      <span className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-accent">
+                        Active
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted">
+                        Missing
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleGenerateRecovery()}
+                      className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                    >
+                      Generate code
+                    </button>
+                    {state.securityPrefs.recoveryCodeHash && (
+                      <button
+                        type="button"
+                        onClick={handleClearRecovery}
+                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                      >
+                        Clear code
+                      </button>
+                    )}
+                  </div>
+                  {generatedRecoveryCode && (
+                    <div className="mt-3 rounded-xl border border-grid bg-panel px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Store this now</p>
+                      <p className="mt-1 text-sm text-text">{generatedRecoveryCode}</p>
+                    </div>
+                  )}
+                  {state.securityPrefs.recoveryCodeGeneratedAt && (
+                    <p className="mt-2 text-[11px] text-muted">
+                      Generated: {formatDate(state.securityPrefs.recoveryCodeGeneratedAt)}
+                    </p>
+                  )}
+                  {state.securityPrefs.recoveryCodeUsedAt && (
+                    <p className="mt-1 text-[11px] text-muted">
+                      Last used: {formatDate(state.securityPrefs.recoveryCodeUsedAt)}
+                    </p>
+                  )}
+                </div>
+                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
                   <label className="flex min-w-0 items-start justify-between gap-4">
                     <div className="min-w-0">
                       <p className="text-xs uppercase tracking-[0.3em] text-muted">Passkey authentication</p>
@@ -1990,6 +2202,27 @@ const SafetyCenter = () => {
                     disabled={!state.settings.remindersEnabled}
                   />
                 )}
+                <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted">Reminder retry queue</p>
+                  <p className="mt-1 text-xs text-muted">
+                    Pending retries: <span className="text-text">{pendingReminderQueue.total}</span>
+                  </p>
+                  {pendingReminderQueue.lastQueuedAt && (
+                    <p className="mt-1 text-[11px] text-muted">
+                      Last queued: {formatDate(pendingReminderQueue.lastQueuedAt)}
+                    </p>
+                  )}
+                  {pendingReminderQueue.lastError && (
+                    <p className="mt-1 text-[11px] text-danger">Last error: {pendingReminderQueue.lastError}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleRetryPendingReminders}
+                    className="mt-3 rounded-full border border-grid px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                  >
+                    Retry now
+                  </button>
+                </div>
                 <label className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-grid bg-panel2 px-4 py-3">
                   <div className="min-w-0">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Collaboration</p>
@@ -2048,7 +2281,7 @@ const SafetyCenter = () => {
                 {state.settings.collaborationEnabled && (
                   <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3 text-xs text-muted">
                     <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Team members</p>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
+                    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto_auto]">
                       <input
                         value={collabInviteName}
                         onChange={(event) => setCollabInviteName(event.target.value)}
@@ -2079,6 +2312,22 @@ const SafetyCenter = () => {
                           Owner
                         </option>
                       </select>
+                      <select
+                        value={collabInviteExpiryHours}
+                        onChange={(event) => setCollabInviteExpiryHours(Number(event.target.value))}
+                        className="rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
+                        disabled={!canManageCollaboration}
+                      >
+                        <option value={24} className="bg-panel2">
+                          24h link
+                        </option>
+                        <option value={72} className="bg-panel2">
+                          72h link
+                        </option>
+                        <option value={168} className="bg-panel2">
+                          7d link
+                        </option>
+                      </select>
                       <button
                         type="button"
                         onClick={handleInviteCollaborator}
@@ -2087,6 +2336,35 @@ const SafetyCenter = () => {
                       >
                         Invite
                       </button>
+                    </div>
+                    <div className="mt-3 rounded-xl border border-grid bg-panel px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.3em] text-muted">Calendar permission presets</p>
+                      <div className="mt-2 space-y-2">
+                        {calendars.length === 0 && <p className="text-[11px] text-muted">No calendars available.</p>}
+                        {calendars.map((calendar) => (
+                          <label key={calendar.id} className="flex items-center justify-between gap-3">
+                            <span className="truncate text-[11px] text-text">{calendar.name}</span>
+                            <select
+                              value={state.settings.collaborationCalendarPermissions?.[calendar.id] ?? 'owner-editor'}
+                              onChange={(event) =>
+                                handleCalendarPermissionPreset(
+                                  calendar.id,
+                                  event.target.value as CalendarPermissionPreset
+                                )
+                              }
+                              className="rounded-lg border border-grid bg-panel2 px-2 py-1 text-[11px] text-text"
+                              disabled={!canManageCollaboration}
+                            >
+                              <option value="owner-editor" className="bg-panel2">
+                                Owner + Editor
+                              </option>
+                              <option value="owner-only" className="bg-panel2">
+                                Owner only
+                              </option>
+                            </select>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                     <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
                       <input
@@ -2118,6 +2396,14 @@ const SafetyCenter = () => {
                             {member.inviteCode && member.status === 'invited' && (
                               <p className="truncate text-[11px] text-muted">Invite code: {member.inviteCode}</p>
                             )}
+                            {member.inviteLink && member.status === 'invited' && (
+                              <p className="truncate text-[11px] text-muted">Invite link ready</p>
+                            )}
+                            {member.inviteExpiresAt && member.status === 'invited' && (
+                              <p className="truncate text-[11px] text-muted">
+                                Expires: {formatDate(member.inviteExpiresAt)}
+                              </p>
+                            )}
                             {member.lastSeenAt && (
                               <p className="truncate text-[11px] text-muted">
                                 Last seen: {formatDate(member.lastSeenAt)}
@@ -2131,6 +2417,15 @@ const SafetyCenter = () => {
                             <span className="rounded-full border border-grid px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-accent">
                               {member.presence ?? 'away'}
                             </span>
+                          )}
+                          {member.inviteLink && member.status === 'invited' && (
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyInviteLink(member.inviteLink)}
+                              className="rounded-full border border-grid px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-muted"
+                            >
+                              Copy link
+                            </button>
                           )}
                           <select
                             value={member.role}
@@ -2393,12 +2688,65 @@ const SafetyCenter = () => {
                       Quick export
                     </button>
                   </div>
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Backup key version</p>
+                    <p className="mt-1 text-xs text-muted">
+                      Current: v{Math.max(1, Number(state.settings.backupKeyVersion ?? 1))}
+                      {state.settings.backupKeyRotatedAt
+                        ? ` (rotated ${formatDate(state.settings.backupKeyRotatedAt)})`
+                        : ''}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-grid bg-panel2 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted">Rotate backup key</p>
+                    <p className="mt-1 text-xs text-muted">
+                      Re-encrypt an existing backup file with a new passphrase and increment key version.
+                    </p>
+                    <div className="mt-3 grid gap-2">
+                      <input
+                        type="file"
+                        accept="application/json"
+                        aria-label="Select backup file for key rotation"
+                        onChange={(event) => setRotationFile(event.target.files?.[0] ?? null)}
+                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                      />
+                      <input
+                        type="password"
+                        placeholder="Current passphrase"
+                        value={rotationCurrentPassphrase}
+                        onChange={(event) => setRotationCurrentPassphrase(event.target.value)}
+                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                      />
+                      <input
+                        type="password"
+                        placeholder="New passphrase"
+                        value={rotationNextPassphrase}
+                        onChange={(event) => setRotationNextPassphrase(event.target.value)}
+                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                      />
+                      <input
+                        type="password"
+                        placeholder="Confirm new passphrase"
+                        value={rotationConfirmPassphrase}
+                        onChange={(event) => setRotationConfirmPassphrase(event.target.value)}
+                        className="min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-sm text-text"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handleRotateBackupKey()}
+                        className="rounded-full border border-grid px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted"
+                      >
+                        Rotate key
+                      </button>
+                    </div>
+                  </div>
                   <div className="border-t border-grid pt-4">
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Import Backup</p>
                     <div className="mt-3 grid gap-3 text-sm text-muted">
                       <input
                         type="file"
                         accept="application/json"
+                        aria-label="Select backup file to import"
                         onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
                         className="min-w-0 rounded-xl border border-grid bg-panel2 px-3 py-2 text-sm text-text"
                       />
@@ -2522,6 +2870,7 @@ const SafetyCenter = () => {
                       type="number"
                       min={0}
                       max={120}
+                      aria-label="Auto-lock minutes"
                       value={state.settings.autoLockMinutes}
                       onChange={(event) =>
                         updateSettings({ autoLockMinutes: Number(event.target.value || 0) })
@@ -2544,6 +2893,7 @@ const SafetyCenter = () => {
                       <span>Grace period</span>
                       <select
                         value={state.settings.autoLockGraceSeconds}
+                        aria-label="Auto-lock blur grace period"
                         onChange={(event) =>
                           updateSettings({ autoLockGraceSeconds: Number(event.target.value || 0) })
                         }
@@ -2664,6 +3014,7 @@ const SafetyCenter = () => {
                     <label className="text-xs uppercase tracking-[0.3em] text-muted">Choose decoy profile</label>
                     <select
                       value={state.settings.decoyProfileId ?? ''}
+                      aria-label="Choose decoy profile"
                       onChange={(event) => handleDecoyProfileChange(event.target.value)}
                       className="mt-2 w-full min-w-0 rounded-xl border border-grid bg-panel px-3 py-2 text-xs text-text"
                     >
