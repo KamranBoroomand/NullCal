@@ -11,6 +11,11 @@ type ModalProps = {
 
 const Modal = ({ title, open, onClose, children }: ModalProps) => {
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) {
@@ -21,7 +26,7 @@ const Modal = ({ title, open, onClose, children }: ModalProps) => {
     dialogRef.current?.focus();
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
       }
     };
     window.addEventListener('keydown', handleKey);
@@ -29,7 +34,7 @@ const Modal = ({ title, open, onClose, children }: ModalProps) => {
       document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKey);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   const reduceMotion = useReducedMotion();
 

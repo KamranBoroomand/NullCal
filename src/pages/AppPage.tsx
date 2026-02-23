@@ -25,6 +25,23 @@ const fromInputValue = (value: string) => new Date(value).toISOString();
 
 type EventDraft = Omit<CalendarEvent, 'id'> & { id?: string };
 
+const SLOT_MIN_HOUR = 6;
+const SLOT_MAX_START_HOUR = 22;
+
+const getQuickCreateRange = (reference = new Date()) => {
+  const start = startOfHour(reference);
+  const hour = start.getHours();
+  if (hour < SLOT_MIN_HOUR) {
+    start.setHours(SLOT_MIN_HOUR, 0, 0, 0);
+  } else if (hour > SLOT_MAX_START_HOUR) {
+    start.setHours(SLOT_MAX_START_HOUR, 0, 0, 0);
+  }
+  return {
+    start,
+    end: addHours(start, 1)
+  };
+};
+
 const AppPage = () => {
   const {
     state,
@@ -391,8 +408,8 @@ const AppPage = () => {
   };
 
   const handleCommandAdd = () => {
-    const start = new Date();
-    handleCreateDraft(start, addHours(start, 1));
+    const { start, end } = getQuickCreateRange();
+    handleCreateDraft(start, end);
   };
 
   const handleCommandDecoy = () => {
@@ -601,7 +618,10 @@ const AppPage = () => {
             onRenameCalendar={renameCalendar}
             onRecolorCalendar={recolorCalendar}
             onDeleteCalendar={deleteCalendar}
-            onNewEvent={() => handleCreateDraft(startOfHour(new Date()), addHours(startOfHour(new Date()), 1))}
+            onNewEvent={() => {
+              const { start, end } = getQuickCreateRange();
+              handleCreateDraft(start, end);
+            }}
             onExport={handleExport}
             onImport={handleImport}
             onResetProfile={handleResetProfile}
